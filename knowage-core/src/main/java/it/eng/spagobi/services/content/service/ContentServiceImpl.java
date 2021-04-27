@@ -1,7 +1,7 @@
 /*
  * Knowage, Open Source Business Intelligence suite
- * Copyright (C) 2016 Engineering Ingegneria Informatica S.p.A.
- * 
+ * Copyright (C) 2021 Engineering Ingegneria Informatica S.p.A.
+ *
  * Knowage is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -11,11 +11,20 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Affero General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package it.eng.spagobi.services.content.service;
+
+import java.util.Base64;
+
+import javax.jws.WebService;
+
+import org.apache.log4j.Logger;
+
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
 
 import it.eng.spago.error.EMFInternalError;
 import it.eng.spago.error.EMFUserError;
@@ -30,21 +39,24 @@ import it.eng.spagobi.commons.constants.SpagoBIConstants;
 import it.eng.spagobi.commons.dao.DAOFactory;
 import it.eng.spagobi.commons.utilities.GeneralUtilities;
 import it.eng.spagobi.services.common.AbstractServiceImpl;
+import it.eng.spagobi.services.content.ContentService;
 import it.eng.spagobi.services.content.bo.Content;
+import it.eng.spagobi.services.content.bo.ParametersWrapper;
 import it.eng.spagobi.services.security.exceptions.SecurityException;
 
-import java.util.HashMap;
+/**
+ * @author n.d.
+ * @author Marco Libanori
+ */
+@WebService(
+		name = "ContentServiceService",
+		portName = "ContentServicePort",
+		serviceName = "ContentService",
+		targetNamespace = "http://content.services.spagobi.eng.it/"
+	)
+public class ContentServiceImpl extends AbstractServiceImpl implements ContentService {
 
-import org.apache.log4j.Logger;
-
-import sun.misc.BASE64Encoder;
-
-import com.jamonapi.Monitor;
-import com.jamonapi.MonitorFactory;
-
-public class ContentServiceImpl extends AbstractServiceImpl {
-
-	static private Logger logger = Logger.getLogger(ContentServiceImpl.class);
+	private static Logger logger = Logger.getLogger(ContentServiceImpl.class);
 
 	/**
 	 * Instantiates a new content service impl.
@@ -55,18 +67,19 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Read template.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
 	 *            the user
 	 * @param document
 	 *            the document
-	 * 
+	 *
 	 * @return the content
 	 */
+	@Override
 	public Content readTemplate(String token, String user, String document,
-			HashMap attributes) {
+			ParametersWrapper attributes) {
 
 		Monitor monitor = MonitorFactory
 				.start("spagobi.service.content.readTemplate");
@@ -75,7 +88,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 			validateTicket(token, user);
 			this.setTenantByUserId(user);
 			ContentServiceImplSupplier c = new ContentServiceImplSupplier();
-			return c.readTemplate(user, document, attributes);
+			return c.readTemplate(user, document, attributes.getMap());
 		} catch (Exception e) {
 			logger.error("Exception", e);
 			return null;
@@ -88,18 +101,19 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Read template by label.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
 	 *            the user
 	 * @param document
 	 *            the document
-	 * 
+	 *
 	 * @return the content
 	 */
+	@Override
 	public Content readTemplateByLabel(String token, String user, String label,
-			HashMap attributes) {
+			ParametersWrapper attributes) {
 
 		Monitor monitor = MonitorFactory
 				.start("spagobi.service.content.readTemplate");
@@ -108,7 +122,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 			validateTicket(token, user);
 			this.setTenantByUserId(user);
 			ContentServiceImplSupplier c = new ContentServiceImplSupplier();
-			return c.readTemplateByLabel(user, label, attributes);
+			return c.readTemplateByLabel(user, label, attributes.getMap());
 		} catch (Exception e) {
 			logger.error("Exception", e);
 			return null;
@@ -121,16 +135,17 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Read sub object content.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
 	 *            the user
 	 * @param subObjectId
 	 *            the sub object id
-	 * 
+	 *
 	 * @return the content
 	 */
+	@Override
 	public Content readSubObjectContent(String token, String user,
 			String subObjectId) {
 		logger.debug("IN");
@@ -153,7 +168,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Read sub object content.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
@@ -162,10 +177,11 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 	 *            the sub object name
 	 * @param objId
 	 *            the object id
-	 * 
+	 *
 	 * @return the content
 	 */
-	public Content readSubObjectContent(String token, String user,
+	@Override
+	public Content readSubObjectContentByObjId(String token, String user,
 			String subObjectName, Integer objId) {
 		logger.debug("IN");
 		Monitor monitor = MonitorFactory
@@ -187,7 +203,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Save sub object.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
@@ -202,9 +218,10 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 	 *            the visibility boolean
 	 * @param content
 	 *            the content
-	 * 
+	 *
 	 * @return the string
 	 */
+	@Override
 	public String saveSubObject(String token, String user, String documentiId,
 			String analysisName, String analysisDescription,
 			String visibilityBoolean, String content) {
@@ -237,7 +254,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Save object template.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
@@ -248,9 +265,10 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 	 *            the template name
 	 * @param content
 	 *            the content
-	 * 
+	 *
 	 * @return the string
 	 */
+	@Override
 	public String saveObjectTemplate(String token, String user,
 			String documentiId, String templateName, String content) {
 		logger.debug("IN");
@@ -280,7 +298,7 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	/**
 	 * Download all.
-	 * 
+	 *
 	 * @param token
 	 *            the token
 	 * @param user
@@ -289,9 +307,10 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 	 *            the biobject id
 	 * @param fileName
 	 *            the file name
-	 * 
+	 *
 	 * @return the content
 	 */
+	@Override
 	public Content downloadAll(String token, String user, String biobjectId,
 			String fileName) {
 		return null;
@@ -307,8 +326,8 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 			ISubObjectDAO subdao = DAOFactory.getSubObjectDAO();
 			SubObject subobj = subdao.getSubObject(id);
 			byte[] cont = subobj.getContent();
-			BASE64Encoder bASE64Encoder = new BASE64Encoder();
-			content.setContent(bASE64Encoder.encode(cont));
+			Base64.Encoder bASE64Encoder = Base64.getEncoder();
+			content.setContent(bASE64Encoder.encodeToString(cont));
 			content.setFileName(subobj.getName());
 			return content;
 		} catch (NumberFormatException e) {
@@ -331,8 +350,8 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 			SubObject subobj = subdao.getSubObjectByNameAndBIObjectId(
 					subObjectName, objId);
 			byte[] cont = subobj.getContent();
-			BASE64Encoder bASE64Encoder = new BASE64Encoder();
-			content.setContent(bASE64Encoder.encode(cont));
+			Base64.Encoder bASE64Encoder = Base64.getEncoder();
+			content.setContent(bASE64Encoder.encodeToString(cont));
 			content.setFileName(subobj.getName());
 			return content;
 		} catch (NumberFormatException e) {
@@ -432,6 +451,21 @@ public class ContentServiceImpl extends AbstractServiceImpl {
 
 	private Content downloadAll(String user, String biobjectId, String fileName) {
 		return null;
+	}
+
+	@Override
+	public String publishTemplate(String token, String user, ParametersWrapper attributes) {
+		throw new UnsupportedOperationException("Not implemented!");
+	}
+
+	@Override
+	public String mapCatalogue(String token, String user, String operation, String path, String featureName, String mapName) {
+		throw new UnsupportedOperationException("Not implemented!");
+	}
+
+	@Override
+	public Content readMap(String token, String user, String mapName) {
+		throw new UnsupportedOperationException("Not implemented!");
 	}
 
 }

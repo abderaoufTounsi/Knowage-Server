@@ -35,6 +35,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.LogMF;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
@@ -58,12 +59,13 @@ import it.eng.spagobi.commons.constants.SpagoBIConstants;
 import it.eng.spagobi.commons.dao.DAOConfig;
 import it.eng.spagobi.commons.dao.DAOFactory;
 import it.eng.spagobi.commons.dao.IRoleDAO;
-import it.eng.spagobi.commons.serializer.DataSetJSONSerializer;
+import it.eng.spagobi.commons.serializer.DataSetMetadataJSONSerializer;
 import it.eng.spagobi.commons.utilities.AuditLogUtilities;
 import it.eng.spagobi.commons.utilities.GeneralUtilities;
 import it.eng.spagobi.commons.utilities.SpagoBIUtilities;
 import it.eng.spagobi.commons.utilities.StringUtilities;
 import it.eng.spagobi.commons.utilities.UserUtilities;
+import it.eng.spagobi.tools.dataset.DatasetManagementAPI;
 import it.eng.spagobi.tools.dataset.bo.CkanDataSet;
 import it.eng.spagobi.tools.dataset.bo.ConfigurableDataSet;
 import it.eng.spagobi.tools.dataset.bo.CustomDataSet;
@@ -111,7 +113,9 @@ import it.eng.spagobi.tools.dataset.utils.DatasetMetadataParser;
 import it.eng.spagobi.tools.dataset.utils.datamart.SpagoBICoreDatamartRetriever;
 import it.eng.spagobi.tools.datasource.bo.IDataSource;
 import it.eng.spagobi.utilities.assertion.Assert;
+import it.eng.spagobi.utilities.exceptions.ActionNotPermittedException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIException;
+import it.eng.spagobi.utilities.exceptions.SpagoBIRestServiceException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIRuntimeException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIServiceException;
 import it.eng.spagobi.utilities.json.JSONUtils;
@@ -161,6 +165,14 @@ public class ManageDataSetsForREST {
 
 	protected String datasetInsert(JSONObject json, IDataSetDAO dsDao, Locale locale, UserProfile userProfile, HttpServletRequest req) throws JSONException {
 		IDataSet ds = getGuiGenericDatasetToInsert(json, userProfile);
+
+		try {
+			new DatasetManagementAPI(userProfile).canSave(ds);
+		} catch (ActionNotPermittedException e) {
+			logger.error("User " + userProfile.getUserId() + " cannot save the dataset with label " + ds.getLabel());
+			throw new SpagoBIRestServiceException(e.getI18NCode(), locale,
+					"User " + userProfile.getUserId() + " cannot save the dataset with label " + ds.getLabel(), e, "MessageFiles.messages");
+		}
 
 		return datasetInsert(ds, dsDao, locale, userProfile, json, req);
 	}
@@ -460,7 +472,7 @@ public class ManageDataSetsForREST {
 		} else if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_CUSTOM)) {
 			toReturn = manageCustomDataSet(savingDataset, jsonDsConfig, json);
 		} else if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_QBE)) {
-			toReturn = manageQbeDataSet(savingDataset, jsonDsConfig, json);
+			toReturn = manageQbeDataSet(savingDataset, jsonDsConfig, json, userProfile);
 		} else if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_FEDERATED)) {
 			toReturn = manageFederatedDataSet(savingDataset, jsonDsConfig, json, userProfile);
 		} else if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_FLAT)) {
@@ -943,8 +955,23 @@ public class ManageDataSetsForREST {
 		return dataSet;
 	}
 
-	private QbeDataSet manageQbeDataSet(boolean savingDataset, JSONObject jsonDsConfig, JSONObject json) throws JSONException, EMFUserError, IOException {
-		QbeDataSet dataSet = new QbeDataSet();
+	private QbeDataSet manageQbeDataSet(boolean savingDataset, JSONObject jsonDsConfig, JSONObject json, UserProfile userProfile)
+			throws JSONException, EMFUserError, IOException {
+		QbeDataSet dataSet = null;
+		String federationId = json.optString("federation_id");
+		if (StringUtils.isNoneEmpty(federationId)) {
+			FederationDefinition federation = DAOFactory.getFedetatedDatasetDAO().loadFederationDefinition(Integer.parseInt(federationId));
+			dataSet = new FederatedDataSet(federation, userProfile.getUserId().toString());
+
+			IDataSource defaultCacheDataSource = DAOFactory.getDataSourceDAO().loadDataSourceWriteDefault();
+
+			dataSet.setDataSourceForReading(defaultCacheDataSource);
+			dataSet.setDataSourceForWriting(defaultCacheDataSource);
+
+			json.put(DataSetConstants.QBE_DATA_SOURCE, defaultCacheDataSource.getLabel());
+		} else {
+			dataSet = new QbeDataSet();
+		}
 		String qbeDatamarts = json.optString(DataSetConstants.QBE_DATAMARTS);
 		String dataSourceLabel = json.optString(DataSetConstants.QBE_DATA_SOURCE);
 		String jsonQuery = json.optString(DataSetConstants.QBE_JSON_QUERY);
@@ -1557,13 +1584,13 @@ public class ManageDataSetsForREST {
 			String id = json.optString(DataSetConstants.ID);
 			try {
 				IDataSet existingByName = dsDao.loadDataSetByName(ds.getName());
-				if (id != null && !id.equals("") && !id.equals("0")) {
+				if (id != null && !id.equals("") && !id.equals("0") && existingByName != null) {
 					if (existingByName != null && !Integer.valueOf(id).equals(existingByName.getId())) {
 						throw new SpagoBIServiceException(SERVICE_NAME, "sbi.ds.nameAlreadyExistent");
 					}
 
 					ds.setId(Integer.valueOf(id));
-					modifyPersistence(ds, logParam, req);
+					modifyPersistence(ds, logParam);
 					dsDao.modifyDataSet(ds);
 					logger.debug("Resource " + id + " updated");
 					attributesResponseSuccessJSON.put("success", true);
@@ -1571,7 +1598,7 @@ public class ManageDataSetsForREST {
 					attributesResponseSuccessJSON.put("id", id);
 					attributesResponseSuccessJSON.put("dateIn", ds.getDateIn());
 					attributesResponseSuccessJSON.put("userIn", ds.getUserIn());
-					attributesResponseSuccessJSON.put("meta", DataSetJSONSerializer.metadataSerializerChooser(ds.getDsMetadata()));
+					attributesResponseSuccessJSON.put("meta", new DataSetMetadataJSONSerializer().metadataSerializerChooser(ds.getDsMetadata()));
 				} else {
 					IDataSet existingByLabel = dsDao.loadDataSetByLabel(ds.getLabel());
 					if (existingByLabel != null) {
@@ -1593,7 +1620,7 @@ public class ManageDataSetsForREST {
 						attributesResponseSuccessJSON.put("dateIn", dsSaved.getDateIn());
 						attributesResponseSuccessJSON.put("userIn", dsSaved.getUserIn());
 						attributesResponseSuccessJSON.put("versNum", dsSaved.getVersionNum());
-						attributesResponseSuccessJSON.put("meta", DataSetJSONSerializer.metadataSerializerChooser(dsSaved.getDsMetadata()));
+						attributesResponseSuccessJSON.put("meta", new DataSetMetadataJSONSerializer().metadataSerializerChooser(dsSaved.getDsMetadata()));
 					}
 				}
 				String operation = (id != null && !id.equals("") && !id.equals("0")) ? "DATA_SET.MODIFY" : "DATA_SET.ADD";
@@ -1601,7 +1628,7 @@ public class ManageDataSetsForREST {
 				// handle insert of persistence and scheduling
 				if (!isFromSaveNoMetadata) {
 					auditlogger.info("[Start persisting metadata for dataset with id " + ds.getId() + "]");
-					insertPersistence(ds, logParam, json, userProfile, req);
+					insertPersistence(ds, logParam, json, userProfile);
 					auditlogger.info("Metadata saved for dataset with id " + ds.getId() + "]");
 					auditlogger.info("[End persisting metadata for dataset with id " + ds.getId() + "]");
 				}
@@ -1620,7 +1647,7 @@ public class ManageDataSetsForREST {
 		}
 	}
 
-	public void modifyPersistence(IDataSet ds, HashMap<String, String> logParam, HttpServletRequest req) throws Exception {
+	public void modifyPersistence(IDataSet ds, HashMap<String, String> logParam) throws Exception {
 		logger.debug("IN");
 		IDataSetDAO iDatasetDao = DAOFactory.getDataSetDAO();
 		iDatasetDao.setUserProfile(profile);
@@ -1633,8 +1660,7 @@ public class ManageDataSetsForREST {
 		logger.debug("OUT");
 	}
 
-	public void insertPersistence(IDataSet ds, HashMap<String, String> logParam, JSONObject json, UserProfile userProfile, HttpServletRequest req)
-			throws Exception {
+	public void insertPersistence(IDataSet ds, HashMap<String, String> logParam, JSONObject json, UserProfile userProfile) throws Exception {
 		logger.debug("IN");
 
 		if (ds.isPersisted()) {

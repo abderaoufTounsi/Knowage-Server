@@ -74,13 +74,24 @@
 			 $scope.selectDatasetAction({ds: item});
 		}
 
+		$scope.canLoadData = function(dataset) {
+			for (var i = 0; i < dataset.actions.length; i++) {
+				var action = dataset.actions[i];
+				if (action.name == 'loaddata') {
+					return true;
+				}
+			}
+			return false;
+		}
+
 		$scope.cockpitDatasetColumn = [
 			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.label'),"field":"label"},
 			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.name'),"field":"name"},
 			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.type'),"field":"dsTypeCd",width: 250,suppressSizeToFit:true,suppressMovable:true},
 			{"headerName": "Tags","field":"tags", cellRenderer:tagsRenderer},
-			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.hasParameters'),"field":"pars","cellStyle":
-				{"display":"inline-flex","justify-content":"center", "align-items": "center"},cellRenderer:hasParametersRenderer,suppressSorting:true,suppressFilter:true,width: 150,suppressSizeToFit:true,suppressMovable:true}];
+			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.hasParameters'),"field":"pars","cellStyle":{"display":"inline-flex","justify-content":"center", "align-items": "center"},cellRenderer:hasParametersRenderer,suppressSorting:true,suppressFilter:true,width: 150,suppressSizeToFit:true,suppressMovable:true},
+			{"headerName": sbiModule_translate.load('sbi.workspace.dataset.hasDrivers'),"field":"drivers","cellStyle":{"display":"inline-flex","justify-content":"center", "align-items": "center"},cellRenderer:hasDriversRenderer,suppressSorting:true,suppressFilter:true,width: 150,suppressSizeToFit:true,suppressMovable:true}
+		];
 
 		$scope.workspaceDatasetViewGrid = {
 	        enableColResize: false,
@@ -92,7 +103,8 @@
 	        onGridSizeChanged: resizeColumns,
 	        onRowClicked: clickDataset,
 	        columnDefs : $scope.cockpitDatasetColumn,
-	        rowData: $scope.ngModel
+	        rowData: $scope.ngModel,
+	        getRowClass: rowClassRenderer
 		};
 
 		$scope.$watchCollection('ngModel',function(newValue,oldValue){
@@ -110,8 +122,12 @@
 			$scope.selectedDataset = param.data;
 		}
 
-		function hasParametersRenderer(params){
-			return (params.value && params.value.length > 0) ? '<i class="fa fa-check"></i>' : '';
+		function hasParametersRenderer(row){
+			return (row.data.pars && row.data.pars.length > 0) ? '<i class="fa fa-check"></i>' : '';
+		}
+
+		function hasDriversRenderer(row){
+			return (row.data.drivers && row.data.drivers.length > 0) ? '<i class="fa fa-check"></i>' : '';
 		}
 
 		function tagsRenderer(params){
@@ -121,6 +137,12 @@
 					cell += '<span class="miniChip">'+params.value[i].name+'</span>';
 				}
 				return cell;
+			}
+		}
+
+		function rowClassRenderer(params) {
+			if (!$scope.canLoadData(params.data)) {
+				return "disabled";
 			}
 		}
 

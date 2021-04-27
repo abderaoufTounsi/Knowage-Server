@@ -371,9 +371,12 @@ public class CrossTabHTMLSerializer {
 				if (isSubtotal && crossTab.isExpandCollapseRows()) { // create subtotal hidden row (used when collapsing aggregations)
 					SourceBean subtotalHiddenColumn = new SourceBean(COLUMN_TAG);
 					subtotalHiddenColumn.setAttribute(CLASS_ATTRIBUTE, HIDDEN_CLASS);
-					Row row = rowsDef.get(i);
-					JSONObject rowConfig = row.getConfig();
-					style = customStylesMap.get(rowConfig.get("id"));
+					style = customStylesMap.get(crossTab.getColumnAliasFromName(aNode.getParentNode().getColumnName()));
+					if (style == null) {
+						Row row = rowsDef.get(i);
+						JSONObject rowConfig = row.getConfig();
+						style = customStylesMap.get(rowConfig.get("id"));
+					}
 					subtotalHiddenColumn.setAttribute(STYLE_ATTRIBUTE, style);
 					text = aNode.getParentNode().getValue();
 					subtotalHiddenColumn.setAttribute(TITLE_ATTRIBUTE, escapeAll(text));
@@ -460,8 +463,8 @@ public class CrossTabHTMLSerializer {
 		JSONObject crossConfig = crossTab.getCrosstabDefinition().getConfig();
 		String labelTotal = (!crossConfig.optString("columntotalLabel").equals("")) ? crossConfig.optString("columntotalLabel") : CrossTab.TOTAL;
 		String labelSubTotal = (!crossConfig.optString("columnsubtotalLabel").equals("")) ? crossConfig.optString("columnsubtotalLabel") : CrossTab.SUBTOTAL;
-
 		int levels = crossTab.getColumnsRoot().getDistanceFromLeaves();
+
 		if (levels == 0) {
 			// nothing on columns
 			SourceBean aRow = new SourceBean(ROW_TAG);
@@ -470,153 +473,148 @@ public class CrossTabHTMLSerializer {
 			aColumn.setCharacters(EngineMessageBundle.getMessage("sbi.crosstab.runtime.headers.data", this.getLocale()));
 			aRow.setAttribute(aColumn);
 			table.setAttribute(aRow);
-		} else {
-			int measureNumber = crossTab.getCrosstabDefinition().getMeasures().size();
-			List<String> lastLevelValues = new ArrayList<String>();
-			int colSpanSubTot = 0;
-			for (int i = 0; i < levels; i++) {
-				boolean showHeader = true;
-				SourceBean aRow = new SourceBean(ROW_TAG);
-				List<Node> levelNodes = crossTab.getColumnsRoot().getLevel(i + 1);
+			return table;
+		}
 
-				for (int j = 0; j < levelNodes.size(); j++) {
-					Node aNode = levelNodes.get(j);
+		int measureNumber = crossTab.getCrosstabDefinition().getMeasures().size();
+		List<String> lastLevelValues = new ArrayList<String>();
+		int colSpanSubTot = 0;
+		for (int i = 0; i < levels; i++) {
+			boolean showHeader = true;
+			SourceBean aRow = new SourceBean(ROW_TAG);
+			List<Node> levelNodes = crossTab.getColumnsRoot().getLevel(i + 1);
 
-					SourceBean aColumn = new SourceBean(COLUMN_TAG);
-					// odd levels are levels (except the last one, since it
-					// contains measures' names)
-					boolean isLevel = !((i + 1) % 2 == 0 || (i + 1) == levels);
+			for (int j = 0; j < levelNodes.size(); j++) {
+				Node aNode = levelNodes.get(j);
 
-					String className = !isLevel ? MEMBER_CLASS : LEVEL_CLASS;
-					aColumn.setAttribute(CLASS_ATTRIBUTE, className);
+				SourceBean aColumn = new SourceBean(COLUMN_TAG);
+				// odd levels are levels (except the last one, since it
+				// contains measures' names)
+				boolean isLevel = !((i + 1) % 2 == 0 || (i + 1) == levels);
 
-					String text = null;
-					String textVariable = null;
-					String style = "";
+				String className = !isLevel ? MEMBER_CLASS : LEVEL_CLASS;
+				aColumn.setAttribute(CLASS_ATTRIBUTE, className);
 
-					if (crossTab.getCrosstabDefinition().isMeasuresOnColumns() && i + 1 == levels) {
-						String measureAlias = aNode.getDescription();
-						text = MeasureScaleFactorOption.getScaledName(measureAlias, crossTab.getMeasureScaleFactor(measureAlias), this.locale);
-						// check header visibility for measures
-						showHeader = isMeasureHeaderVisible(crossTab);
-						if (this.variables != null) {
-							List<Measure> measures = crossTab.getCrosstabDefinition().getMeasures();
-							for (int c = 0; c < measures.size(); c++) {
-								Measure col = measures.get(c);
-								if (col.getAlias().equals(text)) {
-									textVariable = col.getVariable();
-								}
+				String text = null;
+				String textVariable = null;
+				String style = "";
 
-							}
-						}
-					} else {
-						// categories headers
-						text = aNode.getDescription();
-						// Set specific columns configuration style
-						List<Column> columns = crossTab.getCrosstabDefinition().getColumns();
-						for (int c = 0; c < columns.size(); c++) {
-							Column col = columns.get(c);
+				if (crossTab.getCrosstabDefinition().isMeasuresOnColumns() && i + 1 == levels) {
+					String measureAlias = aNode.getDescription();
+					text = MeasureScaleFactorOption.getScaledName(measureAlias, crossTab.getMeasureScaleFactor(measureAlias), this.locale);
+					// check header visibility for measures
+					showHeader = isMeasureHeaderVisible(crossTab);
+					if (this.variables != null) {
+						List<Measure> measures = crossTab.getCrosstabDefinition().getMeasures();
+						for (int c = 0; c < measures.size(); c++) {
+							Measure col = measures.get(c);
 							if (col.getAlias().equals(text)) {
-								JSONObject columnConfig = col.getConfig();
-								if (isLevel && !columnConfig.isNull("showHeader"))
-									showHeader = columnConfig.getBoolean("showHeader");
-
 								textVariable = col.getVariable();
-								style = customStylesMap.get(columnConfig.get("id"));
-								if (style == null || style.equals("")) {
-									// loading and caching style
-									style = getConfiguratedElementStyle(null, null, columnConfig, crossTab);
-									customStylesMap.put(columnConfig.getString("id"), style);
-								}
+							}
 
-								if (style.equals(DEFAULT_STYLE))
-									style = ""; // clean from default ... just for the categories headers
-								else {
-									aColumn.setAttribute(STYLE_ATTRIBUTE, style);
-									parentStyle = style;
-									break;
-								}
+						}
+					}
+				} else {
+					// categories headers
+					text = aNode.getDescription();
+					// Set specific columns configuration style
+					List<Column> columns = crossTab.getCrosstabDefinition().getColumns();
+					for (int c = 0; c < columns.size(); c++) {
+						Column col = columns.get(c);
+						if (col.getAlias().equals(text)) {
+							JSONObject columnConfig = col.getConfig();
+							if (isLevel && !columnConfig.isNull("showHeader"))
+								showHeader = columnConfig.getBoolean("showHeader");
+
+							textVariable = col.getVariable();
+							style = customStylesMap.get(columnConfig.get("id"));
+							if (style == null || style.equals("")) {
+								// loading and caching style
+								style = getConfiguratedElementStyle(null, null, columnConfig, crossTab);
+								customStylesMap.put(columnConfig.getString("id"), style);
+							}
+
+							if (style.equals(DEFAULT_STYLE))
+								style = ""; // clean from default ... just for the categories headers
+							else {
+								aColumn.setAttribute(STYLE_ATTRIBUTE, style);
+								parentStyle = style;
+								break;
 							}
 						}
 					}
+				}
 
-					if (isLevel) {
-						int idxEl = i / 2; // just for columns headers divide the position of cell in couple (name + value)
-						aColumn.setAttribute(NG_CLICK_ATTRIBUTE, "orderPivotTable('" + idxEl + "','1'," + myGlobalId + ")");
+				if (isLevel) {
+					int idxEl = i / 2; // just for columns headers divide the position of cell in couple (name + value)
+					aColumn.setAttribute(NG_CLICK_ATTRIBUTE, "orderPivotTable('" + idxEl + "','1'," + myGlobalId + ")");
 
-						Integer direction = 1;
-						if (columnsSortKeysMap != null && columnsSortKeysMap.get(idxEl) != null) {
-							direction = columnsSortKeysMap.get(idxEl).getDirection();
-						}
+					Integer direction = 1;
+					if (columnsSortKeysMap != null && columnsSortKeysMap.get(idxEl) != null) {
+						direction = columnsSortKeysMap.get(idxEl).getDirection();
+					}
 
-						if (parentStyle != null)
-							style = parentStyle;
+					if (parentStyle != null)
+						style = parentStyle;
+					if (!text.equalsIgnoreCase(labelTotal) && !text.equalsIgnoreCase(labelSubTotal)) {
+						aColumn.setAttribute(addSortArrow(aRow, text, style, null, direction, false, textVariable));
+					}
+					aColumn.setAttribute(STYLE_ATTRIBUTE, style);
+					aColumn.setAttribute(CLASS_ATTRIBUTE, HEADER_CLASS);
+
+				} else {
+					boolean parentIsLevel = !((i) % 2 == 0 || (i) == levels);
+					if (parentIsLevel) {
 						if (!text.equalsIgnoreCase(labelTotal) && !text.equalsIgnoreCase(labelSubTotal)) {
-							aColumn.setAttribute(addSortArrow(aRow, text, style, null, direction, false, textVariable));
+							Column columnObj = ((Column) getCategoryConfByLabel(crossTab, crossTab.getColumnsRoot().getLevel(i).get(0).getValue(), "columns"));
+							String columnName = (columnObj != null) ? columnObj.getEntityId() : "";
+							aColumn.setAttribute(NG_CLICK_ATTRIBUTE, "selectRow('" + columnName + "','" + StringEscapeUtils.escapeJavaScript(text) + "')");
 						}
-						aColumn.setAttribute(STYLE_ATTRIBUTE, style);
-						aColumn.setAttribute(CLASS_ATTRIBUTE, HEADER_CLASS);
-
-					} else {
-						boolean parentIsLevel = !((i) % 2 == 0 || (i) == levels);
-						if (parentIsLevel) {
-							if (!text.equalsIgnoreCase(labelTotal) && !text.equalsIgnoreCase(labelSubTotal)) {
-								Column columnObj = ((Column) getCategoryConfByLabel(crossTab, crossTab.getColumnsRoot().getLevel(i).get(0).getValue(),
-										"columns"));
-								String columnName = (columnObj != null) ? columnObj.getEntityId() : "";
-								aColumn.setAttribute(NG_CLICK_ATTRIBUTE, "selectRow('" + columnName + "','" + StringEscapeUtils.escapeJavaScript(text) + "')");
-							}
-							if (crossTab.getCrosstabDefinition().isMeasuresOnColumns() && i + 2 == levels) {
-								String completeText = CrossTab.PATH_SEPARATOR;
-								Node tmpNode = aNode;
-								int idx = 0;
-								while (idx < (levels - 1) / 2) {
-									Node parentNode = tmpNode.getParentNode();
-									int maxParentIdx = ((levels - 1) / 2) - idx;
-									while (maxParentIdx > 1) {
-										if (parentNode != null && parentNode.getParentNode() != null) {
-											parentNode = parentNode.getParentNode();
-										}
-										maxParentIdx--;
+						if (crossTab.getCrosstabDefinition().isMeasuresOnColumns() && i + 2 == levels) {
+							String completeText = CrossTab.PATH_SEPARATOR;
+							Node tmpNode = aNode;
+							int idx = 0;
+							while (idx < (levels - 1) / 2) {
+								Node parentNode = tmpNode.getParentNode();
+								int maxParentIdx = ((levels - 1) / 2) - idx;
+								boolean workingOnParent = false;
+								while (maxParentIdx > 1) {
+									if (parentNode != null && parentNode.getParentNode() != null) {
+										parentNode = parentNode.getParentNode();
+										workingOnParent = true;
 									}
-									if (parentNode != null && !parentNode.getDescription().equalsIgnoreCase("rootC")
-											&& !parentNode.getDescription().equalsIgnoreCase("rootR")) {
-										completeText += parentNode.getDescription() + CrossTab.PATH_SEPARATOR;
-									}
-									idx++;
+									maxParentIdx--;
 								}
-								completeText += text;
-								lastLevelValues.add(completeText);
+								if (parentNode != null && !parentNode.isRoot()) {
+									Node grandparentNode = parentNode.getParentNode();
+									if (workingOnParent && grandparentNode != null && !grandparentNode.isRoot())
+										completeText += grandparentNode.getDescription() + CrossTab.PATH_SEPARATOR;
+									completeText += parentNode.getDescription() + CrossTab.PATH_SEPARATOR;
+								}
+								idx++;
 							}
-							// set width column if measure doesn't show header. Get values from measure settings
-							if (!isMeasureHeaderVisible(crossTab) && i + 2 == levels) {
-								// if not measure are visible set
-								String measureStyle = getMeasureWidthStyle(crossTab, null);
-								if (!measureStyle.equals("")) {
-									aColumn.setAttribute(STYLE_ATTRIBUTE, measureStyle);
-									// ONLY in this case (unique measure without header) add a div to force width if it's defined
-									SourceBean divEl = new SourceBean(COLUMN_DIV);
-									if (StringUtils.isNotBlank(textVariable)) {
-										if (this.variables.has(textVariable)) {
-											divEl.setCharacters(this.variables.getString(textVariable));
-										}
-									} else {
-										divEl.setCharacters(text);
+							completeText += text;
+							lastLevelValues.add(completeText);
+						}
+						// set width column if measure doesn't show header. Get values from measure settings
+						if (!isMeasureHeaderVisible(crossTab) && i + 2 == levels) {
+							// if not measure are visible set
+							String measureStyle = getMeasureWidthStyle(crossTab, null);
+							if (!measureStyle.equals("")) {
+								aColumn.setAttribute(STYLE_ATTRIBUTE, measureStyle);
+								// ONLY in this case (unique measure without header) add a div to force width if it's defined
+								SourceBean divEl = new SourceBean(COLUMN_DIV);
+								if (StringUtils.isNotBlank(textVariable)) {
+									if (this.variables.has(textVariable)) {
+										divEl.setCharacters(this.variables.getString(textVariable));
 									}
-									divEl.setAttribute(TITLE_ATTRIBUTE, text);
-									divEl.setAttribute(STYLE_ATTRIBUTE, measureStyle);
-									aColumn.setAttribute(divEl);
 								} else {
-									if (StringUtils.isNotBlank(textVariable)) {
-										if (this.variables.has(textVariable)) {
-											aColumn.setCharacters(this.variables.getString(textVariable));
-										}
-									} else {
-										aColumn.setCharacters(text);
-									}
+									divEl.setCharacters(text);
 								}
-							}
-							{
+								divEl.setAttribute(TITLE_ATTRIBUTE, text);
+								divEl.setAttribute(STYLE_ATTRIBUTE, measureStyle);
+								aColumn.setAttribute(divEl);
+							} else {
 								if (StringUtils.isNotBlank(textVariable)) {
 									if (this.variables.has(textVariable)) {
 										aColumn.setCharacters(this.variables.getString(textVariable));
@@ -625,62 +623,70 @@ public class CrossTabHTMLSerializer {
 									aColumn.setCharacters(text);
 								}
 							}
-
-							if (parentStyle != null) {
-								// add default color for header
-								aColumn.setAttribute(STYLE_ATTRIBUTE, parentStyle);
-								aColumn.setAttribute(CLASS_ATTRIBUTE, "memberNoStandardStyle");
-							} else
-								aColumn.setAttribute(CLASS_ATTRIBUTE, HEADER_CLASS);
 						} else {
-							// Set specific measures configuration style
-							String measureStyle = getMeasureWidthStyle(crossTab, text);
-							if (!measureStyle.equals(""))
-								aColumn.setAttribute(STYLE_ATTRIBUTE, measureStyle);
-							table.setAttribute("table-layout", "fixed;");
-							String measureParentValue = "";
-							Integer direction = null;
-							if (categoriesValues == null)
-								categoriesValues = getCompleteCategoriesValues(measureNumber, lastLevelValues);
-							if (categoriesValues.size() > 0) {
-								measureParentValue = categoriesValues.get(j);
-								if (measureParentValue.indexOf(labelTotal) < 0 && measureParentValue.indexOf(labelSubTotal) < 0) {
-									if (measuresSortKeysMap != null && measuresSortKeysMap.get(j) != null) {
-										direction = measuresSortKeysMap.get(j).getDirection();
-									}
+							if (StringUtils.isNotBlank(textVariable)) {
+								if (this.variables.has(textVariable)) {
+									aColumn.setCharacters(this.variables.getString(textVariable));
+								}
+							} else {
+								aColumn.setCharacters(text);
+							}
+						}
+
+						if (parentStyle != null) {
+							// add default color for header
+							aColumn.setAttribute(STYLE_ATTRIBUTE, parentStyle);
+							aColumn.setAttribute(CLASS_ATTRIBUTE, "memberNoStandardStyle");
+						} else
+							aColumn.setAttribute(CLASS_ATTRIBUTE, HEADER_CLASS);
+					} else {
+						// Set specific measures configuration style
+						String measureStyle = getMeasureWidthStyle(crossTab, text);
+						if (!measureStyle.equals(""))
+							aColumn.setAttribute(STYLE_ATTRIBUTE, measureStyle);
+						table.setAttribute("table-layout", "fixed;");
+						String measureParentValue = "";
+						Integer direction = null;
+						if (categoriesValues == null)
+							categoriesValues = getCompleteCategoriesValues(measureNumber, lastLevelValues);
+						if (categoriesValues.size() > 0) {
+							measureParentValue = categoriesValues.get(j);
+							if (measureParentValue.indexOf(labelTotal) < 0 && measureParentValue.indexOf(labelSubTotal) < 0) {
+								if (measuresSortKeysMap != null && measuresSortKeysMap.get(j) != null) {
+									direction = measuresSortKeysMap.get(j).getDirection();
 								}
 							}
-							if (levels == 1 || (!text.equalsIgnoreCase(labelTotal) && !text.equalsIgnoreCase(labelSubTotal))) {
-								aColumn.setAttribute(addSortArrow(aRow, text, parentStyle, measureStyle, direction, true, textVariable));
-								aColumn.setAttribute(NG_CLICK_ATTRIBUTE,
-										"orderPivotTable('" + j + "','1'," + myGlobalId + ", '" + text + "' , '" + measureParentValue + "')");
-							}
+						}
+						if (levels == 1 || (!text.equalsIgnoreCase(labelTotal) && !text.equalsIgnoreCase(labelSubTotal))) {
+							aColumn.setAttribute(addSortArrow(aRow, text, parentStyle, measureStyle, direction, true, textVariable));
+							aColumn.setAttribute(NG_CLICK_ATTRIBUTE,
+									"orderPivotTable('" + j + "','1'," + myGlobalId + ", '" + text + "' , '" + measureParentValue + "')");
 						}
 					}
-
-					int colSpan = aNode.getLeafsNumber();
-					if (text.equalsIgnoreCase(labelSubTotal)) {
-						colSpanSubTot = colSpan;
-						if (i < levels - 2)
-							aColumn.setCharacters("");
-					}
-					if (text.equalsIgnoreCase(labelTotal)) {
-						if (colSpanSubTot > 0)
-							colSpan = colSpanSubTot;
-						else if (!crossTab.getCrosstabDefinition().isMeasuresOnRows()) {
-							colSpan = crossTab.getCrosstabDefinition().getMeasures().size();
-						}
-						if (i < levels - 2)
-							aColumn.setCharacters("");
-					}
-					if (colSpan > 1) {
-						aColumn.setAttribute(COLSPAN_ATTRIBUTE, colSpan);
-					}
-					aRow.setAttribute(aColumn);
 				}
-				if (showHeader)
-					table.setAttribute(aRow);
+
+				int colSpan = aNode.getLeafsNumber();
+				if (text.equalsIgnoreCase(labelSubTotal)) {
+					colSpanSubTot = colSpan;
+					if (i < levels - 2)
+						aColumn.setCharacters("");
+				}
+				if (text.equalsIgnoreCase(labelTotal)) {
+					if (colSpanSubTot > 0)
+						colSpan = colSpanSubTot;
+					else if (!crossTab.getCrosstabDefinition().isMeasuresOnRows()) {
+						colSpan = crossTab.getCrosstabDefinition().getMeasures().size();
+					}
+					if (i < levels - 2)
+						aColumn.setCharacters("");
+				}
+				if (colSpan > 1) {
+					aColumn.setAttribute(COLSPAN_ATTRIBUTE, colSpan);
+				}
+				aRow.setAttribute(aColumn);
 			}
+			if (showHeader)
+				table.setAttribute(aRow);
 		}
 		return table;
 	}
@@ -828,26 +834,11 @@ public class CrossTabHTMLSerializer {
 		}
 
 		MeasureFormatter measureFormatter = new MeasureFormatter(crossTab);
-		// int measureHeaderSize = measureHeaders.size();
 		int measureHeaderSize = crossTab.getMeasures().size();
-
-		// // ONLY FOR TEST
-//		 System.out.println("measureCord.length: " + crossTab.getMeasuresCordinates().size() + " - rowsCordi.length: " + crossTab.getRowCordinates().size()
-//		 + " - columnCord.length: " + crossTab.getColumnCordinates().size());
-//		 for (int m = 0; m < crossTab.getColumnCordinates().size(); m++) {
-//		 String tmp = crossTab.getColumnCordinates().get(m);
-//		 System.out.println("** ColumnCord[" + m + "]: " + tmp);
-//		 }
-//		 for (int m = 0; m < crossTab.getRowCordinates().size(); m++) {
-//		 String tmp = crossTab.getRowCordinates().get(m);
-//		 System.out.println("** RowCord[" + m + "]: " + tmp);
-//		 }
-		// // FINE TEST
 
 		// get measures of subtotals column
 		List<Measure> allMeasures = crossTab.getCrosstabDefinition().getMeasures();
 		List<Measure> subtotalMeasures = getSubtotalsMeasures(allMeasures);
-		int columnsMainSubtreeNumberOfLeaves = crossTab.getColumnsMainSubtreeNumberOfLeaves();
 		int nPartialSumRow = 0;
 		int nPartialLevels = 0;
 		for (int i = 0; i < data.length; i++) {
@@ -873,7 +864,6 @@ public class CrossTabHTMLSerializer {
 					nPartialLevels++;
 				}
 
-				String classType = "";
 				JSONObject measureConfig = new JSONObject();
 				try {
 					internalserializeData2 = MonitorFactory.start("CockpitEngine.serializeData.getMeasureConfigAndThreshold");
@@ -882,7 +872,7 @@ public class CrossTabHTMLSerializer {
 						pos = i % measuresInfo.size();
 						measureConfig = allMeasures.get(pos).getConfig();
 					} else {
-						pos = (j % columnsMainSubtreeNumberOfLeaves) % measuresInfo.size();
+						pos = crossTab.getOffsetInColumnSubtree(j) % measuresInfo.size();
 						if (crossTab.isCellFromSubtotalsColumn(j)) {
 							measureConfig = subtotalMeasures.get(pos).getConfig();
 						} else if (crossTab.isCellFromTotalsColumn(j)) {
@@ -900,26 +890,13 @@ public class CrossTabHTMLSerializer {
 					JSONObject threshold = getThreshold(value, measureConfig.optJSONArray("ranges"));
 
 					if (cellType.getValue().equalsIgnoreCase("data") && threshold.has("icon")) {
-						// check indicator configuration (optional)
-						// JSONObject indicatorJ = measureConfig.getJSONObject("scopeFunc");
-//						JSONArray indicatorConditionsJ = measureConfig.getJSONArray("ranges");
-//						if (StringUtils.isNotEmpty(text)) {
-//							for (int c = 0; c < indicatorConditionsJ.length(); c++) {
-//								JSONObject condition = indicatorConditionsJ.getJSONObject(c);
-//								if (iconSB == null && !condition.isNull("value")) {
-//									// gets icon html
-//									showIcon = true;
-//									iconSB = getIconSB(Double.parseDouble(text), condition);
-//								}
-//							}
-//						}
 						iconSB = new SourceBean(ICON_TAG);
 						iconSB.setAttribute(CLASS_ATTRIBUTE, threshold.getString("icon"));
 						iconSB.setAttribute(STYLE_ATTRIBUTE, "color:" + threshold.optString("color", "black"));
 					}
 					internalserializeData2.stop();
 
-					classType = cellType.getValue();
+					String classType = cellType.getValue();
 
 					internalserializeData3 = MonitorFactory.start("CockpitEngine.serializeData.setStyle");
 					// 2. style and alignment management
@@ -933,10 +910,12 @@ public class CrossTabHTMLSerializer {
 
 						if (value != null && cellTypeValue.equalsIgnoreCase("data") && !measureConfig.isNull("ranges")) {
 							// background management through threshold (optional)
-							dataStyle += "background-color:" + threshold.optString("background-color", "white") + ";";
-							dataStyle += "color:" + threshold.optString("color", "black") + ";";
-							// bgColorApplied = true;
-
+							String backgroundColor = threshold.optString("background-color");
+							if (backgroundColor != null && !backgroundColor.isEmpty())
+								dataStyle += "background-color:" + backgroundColor + ";";
+							String textColor = threshold.optString("color");
+							if (textColor != null && !textColor.isEmpty())
+								dataStyle += "color:" + textColor + ";";
 						}
 						// if (!dataStyle.equals(DEFAULT_STYLE + DEFAULT_HEADER_STYLE + DEFAULT_CENTER_ALIGN) ) {
 						if (!dataStyle.equals(DEFAULT_STYLE)) {
@@ -1036,16 +1015,10 @@ public class CrossTabHTMLSerializer {
 							if (!crossTab.isMeasureOnRow()) {
 								int posRow = i - nPartialSumRow;
 								if (posRow < crossTab.getRowsSpecification().size()) {
-									// rowCord = (crossTab.getRowsSpecification().get(posRow) != null)
-									// ? StringEscapeUtils.escapeJavaScript(crossTab.getRowsSpecification().get(posRow))
-									// : null;
 									if (cellTypeValue.equalsIgnoreCase("data")) {
 										nPartialLevels = 0; // reset partialLevels count for new row
 									}
 									rowCord = getRowCordContent(crossTab, nPartialLevels, Integer.valueOf(posRow));
-									// System.out.println("*** i: [" +i + "] - posrow: [" +posRow+ "] - j: ["+j +"] - levels: ["+ nPartialLevels +"] -
-									// rowCord:
-									// ["+rowCord+ "]");
 								}
 
 							} else {
@@ -1237,7 +1210,6 @@ public class CrossTabHTMLSerializer {
 	}
 
 	private String getConfiguratedElementStyle(Double value, CellType cellType, JSONObject config, CrossTab crossTab) throws JSONException {
-		boolean bgColorApplied = false;
 		String dataStyle = "";
 		String cellTypeValue = (cellType == null) ? "" : cellType.getValue();
 
@@ -1272,7 +1244,7 @@ public class CrossTabHTMLSerializer {
 						keyStyle = "width";
 						break;
 					case "background":
-						if (bgColorApplied || cellTypeValue.equalsIgnoreCase("partialSum") || cellTypeValue.equalsIgnoreCase("totals"))
+						if (cellTypeValue.equalsIgnoreCase("partialSum") || cellTypeValue.equalsIgnoreCase("totals"))
 							continue;
 					case "color":
 						if (cellTypeValue.equalsIgnoreCase("partialSum") || cellTypeValue.equalsIgnoreCase("totals"))
@@ -1420,27 +1392,52 @@ public class CrossTabHTMLSerializer {
 		}
 
 		if (percentOn.equals("row")) {
-			if (!crossTab.getCrosstabDefinition().isMeasuresOnRows()) {
-				return 100 * value / Double.parseDouble(entries[i][offset + rowSumStartColumn]);
+			if (crossTab.getCrosstabDefinition().isMeasuresOnRows()) {
+				return 100 * value / getRowTotal(entries, crossTab, rowSumStartColumn, i);
 			} else {
-				return 100 * value / Double.parseDouble(entries[i][rowSumStartColumn]);
+				return 100 * value / getRowTotal(entries, crossTab, offset + rowSumStartColumn, i);
 			}
 		} else {
 			if (crossTab.getCrosstabDefinition().isMeasuresOnRows()) {
-				return 100 * value / Double.parseDouble(entries[offset + columnSumStartRow][j]);
+				return 100 * value / getColumnTotal(entries, crossTab, offset + columnSumStartRow, j);
 			} else {
 				return 100 * value / getColumnTotal(entries, crossTab, columnSumStartRow, j);
 			}
 		}
 	}
 
-	private Double getColumnTotal(String[][] matrix, CrossTab crossTab, int columnSumStartRow, int colIdx) {
-		if (crossTab.isCalculateTotalsOnRows()) { // if i have the totals row i can read the total value from there
-			return Double.parseDouble(matrix[columnSumStartRow][colIdx]);
+	private Double getColumnTotal(String[][] matrix, CrossTab crossTab, int totalsIdx, int colIdx) {
+		if (crossTab.isCalculateTotalsOnColumns()) { // if i have the totals row i can read the total value from there
+			return Double.parseDouble(matrix[totalsIdx][colIdx]);
 		} else { // otherwise i need to compute it
 			Double total = 0.0;
 			for (int i = 0; i < matrix.length; i++) {
-				Double value = Double.parseDouble(matrix[i][colIdx]);
+				Double value;
+				try {
+					value = Double.parseDouble(matrix[i][colIdx]);
+				} catch (NumberFormatException e) {
+					// if conversion fails it is an empty string
+					value = 0.0;
+				}
+				total += value;
+			}
+			return total;
+		}
+	}
+
+	private Double getRowTotal(String[][] matrix, CrossTab crossTab, int totalsIdx, int rowIdx) {
+		if (crossTab.isCalculateTotalsOnRows()) { // if i have the totals column i can read the total value from there
+			return Double.parseDouble(matrix[rowIdx][totalsIdx]);
+		} else { // otherwise i need to compute it
+			Double total = 0.0;
+			for (int j = 0; j < matrix[rowIdx].length; j++) {
+				Double value;
+				try {
+					value = Double.parseDouble(matrix[rowIdx][j]);
+				} catch (NumberFormatException e) {
+					// if conversion fails it is an empty string
+					value = 0.0;
+				}
 				total += value;
 			}
 			return total;

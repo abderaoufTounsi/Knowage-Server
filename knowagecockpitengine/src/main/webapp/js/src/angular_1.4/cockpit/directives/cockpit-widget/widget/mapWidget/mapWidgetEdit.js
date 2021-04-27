@@ -41,6 +41,7 @@ function mapWidgetEditControllerFunction(
 	$scope.availableAggregationFunctionsForSpatialAttribute = ['MIN','MAX','COUNT'];
 	$scope.availableBackgroundLayers = [];
 	$scope.availableOperators = [{'label':'==','value':'=='},{'label':'!=','value':'!='},{'label':'<','value':'<','range':true},{'label':'>','value':'>','range':true},{'label':'<=','value':'<=','range':true},{'label':'>=','value':'>=','range':true}];
+	$scope.availableChoroplethOperators = [{'label':'>=','value':'>='},{'label':'<','value':'<'}];
 	$scope.visualizationTypes = [{"name":"markers","enabled":true,"class":"markers"},{"name":"clusters","enabled":true,"class":"clusters"},{"name":"heatmap","enabled":true,"class":"heatmap"},{"name":"choropleth","enabled":true,"class":"choropleth"}];
 	$scope.uploadImg = {};
 	$scope.widgetSpinner = false;
@@ -50,7 +51,7 @@ function mapWidgetEditControllerFunction(
 
 	$scope.setTargetLayer = function(layer){
 		for(var t in $scope.newModel.content.layers){
-			if($scope.newModel.content.layers[t].targetDefault && $scope.newModel.content.layers[t].dsId != layer.dsId){
+			if($scope.isTargetLayer($scope.newModel.content.layers[t]) && $scope.newModel.content.layers[t].dsId != layer.dsId){
 				$scope.newModel.content.layers[t].targetDefault = false;
 			}
 		}
@@ -173,7 +174,14 @@ function mapWidgetEditControllerFunction(
 	}
 
 	$scope.deleteColumn = function(layer,column){
-		layer.splice(layer.indexOf(column),1);
+		var columns = layer.content.columnSelectedOfDataset;
+		columns.splice(columns.indexOf(column),1);
+
+		// Reset tooltip, if needed
+		if (column.name == layer.tooltipColumn) {
+			layer.showTooltip = false;
+			layer.tooltipColumn = undefined;
+		}
 	}
 
 	$scope.deleteLayer = function(layer){
@@ -320,35 +328,21 @@ function mapWidgetEditControllerFunction(
 		return (radius * 2) + 'px';
 	}
 
+	$scope.openIconManager = false;
+	$scope.activeLayer;
+
 	$scope.chooseIcon = function(ev, layer) {
 
-		$mdDialog.show({
-			controller: function ($scope,$mdDialog) {
-				$scope.availableIcons = knModule_fontIconsService.icons;
+		$scope.openIconManager = !$scope.openIconManager;
+		$scope.activeLayer = layer;
 
-				$scope.activeLayer = {};
-				angular.copy(layer,$scope.activeLayer);
+	}
 
-				$scope.setIcon = function(family,icon){
-					if(!$scope.activeLayer.markerConf) $scope.activeLayer.markerConf = {};
-					$scope.activeLayer.markerConf.icon = icon;
-					$scope.choose();
-				}
-				$scope.choose = function(){
-					angular.copy($scope.activeLayer,layer);
-					$mdDialog.hide();
-				}
-				$scope.cancel = function(){
-					$mdDialog.cancel();
-				}
-			},
-			scope: $scope,
-			preserveScope:true,
-		  templateUrl: $scope.getTemplateUrl('mapWidgetAddIconDialog'),
-		  targetEvent: ev,
-		  clickOutsideToClose:true,
-		  locals: {  }
-		})
+	$scope.setIcon = function(icon) {
+		if(!$scope.activeLayer.markerConf) $scope.activeLayer.markerConf = {};
+		$scope.activeLayer.markerConf.icon = icon;
+
+		$scope.openIconManager = !$scope.openIconManager;
 	}
 
 	$scope.filterIcon = function (item) {
@@ -447,7 +441,7 @@ function mapWidgetEditControllerFunction(
 			// $scope.newModel.dataset.dsId = [];
 			for (var k in $scope.newModel.content.layers){
 				// $scope.newModel.dataset.dsId.push($scope.newModel.content.layers[k].dsId);
-				if($scope.newModel.content.layers[k].targetDefault){
+				if($scope.isTargetLayer($scope.newModel.content.layers[k])){
 					$scope.newModel.dataset.dsId = $scope.newModel.content.layers[k].dsId;
 				}
 			}
@@ -463,8 +457,8 @@ function mapWidgetEditControllerFunction(
 			controller: function ($scope,$mdDialog) {
 
 				$scope.activeMeasure = {};
-
 				angular.copy(measure,$scope.activeMeasure);
+				if(!$scope.activeMeasure.properties) $scope.activeMeasure.properties = {};
 
 				$scope.addThreshold = function() {
 					if(!$scope.activeMeasure.properties.thresholds){
@@ -488,6 +482,43 @@ function mapWidgetEditControllerFunction(
 			scope: $scope,
 			preserveScope:true,
 		  templateUrl: $scope.getTemplateUrl('mapWidgetMeasureThresholds'),
+		  targetEvent: ev,
+		  clickOutsideToClose:true,
+		  locals: {  }
+		})
+	}
+
+	$scope.getChoroplethThresholds = function(ev, analysisConf) {
+
+		$mdDialog.show({
+			controller: function ($scope,$mdDialog) {
+
+				$scope.activeAnalysisConf = {};
+				angular.copy(analysisConf,$scope.activeAnalysisConf);
+				if(!$scope.activeAnalysisConf.properties) $scope.activeAnalysisConf.properties = {};
+
+				$scope.addThreshold = function() {
+					if(!$scope.activeAnalysisConf.properties.thresholds){
+						$scope.activeAnalysisConf.properties.thresholds = [];
+					}
+					$scope.activeAnalysisConf.properties.thresholds.push({});
+				}
+
+				$scope.deleteThreshold = function(threshold){
+					$scope.activeAnalysisConf.properties.thresholds.splice($scope.activeAnalysisConf.properties.thresholds.indexOf(threshold),1);
+				}
+
+				$scope.set = function(){
+					angular.copy($scope.activeAnalysisConf,analysisConf);
+					$mdDialog.hide();
+				}
+				$scope.cancel = function(){
+					$mdDialog.cancel();
+				}
+			},
+			scope: $scope,
+			preserveScope:true,
+		  templateUrl: $scope.getTemplateUrl('mapWidgetChoroplethThresholds'),
 		  targetEvent: ev,
 		  clickOutsideToClose:true,
 		  locals: {  }
@@ -661,6 +692,24 @@ function mapWidgetEditControllerFunction(
 	$scope.$watch("newModel.content.layers", function() {
 		$scope.refreshDataForFilters();
 	}, true);
+
+	$scope.isTargetLayer = function(layer) {
+		return layer && layer.targetDefault || false;
+	}
+
+	$scope.setTooltipCol = function(layer, column) {
+		var columnsList = layer.content.columnSelectedOfDataset;
+		layer.showTooltip = column.properties.showTooltip;
+		layer.tooltipColumn = (column.properties.showTooltip) ? column.name : undefined;
+
+		for(var i in columnsList){
+			if(columnsList[i].name !== column.name){
+				columnsList[i].properties.showTooltip = false;
+			}
+		}
+	}
+
+
 
 	function getSizeFromFieldType(column) {
 		var fieldType = column.value.fieldType;

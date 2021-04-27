@@ -195,6 +195,10 @@ public class DocumentExecutionWorkForDoc extends DossierExecutionClient implemen
 
 				logger.debug("executing post service to execute documents");
 				biObject = DAOFactory.getBIObjectDAO().loadBIObjectByLabel(cockpitDocument);
+
+				if (biObject == null) { // it should mean that a cockpit doesn't exist: template error
+					throw new SpagoBIRuntimeException("Template error: the cockpit " + cockpitDocument + " doesn't exist, check the template");
+				}
 				Integer docId = biObject.getId();
 
 				Collection<String> roles = userProfile.getRoles();
@@ -284,9 +288,9 @@ public class DocumentExecutionWorkForDoc extends DossierExecutionClient implemen
 			}
 			// Activity creation
 			imageNames.clear();
-
+			ParametersDecoder decoder = new ParametersDecoder();
 			for (Map.Entry<String, String> entry : paramMap.entrySet()) {
-				String metadataMessage = entry.getKey() + "=" + entry.getValue();
+				String metadataMessage = entry.getKey() + "=" + decoder.decodeParameter(entry.getValue());
 				jsonObject = new JSONObject();
 				jsonObject.put("TYPE", "PARAMETER");
 				jsonObject.put("MESSAGE", metadataMessage);

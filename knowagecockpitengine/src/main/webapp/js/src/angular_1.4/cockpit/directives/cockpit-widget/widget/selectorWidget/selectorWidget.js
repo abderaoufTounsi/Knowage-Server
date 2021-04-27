@@ -55,6 +55,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			sbiModule_restServices,
 			sbiModule_dateServices,
 			sbiModule_config,
+			cockpitModule_analyticalDrivers,
 			cockpitModule_datasetServices,
 			cockpitModule_widgetConfigurator,
 			cockpitModule_widgetServices,
@@ -104,7 +105,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if(e.target.attributes.value && e.target.attributes.value.value){
 				if(!isBulk) $scope.toggleParameter(getValueFromString(e.target.attributes.value.value));
 				else $scope.prepareParameter(getValueFromString(e.target.attributes.value.value));
-			}else if(e.target.querySelector("input").value && e.target.querySelector("input").value){
+			}else if(e.target.querySelector("input") && e.target.querySelector("input").value){
 				if(!isBulk) $scope.toggleParameter(getValueFromString(e.target.querySelector("input").value));
 				else $scope.prepareParameter(getValueFromString(e.target.querySelector("input").value));
 			}else if(e.target.parentNode.attributes.value && e.target.parentNode.attributes.value.value){
@@ -159,6 +160,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var tempStyle = $scope.ngModel.style ? $scope.ngModel.style : {};
 			if($scope.ngModel.settings.modalityView == 'grid' && $scope.ngModel.settings.gridColumnsWidth){
 				tempStyle.width = $scope.ngModel.settings.gridColumnsWidth;
+			}else{
+				if(tempStyle.width) delete tempStyle.width;
 			}
 			return tempStyle;
 		}
@@ -285,7 +288,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						$scope.showUnlock = false;
 						$scope.showInfoBar = true;
 					}
-					if($scope.datasetRecords.rows && $scope.ngModel.settings.modalityValue != 'singleValue'){
+					if($scope.datasetRecords.rows && $scope.ngModel.settings.modalityValue != 'singleValue' && $scope.ngModel.settings.modalityValue != 'multiValue'){
 						$scope.datasetRecords.rows = $filter('orderBy')($scope.datasetRecords.rows, function(item){
 							if($scope.isSelected(item.column_1)) return 1;
 							if(!$scope.isDisabled(item.column_1)) return 2;
@@ -414,6 +417,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						scope.selectables.push({name: itemsList[j].column_1, selected: (activeSelections && activeSelections.indexOf(itemsList[j].column_1) != -1) ? true : false});
 					}
 				}
+				if(targetModel.sortingOrder) {
+					var direction = targetModel.sortingOrder == 'DESC' ? true : false;
+					scope.selectables = $filter('orderBy')(scope.selectables,"name", direction);
+				}
+
 				scope.selectables = $filter('orderBy')(scope.selectables, function(item){
 					if(item.selected) return 1;
 					if(!scope.isDisabled(item)) return 2;
@@ -483,7 +491,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						applyDefaultValues = true;
 						break;
 					case 'STATIC':
-						if($scope.ngModel.settings.staticValues) $scope.defaultValues = $scope.ngModel.settings.staticValues.split(",");
+						if($scope.ngModel.settings.staticValues) {
+							$scope.defaultValues = angular.copy($scope.ngModel.settings.staticValues);
+							$scope.defaultValues = $scope.defaultValues.replace(/\$V\{([a-zA-Z0-9]+)\}/g,function(match,p1){
+								if(!cockpitModule_properties.VARIABLES[p1]) return null;
+								else return cockpitModule_properties.VARIABLES[p1] || null;
+							})
+							$scope.defaultValues = $scope.defaultValues.replace(/\$P\{([a-zA-Z0-9]+)\}/g,function(match,p1){
+								p1 = cockpitModule_analyticalDrivers[p1] || null;
+								return p1;
+							})
+							$scope.defaultValues = $scope.defaultValues.split(",");
+						}
 						else $scope.defaultValues.push('');
 						applyDefaultValues = true;
 						break;

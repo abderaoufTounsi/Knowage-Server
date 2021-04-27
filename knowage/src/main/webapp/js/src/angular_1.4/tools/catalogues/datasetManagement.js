@@ -1204,7 +1204,7 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 		}
 
 
-		sbiModule_restServices.promiseGet("1.0/datasets","pagopt", queryParams)
+		sbiModule_restServices.promiseGet("3.0/datasets","pagopt", queryParams)
 			.then(function(response) {
 				$scope.datasetsListTemp = angular.copy(response.data.root);
 				$scope.datasetsListPersisted = angular.copy($scope.datasetsListTemp);
@@ -1355,60 +1355,65 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 
 		 	},
 
-		 	// Clone the dataset.
-		 	{
-		 		label: $scope.translate.load("sbi.ds.clone.tooltip"),
-			 	icon:'fa fa-files-o',
-			 	backgroundColor:'transparent',
+			// Clone the dataset.
+			{
+				label: $scope.translate.load("sbi.ds.clone.tooltip"),
+				icon:'fa fa-files-o',
+				backgroundColor:'transparent',
 
-			 	action: function(item,event) {
+				action: function(item,event) {
 
-					if (item.id) {
+					sbiModule_restServices.promiseGet('1.0/datasets', item.label).then(function(response) {
 
-						if ($scope.datasetsListTemp.length==$scope.datasetsListPersisted.length+1) {
+						var item = response.data[0];
 
-							if ($scope.dirtyForm) {
+						if (item.id) {
 
-					 				var confirm = $mdDialog.confirm()
-									        .title($scope.translate.load("sbi.catalogues.generic.modify"))
-									        .targetEvent(event)
-									        .textContent($scope.translate.load("sbi.catalogues.generic.modify.msg"))
-									        .ariaLabel("Losing the changed and not saved data")
-									        .ok($scope.translate.load("sbi.general.yes"))
-									        .cancel($scope.translate.load("sbi.general.No"));
+							if ($scope.datasetsListTemp.length==$scope.datasetsListPersisted.length+1) {
 
-									$mdDialog
-										.show(confirm)
-										.then(
-												function() {
-													$scope.setFormNotDirty();
-													$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
-													cloningDataset(item);
-//													console.log("prosao clone 3");
-										 		},
-										 		function() {
-										 			console.log("keep changes");
-										 		}
-											);
+								if ($scope.dirtyForm) {
 
-					 			}
-					 			else {
-					 				$scope.setFormNotDirty();
-					 				$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
-					 				cloningDataset(item);
-					 			}
+										var confirm = $mdDialog.confirm()
+										        .title($scope.translate.load("sbi.catalogues.generic.modify"))
+										        .targetEvent(event)
+										        .textContent($scope.translate.load("sbi.catalogues.generic.modify.msg"))
+										        .ariaLabel("Losing the changed and not saved data")
+										        .ok($scope.translate.load("sbi.general.yes"))
+										        .cancel($scope.translate.load("sbi.general.No"));
 
-					 		}
+										$mdDialog
+											.show(confirm)
+											.then(
+													function() {
+														$scope.setFormNotDirty();
+														$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
+														cloningDataset(item);
+	//													console.log("prosao clone 3");
+													},
+													function() {
+														console.log("keep changes");
+													}
+												);
 
-						else {
-							$scope.setFormNotDirty();
-							$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
-							cloningDataset(item);
+									}
+									else {
+										$scope.setFormNotDirty();
+										$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
+										cloningDataset(item);
+									}
+
+								}
+
+							else {
+								$scope.setFormNotDirty();
+								$scope.datasetsListTemp = angular.copy($scope.datasetsListPersisted);
+								cloningDataset(item);
+							}
+
 						}
-
-					}
-			 	}
-		 	}
+					});
+				}
+			}
 
 	 ];
 
@@ -1886,43 +1891,88 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 			console.log($scope.selectedDataSet.parameters);
 	 }
 
-	 // SELECT DATASET
-	 $scope.loadDataSet = function(item,index) {
-		 $scope.isSelected = true;
-		 $scope.step=1;
+	// SELECT DATASET
+	$scope.loadDataSet = function(item,index) {
+		sbiModule_restServices.promiseGet('1.0/datasets', item.label).then(function(response) {
 
-		// Load the Dataset's older versions
-		if(!item.hasOwnProperty('selected') ||
-				(item.hasOwnProperty('selected') && item.selected != true)) {
-			var defer = $q.defer();
-			var olderVersionsPromise = loadOlderVersions(item.id);
-			olderVersionsPromise.then(function(response){
-				item.dsVersions = response;
-				item.selected = true;
-				$scope.selectedDataSetInit = angular.copy(item);
-				$scope.selectedDataSet = angular.copy(item);
-				defer.resolve(response);
-			}, function(error){
-				sbiModule_messaging.showErrorMessage(error, 'Error');
-			});
-		}
+			var item = response.data[0];
 
-		 if (!$scope.selectedDataSet) {
-			 //console.log("a2");
-			 $scope.setFormNotDirty();
-			 selectDataset(item,index);
-		 }
-		 // Moving from selected new DS to existing DS
-		 else if (!$scope.selectedDataSet.id) {
+			$scope.isSelected = true;
+			$scope.step=1;
 
-			 // If we move to the already existing DS and not clicking on the new DS again
-			 if (item.id) {
+			// Load the Dataset's older versions
+			if(!item.hasOwnProperty('selected') ||
+					(item.hasOwnProperty('selected') && item.selected != true)) {
+				var defer = $q.defer();
+				var olderVersionsPromise = loadOlderVersions(item.id);
+				olderVersionsPromise.then(function(response){
+					item.dsVersions = response;
+					item.selected = true;
+					$scope.selectedDataSetInit = angular.copy(item);
+					$scope.selectedDataSet = angular.copy(item);
+					defer.resolve(response);
+				}, function(error){
+					sbiModule_messaging.showErrorMessage(error, 'Error');
+				});
+			}
 
-				 if ($scope.dirtyForm) {
+			 if (!$scope.selectedDataSet) {
+				 //console.log("a2");
+				 $scope.setFormNotDirty();
+				 selectDataset(item,index);
+			 }
+			 // Moving from selected new DS to existing DS
+			 else if (!$scope.selectedDataSet.id) {
+
+				 // If we move to the already existing DS and not clicking on the new DS again
+				 if (item.id) {
+
+					 if ($scope.dirtyForm) {
+						// TODO: translate
+						var confirm = $mdDialog.confirm()
+						        .title($scope.translate.load("sbi.catalogues.generic.modify"))
+						        .targetEvent(event)
+						        .textContent($scope.translate.load("sbi.catalogues.generic.modify.msg"))
+						        .ariaLabel("Losing the changed and not saved data")
+						        .ok($scope.translate.load("sbi.general.yes"))
+						        .cancel($scope.translate.load("sbi.general.No"));
+
+						$mdDialog
+							.show(confirm)
+							.then(
+									function() {
+
+										$scope.datasetsListTemp.splice($scope.datasetsListTemp.length-1,1);
+										selectDataset(item,index);
+										$scope.setFormNotDirty();
+							 		},
+
+							 		function() {
+
+							 			$scope.selectedDataSetInit = $scope.datasetsListTemp[$scope.datasetsListTemp.length-1];
+							 			// Move to the AT page where the new DS has been created (since we decided not to move to the previously clicked dataset).
+							 			$timeout(function() { $scope.datasetTableLastPage = $scope.tableLastPage("datasetList_id") }, 100);
+							 		}
+								);
+					 }
+					 else {
+
+						 selectDataset(item, index);
+						 $scope.setFormNotDirty();
+					 }
+
+				 }
+
+			 }
+			 // Moving from an existing DS to another one
+//			 else if ($scope.selectedDataSet && $scope.selectedDataSet.id!=item.id) {
+			 else if ($scope.selectedDataSet.id!=item.id) {
+				 //console.log("c4");
+				if ($scope.dirtyForm) {
+
 					// TODO: translate
 					var confirm = $mdDialog.confirm()
 					        .title($scope.translate.load("sbi.catalogues.generic.modify"))
-					        .targetEvent(event)
 					        .textContent($scope.translate.load("sbi.catalogues.generic.modify.msg"))
 					        .ariaLabel("Losing the changed and not saved data")
 					        .ok($scope.translate.load("sbi.general.yes"))
@@ -1933,83 +1983,44 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 						.then(
 								function() {
 
-									$scope.datasetsListTemp.splice($scope.datasetsListTemp.length-1,1);
+									//console.log($scope.selectedDataSet);
 									selectDataset(item,index);
 									$scope.setFormNotDirty();
 						 		},
 
 						 		function() {
 
-						 			$scope.selectedDataSetInit = $scope.datasetsListTemp[$scope.datasetsListTemp.length-1];
-						 			// Move to the AT page where the new DS has been created (since we decided not to move to the previously clicked dataset).
-						 			$timeout(function() { $scope.datasetTableLastPage = $scope.tableLastPage("datasetList_id") }, 100);
+						 			var indexOfExistingDSInAT = -1;
+
+									for (i=0; i<$scope.datasetsListTemp.length; i++) {
+										if ($scope.datasetsListTemp[i].id == $scope.selectedDataSet.id) {
+											indexOfExistingDSInAT = i;
+										}
+									}
+
+					 				$scope.selectedDataSetInit = $scope.datasetsListTemp[indexOfExistingDSInAT];
+
 						 		}
 							);
-				 }
-				 else {
 
-					 selectDataset(item, index);
-					 $scope.setFormNotDirty();
-				 }
-
+				}
+				else {
+					//console.log("d1");
+					selectDataset(item,index);
+					$scope.setFormNotDirty();
+				}
+			}
+			 if($scope.selectedDataSet.dsTypeCd == "Qbe" && !qbeParameterDeletingMessage.includes("Qbe") ){
+					qbeParameterDeletingMessage =  parameterDeletingMessage + "Parameters for Qbe Dataset should be deleted from qbeDesigner";
+			 }
+			 if($scope.selectedDataSet.dsTypeCd == "Qbe" && item.hasOwnProperty('selected') && item.selected == true) {
+				 $scope.getDatasetParametersFromBusinessModel($scope.selectedDataSet);
 			 }
 
-		 }
-		 // Moving from an existing DS to another one
-//		 else if ($scope.selectedDataSet && $scope.selectedDataSet.id!=item.id) {
-		 else if ($scope.selectedDataSet.id!=item.id) {
-			 //console.log("c4");
-			if ($scope.dirtyForm) {
-
-				// TODO: translate
-				var confirm = $mdDialog.confirm()
-				        .title($scope.translate.load("sbi.catalogues.generic.modify"))
-				        .textContent($scope.translate.load("sbi.catalogues.generic.modify.msg"))
-				        .ariaLabel("Losing the changed and not saved data")
-				        .ok($scope.translate.load("sbi.general.yes"))
-				        .cancel($scope.translate.load("sbi.general.No"));
-
-				$mdDialog
-					.show(confirm)
-					.then(
-							function() {
-
-								//console.log($scope.selectedDataSet);
-								selectDataset(item,index);
-								$scope.setFormNotDirty();
-					 		},
-
-					 		function() {
-
-					 			var indexOfExistingDSInAT = -1;
-
-								for (i=0; i<$scope.datasetsListTemp.length; i++) {
-									if ($scope.datasetsListTemp[i].id == $scope.selectedDataSet.id) {
-										indexOfExistingDSInAT = i;
-									}
-								}
-
-				 				$scope.selectedDataSetInit = $scope.datasetsListTemp[indexOfExistingDSInAT];
-
-					 		}
-						);
-
-			}
-			else {
-				//console.log("d1");
-				selectDataset(item,index);
-				$scope.setFormNotDirty();
-			}
-		}
-		 if($scope.selectedDataSet.dsTypeCd == "Qbe" && !qbeParameterDeletingMessage.includes("Qbe") ){
-				qbeParameterDeletingMessage =  parameterDeletingMessage + "Parameters for Qbe Dataset should be deleted from qbeDesigner";
-		 }
-		 if($scope.selectedDataSet.dsTypeCd == "Qbe" && item.hasOwnProperty('selected') && item.selected == true) {
-			 $scope.getDatasetParametersFromBusinessModel($scope.selectedDataSet);
-		 }
-
+		});
 	};
-	 $scope.getDatasetParametersFromBusinessModel = function (selectedDataset){
+
+	$scope.getDatasetParametersFromBusinessModel = function (selectedDataset){
 			sbiModule_restServices.post("dataset","drivers/",selectedDataset.qbeDatamarts).then(function(response){
 				$scope.selectedDataSet.drivers = angular.copy(response.data.filterStatus);
 				if ($scope.selectedDataSet.drivers) {
@@ -2711,10 +2722,6 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 		$scope.selectedDataSet.recalculateMetadata = true;
 		$scope.manageDatasetFieldMetadata($scope.selectedDataSet.meta);
 
-		// Collect parameters
-		// TODO: maybe to remove the "index" property, if it makes trouble (it is excessive anyway)
-		$scope.selectedDataSet.pars = $scope.parameterItems;
-
 		// ADVANCED tab
 		// For transforming
 		$scope.transformDatasetState==true ? $scope.selectedDataSet.trasfTypeCd=$scope.transformationDataset.VALUE_CD : null;
@@ -3333,11 +3340,12 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 				if($scope.dataset.drivers) {
 					$scope.drivers = $scope.dataset.drivers;
 					if($scope.drivers && $scope.drivers.length > 0) {
-							if( $scope.dataset.drivers[0].parameterValue && Array.isArray($scope.dataset.drivers[0].parameterValue)){
-								parameterValue = $scope.dataset.drivers[0].parameterValue[0].value;
-								$scope.dataset.drivers[0].parameterValue = [parameterValue];
-						}
-
+							for (var i=0; i<$scope.dataset.drivers.length; i++) {
+								if($scope.dataset.drivers[i].selectionType=='TREE' && $scope.dataset.drivers[i].parameterValue && Array.isArray($scope.dataset.drivers[i].parameterValue)){
+									parameterValue = $scope.dataset.drivers[i].parameterValue[0].value;
+									$scope.dataset.drivers[i].parameterValue = [parameterValue];
+								}
+							}
 						var driverValuesAreSet = driversExecutionService.driversAreSet($scope.drivers);
 						if($scope.drivers.length > 0 && !driverValuesAreSet || $scope.selectedDataSet.pars.length > 0) {
 							$scope.showDrivers = true;
@@ -3404,28 +3412,15 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 		}
 
 		$scope.closeDatasetPreviewDialog=function(){
-			 $scope.previewDatasetModel=[];
-			 $scope.previewDatasetColumns=[];
-			 $scope.startPreviewIndex=0;
-			 $scope.endPreviewIndex=0;
-			 $scope.totalItemsInPreview=-1;	// modified by: danristo
-			 $scope.datasetInPreview=undefined;
-			 $scope.counter = 0;
-			 $scope.selectedDataSet.start = 0;
-			 if(typeof $scope.selectedDataSet.drivers !== 'undefined') {
-				for(var i=0; i < $scope.selectedDataSet.drivers.length; i++) {
-					if(($scope.selectedDataSet.drivers[i].parameterDescription || $scope.selectedDataSet.drivers[i].parameterValue) && !$scope.selectedDataSet.drivers[i].hasDefaultOrOneAdmissibleValue) {
-						delete $scope.selectedDataSet.drivers[i].parameterDescription;
-						delete $scope.selectedDataSet.drivers[i].parameterValue;
-					}
-				}
-			 }
-			 for(var j = 0; j < $scope.selectedDataSet.pars.length; j++) {
-			 	if($scope.selectedDataSet.pars[j].value) {
-			 		delete $scope.selectedDataSet.pars[j].value;
-			 	}
-			 }
-			 $mdDialog.cancel();
+			$scope.previewDatasetModel=[];
+			$scope.previewDatasetColumns=[];
+			$scope.startPreviewIndex=0;
+			$scope.endPreviewIndex=0;
+			$scope.totalItemsInPreview=-1;	// modified by: danristo
+			$scope.datasetInPreview=undefined;
+			$scope.counter = 0;
+			$scope.selectedDataSet.start = 0;
+			$mdDialog.hide($scope.selectedDataSet);
 		}
 
 		// If drivers/params is not needed, show the data
@@ -3537,13 +3532,13 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 		} else if($scope.selectedDataSet.drivers && $scope.selectedDataSet.drivers.length > 0 && !driversExecutionService.driversAreSet($scope.selectedDataSet.drivers) ||
 				($scope.selectedDataSet.pars && $scope.selectedDataSet.pars.length > 0 && !$scope.parametersAreSet($scope.selectedDataSet.pars))) {
 			$mdDialog.show({
-				  scope:$scope,
-				  preserveScope: true,
-			      controller: DatasetPreviewController,
-			      templateUrl: sbiModule_config.dynamicResourcesBasePath+'/angular_1.4/tools/workspace/templates/datasetPreviewDialogTemplate.html',
-			      clickOutsideToClose:false,
-			      escapeToClose :false
-			    });
+					scope:$scope,
+					preserveScope: true,
+					controller: DatasetPreviewController,
+					templateUrl: sbiModule_config.dynamicResourcesBasePath+'/angular_1.4/tools/workspace/templates/datasetPreviewDialogTemplate.html',
+					clickOutsideToClose:false,
+					escapeToClose :false
+				});
 		}
 
 		$scope.selectedDataSet.fileDsMetadata = $scope.buildFileDataSetMetaData($scope.dataset);

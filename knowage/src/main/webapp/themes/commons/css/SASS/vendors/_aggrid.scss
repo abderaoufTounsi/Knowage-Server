@@ -410,6 +410,12 @@ $aggrid-border-color: #d9dcde;
 	.ag-header-cell::after, .ag-header-group-cell::after, .ag-header-cell-resize::after {
 		height: 60% !important;
 	}
+	.ag-row {
+		&.disabled {
+			background-color: lighten($ternaryColor,10%) !important;
+			color: darken($ternaryColor,20%);
+		}
+	}
 }
 
 $exportBarHeight : 36px;
@@ -483,9 +489,6 @@ $exportBarHeight : 36px;
 		padding-left: 8px;
 		padding-right: 8px;
 	}
-	 .ag-header-cell-menu-button .ag-icon-menu {
-		height:48px;
-	}
 	.ag-cell-type{
 		position: absolute;
 		height: 20px !important;
@@ -513,5 +516,20 @@ $exportBarHeight : 36px;
 				background-color: $secondaryColor;
 			}
 		}
+	}
+}
+
+@media print {
+	.ag-body-horizontal-scroll-viewport, 
+	.ag-body-viewport, .ag-center-cols-clipper, 
+	.ag-center-cols-container, .ag-center-cols-viewport, 
+	.ag-root, .ag-root-wrapper, .ag-root-wrapper-body, 
+	.ag-virtual-list-viewport {
+		height: inherit !important; 
+    	overflow: inherit !important; 
+    	display: flex !important;
+	}
+	.ag-body-viewport, .ag-root, .ag-root-wrapper {
+		height: 100% !important;
 	}
 }

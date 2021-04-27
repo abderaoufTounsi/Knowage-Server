@@ -205,7 +205,7 @@ public class RestUtilities {
 		return (JSONArray) stripXSSJsonObject(JSONUtils.toJSONArray(requestBody));
 	}
 
-	private static Object stripXSSJsonObject(Object o) throws JSONException {
+	public static Object stripXSSJsonObject(Object o) throws JSONException {
 		if (o instanceof JSONObject) {
 			JSONObject inJsonObject = (JSONObject) o;
 			final Iterator<String> keys = inJsonObject.keys();
@@ -305,7 +305,7 @@ public class RestUtilities {
 				method.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
-		if (queryParams != null) {
+		if (queryParams != null && !queryParams.isEmpty()) {
 			// add uri query params to provided query params present in query
 			List<NameValuePair> addressPairs = getAddressPairs(address);
 			List<NameValuePair> totalPairs = new ArrayList<NameValuePair>(addressPairs);

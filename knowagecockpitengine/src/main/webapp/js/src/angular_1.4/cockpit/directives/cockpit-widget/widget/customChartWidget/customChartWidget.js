@@ -46,6 +46,7 @@ function cockpitCustomChartControllerFunction(
 		$filter,
 		cockpitModule_generalServices,
 		cockpitModule_properties,
+		sbiModule_user,
 		sbiModule_translate,
 		datastore
 		){
@@ -73,6 +74,8 @@ function cockpitCustomChartControllerFunction(
 	}
 
 	$scope.refresh = function(element,width,height, datasetRecords,nature){
+		datastore.variables = cockpitModule_properties.VARIABLES;
+		datastore.profile = sbiModule_user.profileAttributes;
 		$scope.jsError = false;
 		$scope.showWidgetSpinner();
 		var thisElement = angular.element( document.querySelector( '#w'+$scope.ngModel.id+' .htmlRenderer' ) )[0];
@@ -126,8 +129,8 @@ function cockpitCustomChartControllerFunction(
 			}
 		}
 	
-		if(datasetRecords){
-			datastore.setData(datasetRecords);
+		if(datasetRecords || nature == 'fullExpand'){
+			if(datasetRecords) datastore.setData(datasetRecords);
 			if($scope.ngModel.js) {
 				if(toLoad){
 					jsLoadSemaphore();

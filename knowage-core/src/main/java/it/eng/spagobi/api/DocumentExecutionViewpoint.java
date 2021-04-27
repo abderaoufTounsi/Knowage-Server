@@ -50,7 +50,7 @@ public class DocumentExecutionViewpoint extends AbstractSpagoBIResource {
 	@POST
 	@Path("/addViewpoint")
 	@Produces(MediaType.APPLICATION_JSON + "; charset=UTF-8")
-	public Response addViewoint(@Context HttpServletRequest req) {
+	public Response addViewpoint(@Context HttpServletRequest req) {
 		logger.debug("IN");
 		HashMap<String, Object> resultAsMap = new HashMap<String, Object>();
 		List errorList = new ArrayList<>();

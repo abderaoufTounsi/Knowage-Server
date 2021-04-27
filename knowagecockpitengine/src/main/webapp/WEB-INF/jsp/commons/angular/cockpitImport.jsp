@@ -56,6 +56,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/services/cockpitModule_exportWidgetService.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/services/cockpitModule_helperDescriptors.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/services/cockpitModule_variableService.js")%>"></script>
+	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/services/cockpitModule_catalogFunctionService.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(spagoBiContext, "/js/src/angular_1.4/tools/commons/services/knModule.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(spagoBiContext, "/js/src/angular_1.4/tools/commons/services/knModule_fontIconsService.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(spagoBiContext, "/js/src/angular_1.4/tools/commons/services/knModule_aggridLabels.js")%>"></script>
@@ -74,7 +75,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/factory/cockpitModule_generalOptions.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/factory/cockpitModule_widgetSelectionUtils.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/factory/cockpitModule_defaultTheme.js")%>"></script>
-	
+	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/factory/cockpitModule_highchartsLocales.js")%>"></script>
+		
 	<!-- Widgets -->
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/cockpit-widget/widget/imageWidget/imageWidget.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/cockpit-widget/widget/textWidget/textWidget.js")%>"></script>
@@ -105,7 +107,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/cockpit-data-configuration/subController/dataAssociationController.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/cockpit-data-configuration/subController/dataIndexesController.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/calculated-field/calculatedField.js")%>"></script>
+	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/catalog-function/catalogFunction.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/dataset-selector/datasetSelector.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/dataset-selector/multiDatasetSelector.js")%>"></script>
 	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/document-selector/documentSelector.js")%>"></script>
+	<script type="text/javascript" src="<%=urlBuilder.getResourcePath(cockpitEngineContext, "/js/src/angular_1.4/cockpit/directives/commons/icon-manager/icon-manager.js")%>"></script>
 

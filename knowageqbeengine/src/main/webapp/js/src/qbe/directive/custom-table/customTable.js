@@ -127,6 +127,18 @@ function qbeCustomTable($scope, $rootScope, $mdDialog, sbiModule_translate, sbiM
 		},
 		components: {
 			agColumnHeader: CustomHeader
+		},
+		onDragStopped: function(data) {
+
+			var currColsOrder = $scope.qbeTableGrid
+				.columnApi
+				.getAllGridColumns()
+				.map(function(e) {
+					return e.colDef.properties.id;
+				});
+
+			$rootScope.$broadcast("setOrder", currColsOrder);
+
 		}
 	}
 
@@ -376,6 +388,10 @@ function qbeCustomTable($scope, $rootScope, $mdDialog, sbiModule_translate, sbiM
 		originatorEv = ev;
 		$mdOpenMenu(ev);
 	};
+
+	$scope.setDistinct = function(distinct) {
+		$scope.distinct = distinct;
+	}
 
 	$scope.aggFunctions = [ "NONE", "SUM", "MIN", "MAX", "AVG", "COUNT", "COUNT_DISTINCT" ];
 	$scope.tmpFunctions = ["YTD", "LAST_YEAR", "PARALLEL_YEAR", "MTD", "LAST_MONTH"];

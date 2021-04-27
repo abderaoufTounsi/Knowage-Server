@@ -29,7 +29,16 @@ angular.module("cockpitModule").service("cockpitModule_utilstServices",function(
 		}
 	}
 
-	this.getDriverArray=function(textVal){
+	this.getMultiValueParameterArray=function(encodedValue){
+		var valRegExp = new RegExp('\{([;,.]{1})\{(.*)\}(STRING|NUMBER)\}');
+		var matches = encodedValue.match(valRegExp);
+		var decodedValue = matches[2].split(matches[1]);
+		return decodedValue;
+	}
+
+	//this method is for backward compatibility only
+	//it is used by document widget and should be refactored as soon as possible
+	this.getDocumentWidgetDriverArray=function(textVal){
 		if(textVal!=undefined){
 			var rightArray = [];
 			var adVal=angular.copy(textVal);

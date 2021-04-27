@@ -28,7 +28,7 @@
 	<div ng-if="parameter.selectionType=='LOOKUP'  && parameter.showOnPanel=='true'" layout="column" class="lookupParameter" layout-margin>
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex = 80 ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -38,11 +38,16 @@
 			<md-button ng-disabled="datasetSettings" class="md-icon-button" id="{{::parameter.urlName}}" ng-click="popupLookupParameterDialog(parameter)">
 				<md-icon md-font-icon="fa fa-external-link"></md-icon>
 			</md-button>
-			<div flex>				
+			<div flex ng-if="isArray(parameter.parameterValue) && parameter.parameterValue.length > 0">
 				<md-chips ng-model="parameter.parameterValue" readonly="true">
 					<md-chip-template>
-				    	<strong>{{$chip}}</strong>
-			        </md-chip-template>					 
+						<strong>{{ descriptionOf($chip) }}</strong>
+					</md-chip-template>
+				</md-chips>
+			</div>
+			<div flex ng-if="!isArray(parameter.parameterValue) && !isBlank(parameter.parameterValue)">
+				<md-chips>
+					<md-chip><strong>{{parameter.parameterValue}}</strong></md-chip>
 				</md-chips>
 			</div>
 		</div>
@@ -53,20 +58,20 @@
 	<div ng-if="parameter.selectionType=='TREE'  && parameter.showOnPanel=='true'" layout="column" class="lookupParameter" layout-margin>
  		<div layout="row" layout-align="start center" class="labelContainer"> 
  		<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)" class="iconWidth-16">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)" class="iconWidth-16">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 			
- 		</div> 
+ 		</div>
 		<div layout="row" layout-align="start center">
 			<md-button class="md-icon-button" id="{{::parameter.urlName}}" ng-click="getTreeParameterValue()">
 				<md-icon md-font-icon="fa fa-external-link"></md-icon>
 			</md-button>
-			<div flex>				
-				<md-chips ng-model="parameter.parameterValue" readonly="true">
-					 <md-chip-template>
-				          <strong>{{$chip}}</strong>
-			        </md-chip-template>
+			<div flex>
+				<md-chips ng-model="parameter.parameterDescription" readonly="true">
+					<md-chip-template>
+						<strong>{{$chip}}</strong>
+					</md-chip-template>
 				</md-chips>
 			</div>
 		</div>
@@ -76,7 +81,7 @@
 	<div ng-if="parameter.type=='DATE' && parameter.selectionType=='' && parameter.valueSelection=='man_in'  && parameter.showOnPanel=='true'" layout="column" class="datePickerParameter" layout-margin>
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -88,7 +93,7 @@
 	<section ng-if="parameter.type=='DATE_RANGE' && parameter.selectionType=='' && parameter.valueSelection=='man_in'  && parameter.showOnPanel=='true'" layout="column" class="datePickerParameter" layout-margin>
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -107,7 +112,7 @@
 	<div class="textInput" ng-if="parameter.type=='NUM' && parameter.selectionType=='' && parameter.valueSelection=='man_in'  && parameter.showOnPanel=='true'" layout="column" layout-margin>
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -121,7 +126,7 @@
 	<div ng-if="parameter.type=='STRING' && parameter.selectionType=='' && parameter.valueSelection=='man_in'  && parameter.showOnPanel=='true'" layout="column" layout-margin class="textInput">
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}} </label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -135,7 +140,7 @@
 	<div ng-if="parameter.selectionType=='LIST' && !parameter.multivalue  && parameter.showOnPanel=='true'" layout="column" layout-margin class="radioParameter">
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label> 
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		
@@ -151,7 +156,7 @@
 	<div ng-if="parameter.selectionType=='LIST' && parameter.multivalue  && parameter.showOnPanel=='true'" layout="column" layout-margin class="checkBoxParameter">
 		<div layout="row" layout-align="start center" class="labelContainer">
 			<label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label>
-			<md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter, false)">
+			<md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter, false)">
 				<md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
 			</md-icon>
 		 
@@ -169,7 +174,7 @@
 	<div ng-if="parameter.selectionType=='COMBOBOX'  && parameter.showOnPanel=='true'" layout="column" layout-margin class="selectParameter">
 		<div layout="row" layout-align="start center" class="labelContainer">
                                        <label ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory}" flex ng-style="{'font-style': isEmpty(parameter.dependsOn) ? '' : 'italic','font-weight': isEmpty(parameter.dependsOn) ? '' : 'bold'}">{{i18n.getI18n(parameter.label)}}</label>
-                       <md-icon md-font-icon="fa fa-eraser" ng-click="driversExecutionService.resetParameter(parameter)">
+                       <md-icon md-font-icon="fa fa-eraser" ng-click="resetParameter(parameter)">
                                <md-tooltip md-delay="1000">{{sbiModule_translate.load("sbi.execution.parametersselection.parameter.clear")}}</md-tooltip>
                        </md-icon>
         </div>
@@ -184,7 +189,6 @@
 			<!-- single -->
 			<md-select ng-disabled="datasetSettings" ng-model="parameter.parameterValue" ng-class="{'requiredField':showRequiredFieldMessage(parameter), 'norequiredField': !showRequiredFieldMessage(parameter), 'mandatory':parameter.mandatory} "
 		        ng-change="toggleComboParameter(parameter)" ng-if="showDefaultValueAreValid(parameter) && !parameter.multivalue  && parameter.showOnPanel=='true'"> 
-				<md-option></md-option>
 				<md-option ng-repeat="defaultParameter in parameter.defaultValues" ng-value="defaultParameter.value" ng-if="defaultParameter.isEnabled">
 					{{defaultParameter.label}}
 				</md-option>

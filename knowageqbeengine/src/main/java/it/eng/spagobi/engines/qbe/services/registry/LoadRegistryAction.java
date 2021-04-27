@@ -39,9 +39,12 @@ import it.eng.qbe.query.ExpressionNode;
 import it.eng.qbe.query.Query;
 import it.eng.qbe.query.WhereField;
 import it.eng.qbe.query.catalogue.QueryCatalogue;
+import it.eng.qbe.statement.AbstractQbeDataSet;
 import it.eng.qbe.statement.AbstractStatement;
 import it.eng.qbe.statement.IStatement;
 import it.eng.qbe.statement.QbeDatasetFactory;
+import it.eng.qbe.statement.hibernate.HQLDataSet;
+import it.eng.qbe.statement.jpa.JPQLDataSet;
 import it.eng.spago.base.SourceBean;
 import it.eng.spago.base.SourceBeanException;
 import it.eng.spagobi.commons.bo.UserProfile;
@@ -166,6 +169,7 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 		IStatement statement = getEngineInstance().getDataSource().createStatement(filteredQuery);
 
 		IDataSet dataSet = getActiveQueryAsDataSet(filteredQuery);
+		AbstractQbeDataSet qbeDataSet = (AbstractQbeDataSet) dataSet;
 		// QueryGraph graph = statement.getQuery().getQueryGraph();
 		boolean valid = true; // GraphManager.getGraphValidatorInstance(QbeEngineConfig.getInstance().getGraphValidatorImpl()).isValid(graph,
 								// statement.getQuery().getQueryEntities(getDataSource()));
@@ -179,9 +183,8 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 			logger.debug("Configuration setting  [" + "QBE.QBE-SQL-RESULT-LIMIT.value" + "] is equals to [" + (maxSize != null ? maxSize : "none") + "]");
 			String jpaQueryStr = statement.getQueryString();
 			logger.debug("Executable query (HQL/JPQL): [" + jpaQueryStr + "]");
-			UserProfile userProfile = (UserProfile) getEnv().get(EngineConstants.ENV_USER_PROFILE);
-			auditlogger.info("[" + userProfile.getUserId() + "]:: HQL/JPQL: " + jpaQueryStr);
-			auditlogger.info("[" + userProfile.getUserId() + "]:: SQL: " + statement.getSqlQueryString());
+
+			logQueryInAudit(qbeDataSet);
 
 			int startI = start;
 			int limitI = (limit == null ? (maxSize == null ? -1 : maxSize) : limit);
@@ -227,6 +230,7 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 		setColumnsInfos(gridDataFeed);
 		setSummaryInfos(gridDataFeed);
 		setSummaryColorInfos(gridDataFeed);
+		setFieldsDefaultValue(gridDataFeed);
 
 		logger.debug("OUT");
 
@@ -556,6 +560,37 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 		}
 	}
 
+	private void setFieldsDefaultValue(JSONObject gridDataFeed) {
+
+		String fieldHeader = null;
+		try {
+			JSONArray fieldsArray = gridDataFeed.getJSONObject("metaData").getJSONArray("fields");
+			for (int i = 0; i < fieldsArray.length(); i++) {
+				if (fieldsArray.get(i).equals("recNo"))
+					continue;
+				JSONObject field = (JSONObject) fieldsArray.get(i);
+				fieldHeader = field.getString("header");
+				field.put("defaultValue", getDefaultValueForColumn(fieldHeader));
+			}
+		} catch (JSONException e) {
+			logger.error("Error during adding defaultValue attribute for column " + fieldHeader);
+		}
+
+	}
+
+	private Object getDefaultValueForColumn(String columnName) {
+
+		List<Column> columnList = registryConfig.getColumns();
+		for (Column column : columnList) {
+			boolean hasDefaultValue = column.getDefaultValue() != null;
+			if (hasDefaultValue && column.getField().equals(columnName)) {
+				return column.getDefaultValue();
+			}
+		}
+
+		return null;
+	}
+
 	private void getMandatoryMetadata(Column column) {
 		try {
 			// mandatory management
@@ -721,15 +756,16 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 	private void addFilter(int i, Query query, Map env, Map<String, String> fieldNameIdMap, Filter filter, ArrayList<ExpressionNode> expressionNodes) {
 		logger.debug("IN");
 
-		ExpressionNode node = query.getWhereClauseStructure();
-		ExpressionNode nodeToInsert = new ExpressionNode("NODE_OP", "AND");
-
 		// in case it is a driver
 		if (filter.getPresentationType().equals(RegistryConfigurationXMLParser.PRESENTATION_TYPE_DRIVER)) {
 			String driverName = filter.getDriverName();
 			String fieldName = filter.getField();
-
-			Object value = env.get(driverName);
+			Object value = null;
+			if (filter.isStatic()) {
+				value = filter.getFilterValue();
+			} else {
+				value = env.get(driverName);
+			}
 
 			if (value != null && !value.toString().equals("")) {
 
@@ -757,9 +793,13 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 			// query.setWhereClauseStructure(whereClauseStructure)
 		}
 		// in case it is a filter and has a value setted
-		else if (requestContainsAttribute(filter.getField())) {
-
-			String value = getAttribute(filter.getField()).toString();
+		else if (requestContainsAttribute(filter.getField()) || filter.isStatic()) {
+			String value = null;
+			if (filter.isStatic()) {
+				value = filter.getFilterValue();
+			} else {
+				value = getAttribute(filter.getField()).toString();
+			}
 			if (value != null && !value.equalsIgnoreCase("")) {
 				logger.debug("Set filter " + filter.getField() + "=" + value);
 
@@ -804,7 +844,8 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 				throw new SpagoBIEngineServiceException(getActionName(),
 						"Sub-entity [" + column.getSubEntity() + "] not found in entity [" + entity.getName() + "]!");
 			}
-			entity = subEntity;
+			entity = subEntity.getStructure().getRootEntity(subEntity); // we get the relevant root entity, as in a Qbe query (see KNOWAGE-5864)
+
 		}
 		logger.debug("Looking for attribute " + column.getField() + " in entity " + entity.getName() + " ...");
 		List<IModelField> fields = entity.getAllFields();
@@ -851,6 +892,20 @@ public class LoadRegistryAction extends ExecuteQueryAction {
 			logger.debug("OUT");
 		}
 		return entity;
+	}
+
+	private void logQueryInAudit(AbstractQbeDataSet dataset) {
+		UserProfile userProfile = (UserProfile) getEnv().get(EngineConstants.ENV_USER_PROFILE);
+
+		if (dataset instanceof JPQLDataSet) {
+			auditlogger.info("[" + userProfile.getUserId() + "]:: JPQL: " + dataset.getStatement().getQueryString());
+			auditlogger.info("[" + userProfile.getUserId() + "]:: SQL: " + ((JPQLDataSet) dataset).getSQLQuery(true));
+		} else if (dataset instanceof HQLDataSet) {
+			auditlogger.info("[" + userProfile.getUserId() + "]:: HQL: " + dataset.getStatement().getQueryString());
+			auditlogger.info("[" + userProfile.getUserId() + "]:: SQL: " + ((HQLDataSet) dataset).getSQLQuery(true));
+		} else {
+			auditlogger.info("[" + userProfile.getUserId() + "]:: SQL: " + dataset.getStatement().getSqlQueryString());
+		}
 	}
 
 }

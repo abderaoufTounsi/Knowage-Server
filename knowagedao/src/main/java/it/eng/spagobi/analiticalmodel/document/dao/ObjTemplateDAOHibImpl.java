@@ -43,6 +43,7 @@ import it.eng.spagobi.commons.dao.AbstractHibernateDAO;
 import it.eng.spagobi.commons.dao.DAOFactory;
 import it.eng.spagobi.commons.metadata.SbiBinContents;
 import it.eng.spagobi.engines.drivers.IEngineDriver;
+import it.eng.spagobi.functions.dao.IBIObjFunctionDAO;
 import it.eng.spagobi.tools.dataset.dao.IBIObjDataSetDAO;
 
 public class ObjTemplateDAOHibImpl extends AbstractHibernateDAO implements IObjTemplateDAO {
@@ -283,7 +284,6 @@ public class ObjTemplateDAOHibImpl extends AbstractHibernateDAO implements IObjT
 			try {
 				aSession = getSession();
 				tx = aSession.beginTransaction();
-				// String hql = "select max(sot.prog) as maxprog from SbiObjTemplates sot where sot.sbiObject.biobjId="+biobjId;
 				String hql = "delete from SbiObjTemplates where active=false and sbiObject.biobjId=? and creationDate<?";
 				Query query = aSession.createQuery(hql);
 				query.setInteger(0, documents.getJSONObject(i).getInt("id"));
@@ -521,10 +521,11 @@ public class ObjTemplateDAOHibImpl extends AbstractHibernateDAO implements IObjT
 
 			byte[] templateContent = hibObjTemplate.getSbiBinContents().getContent();
 
-			// save associations among dataset and documents
 			if (biObject != null) {
 				String driverName = biObject.getEngine().getDriverName();
 				if (driverName != null && !"".equals(driverName)) {
+
+					// save associations among dataset and documents
 					try {
 						IEngineDriver driver = (IEngineDriver) Class.forName(driverName).newInstance();
 						ArrayList<String> datasetsAssociated = driver.getDatasetAssociated(templateContent);
@@ -544,9 +545,26 @@ public class ObjTemplateDAOHibImpl extends AbstractHibernateDAO implements IObjT
 						throw new RuntimeException("Impossible to add template [" + objTemplate.getName() + "] to document [" + objTemplate.getBiobjId()
 								+ "]; error while recovering dataset associations; check template format.");
 					}
+
+					// save associations between functions and documents
+					try {
+						IEngineDriver driver = (IEngineDriver) Class.forName(driverName).newInstance();
+						ArrayList<Integer> functionsAssociated = driver.getFunctionsAssociated(templateContent);
+						IBIObjFunctionDAO biObjFunctionDAO = DAOFactory.getBIObjFunctionDAO();
+						if (functionsAssociated != null && !functionsAssociated.isEmpty()) {
+							biObjFunctionDAO.updateObjectFunctions(biObject, functionsAssociated, aSession);
+						} else {
+							logger.debug("No function associated to template");
+							biObjFunctionDAO.eraseBIObjFunctionByObjectId(biObject.getId(), aSession);
+						}
+					} catch (Exception e) {
+						logger.error("Error while inserting function dependencies; check template format", e);
+						throw new RuntimeException("Impossible to add template [" + objTemplate.getName() + "] to document [" + objTemplate.getBiobjId()
+								+ "]; error while recovering functions associations; check template format.");
+					}
 				}
 			} else {
-				logger.debug("dataset associations not inserted because object was not passed");
+				logger.debug("dataset associations and function associations not inserted because object was not passed");
 			}
 
 			tx.commit();

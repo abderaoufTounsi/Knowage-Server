@@ -87,6 +87,7 @@ import it.eng.spagobi.tools.dataset.utils.DataSetUtilities;
 import it.eng.spagobi.tools.scheduler.bo.Trigger;
 import it.eng.spagobi.tools.scheduler.dao.ISchedulerDAO;
 import it.eng.spagobi.utilities.assertion.Assert;
+import it.eng.spagobi.utilities.exceptions.ActionNotPermittedException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIRestServiceException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIRuntimeException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIServiceException;
@@ -101,10 +102,14 @@ public class DataSetResource extends AbstractDataSetResource {
 
 	static protected Logger logger = Logger.getLogger(DataSetResource.class);
 
+	/**
+	 * @deprecated Use {@link it.eng.spagobi.api.v3.DataSetResource#getDataSets(String, List)} TODO : Delete
+	 */
 	@GET
 	@Path("/")
 	@Produces(MediaType.APPLICATION_JSON)
 	@UserConstraint(functionalities = { SpagoBIConstants.SELF_SERVICE_DATASET_MANAGEMENT })
+	@Deprecated
 	public String getDataSets(@QueryParam("typeDoc") String typeDoc, @QueryParam("callback") String callback, @QueryParam("ids") String ids) {
 		logger.debug("IN");
 
@@ -203,7 +208,10 @@ public class DataSetResource extends AbstractDataSetResource {
 	 *
 	 * @author Danilo Ristovski (danristo, danilo.ristovski@mht.net)
 	 * @author Nikola Simovic (nsimovic, nikola.simovic@mht.net)
+	 * @deprecated Use {@link it.eng.spagobi.api.v3.DataSetResource#getDataSetsPaginationOption(String, String, int, int, JSONObject, JSONObject, List)} TODO
+	 *             ML-DATASOURCE-V3 Delete
 	 */
+	@Deprecated
 	@GET
 	@Path("/pagopt/")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -507,11 +515,19 @@ public class DataSetResource extends AbstractDataSetResource {
 		try {
 			drivers = JSONObjectDeserializator.getHashMapFromJSONObject(driversJson);
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.debug("Cannot read dataset drivers", e);
+			throw new SpagoBIRuntimeException("Cannot read dataset drivers", e);
 		}
 
 		IDataSet dataSet = getDataSetDAO().loadDataSetById(id);
 
+		try {
+			new DatasetManagementAPI(getUserProfile()).canLoadData(dataSet);
+		} catch (ActionNotPermittedException e) {
+			logger.error("User " + getUserProfile().getUserId() + " cannot export the dataset with label " + dataSet.getLabel());
+			throw new SpagoBIRestServiceException(e.getI18NCode(), buildLocaleFromSession(),
+					"User " + getUserProfile().getUserId() + " cannot export the dataset with label " + dataSet.getLabel(), e, "MessageFiles.messages");
+		}
 		dataSet.setDrivers(drivers);
 		dataSet.setParamsMap(parameters);
 
@@ -661,6 +677,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		}
 	}
 
+	/**
+	 * @deprecated {@link it.eng.spagobi.api.v3.DataSetResource#getEnterpriseDataSet(String)} TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	@GET
 	@Path("/enterprise")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -677,6 +697,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		}
 	}
 
+	/**
+	 * @deprecated {@link it.eng.spagobi.api.v3.DataSetResource#getOwnedDataSet(String)} TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	@GET
 	@Path("/owned")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -693,6 +717,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		}
 	}
 
+	/**
+	 * @deprecated {@link it.eng.spagobi.api.v3.DataSetResource#getSharedDataSet(String)} TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	@GET
 	@Path("/shared")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -709,6 +737,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		}
 	}
 
+	/**
+	 * @deprecated {@link it.eng.spagobi.api.v3.DataSetResource#getUncertifiedDataSet(String)} TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	@GET
 	@Path("/uncertified")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -728,7 +760,9 @@ public class DataSetResource extends AbstractDataSetResource {
 	/**
 	 * @param typeDoc
 	 * @return List of Datasets that Final User can see. All DataSet Tab in Workspace.
+	 * @deprecated {@link it.eng.spagobi.api.v3.DataSetResource#getMyDataDataSet(String)} TODO ML-DATASOURCE-V3 Delete
 	 */
+	@Deprecated
 	@GET
 	@Path("/mydata")
 	@Produces(MediaType.APPLICATION_JSON)
@@ -1004,7 +1038,7 @@ public class DataSetResource extends AbstractDataSetResource {
 
 	protected String serializeDataSets(List<IDataSet> dataSets, String typeDocWizard) {
 		try {
-			JSONArray datasetsJSONArray = (JSONArray) SerializerFactory.getSerializer("application/json").serialize(dataSets, null);
+			JSONArray datasetsJSONArray = (JSONArray) SerializerFactory.getSerializer("application/json").serialize(dataSets, buildLocaleFromSession());
 			JSONArray datasetsJSONReturn = putActions(getUserProfile(), datasetsJSONArray, typeDocWizard);
 			JSONObject resultJSON = new JSONObject();
 			resultJSON.put("root", datasetsJSONReturn);
@@ -1159,6 +1193,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		return labelsJSON.toString();
 	}
 
+	/**
+	 * @deprecated TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	protected List<IDataSet> getListOfGenericDatasets(IDataSetDAO dsDao, Integer start, Integer limit, JSONObject filters, JSONObject ordering,
 			List<Integer> tags) throws JSONException, EMFUserError {
 		logger.debug("IN");
@@ -1185,6 +1223,10 @@ public class DataSetResource extends AbstractDataSetResource {
 		return items;
 	}
 
+	/**
+	 * @deprecated TODO ML-DATASOURCE-V3 Delete
+	 */
+	@Deprecated
 	private String getCommonQuery(JSONObject ordering) throws JSONException {
 		logger.debug("IN");
 		StringBuffer sb = new StringBuffer("from SbiDataSet h where h.active = true ");

@@ -79,7 +79,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			return false;
 		}
-		
+
 		function returnCrossIcon(){
 			if($scope.interaction.icon) return $scope.interaction.icon;
 			if($scope.interaction.links){
@@ -88,7 +88,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			}
 		}
-		
+
 		var _rowHeight;
 		if(!$scope.ngModel.settings){
 			$scope.ngModel.settings = cockpitModule_defaultTheme.table.settings;
@@ -114,7 +114,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			var dataset = cockpitModule_datasetServices.getAvaiableDatasetById($scope.ngModel.dataset.dsId);
 			var columnGroups = {};
 			if($scope.ngModel.settings.indexColumn){
-				columns.push({headerName:"",field:"",cellRenderer:indexCellRenderer,sortable:false,filter:false,width: 50,suppressSizeToFit:true, tooltipValueGetter: false});
+				columns.push({headerName:"",field:"",cellRenderer:indexCellRenderer,sortable:false,filter:false,width: 50,suppressSizeToFit:true, tooltipValueGetter: false, pinned:'left'});
 			}
 			for(var c in $scope.ngModel.content.columnSelectedOfDataset){
 				for(var f in fields){
@@ -125,11 +125,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 								"field":fields[f].name,"measure":$scope.ngModel.content.columnSelectedOfDataset[c].fieldType};
 						tempCol.headerTooltip = $scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias;
 						tempCol.pinned = $scope.ngModel.content.columnSelectedOfDataset[c].pinned;
-						
+
 						if ($scope.ngModel.content.columnSelectedOfDataset[c].isCalculated){
 							tempCol.isCalculated = $scope.ngModel.content.columnSelectedOfDataset[c].isCalculated;
 						}
-						
+
 						if(sortedDefault && sortedDefault[0].colId == fields[f].name){
 							tempCol.sort = sortedDefault[0].sort;
 						}
@@ -137,14 +137,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						//ROWSPAN MANAGEMENT
 						if($scope.ngModel.content.columnSelectedOfDataset[c].rowSpan){
 							tempCol.rowSpanDimensions = {};
+							var previousValue;
+							var previousIndex;
 							for(var r in $scope.tempRows){
-								if(!tempCol.rowSpanDimensions[$scope.tempRows[r][fields[f].name]]) tempCol.rowSpanDimensions[$scope.tempRows[r][fields[f].name]] = {value: 1};
-								else tempCol.rowSpanDimensions[$scope.tempRows[r][fields[f].name]].value ++;
+								if(previousValue != $scope.tempRows[r][fields[f].name]){
+									previousValue = $scope.tempRows[r][fields[f].name];
+									previousIndex = r;
+									$scope.tempRows[r].span = 1;
+								}else {
+									$scope.tempRows[previousIndex].span ++;
+								}
 							}
 							tempCol.rowSpan = RowSpanCalculator;
 							tempCol.cellClassRules = {
 								'cell-span': function(params) {
-									return params.colDef.rowSpanDimensions && params.colDef.rowSpanDimensions[params.value] && params.colDef.rowSpanDimensions[params.value].value > 1
+									return $scope.tempRows[params.rowIndex].span > 1
 								}
 					        }
 						}
@@ -231,28 +238,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							tempCol.visType = $scope.ngModel.content.columnSelectedOfDataset[c].visType;
 							if($scope.ngModel.content.columnSelectedOfDataset[c].visType.toLowerCase() == 'chart' || $scope.ngModel.content.columnSelectedOfDataset[c].visType.toLowerCase() == 'text & chart') tempCol.chart = $scope.ngModel.content.columnSelectedOfDataset[c].barchart;
 						}
-						
+
 						tempCol.headerName = $filter('i18n')(tempCol.headerName);
 						tempCol.headerTooltip = $filter('i18n')(tempCol.headerTooltip);
 
 						//Columns group managament
-						if($scope.ngModel.content.columnSelectedOfDataset[c].group && $scope.ngModel.groups && $scope.ngModel.groups.length > 0) {
-							$scope.ngModel.groups.forEach(function(group){
-								var groupKey = group.id ? group.id : group.name;
-								if(groupKey == $scope.ngModel.content.columnSelectedOfDataset[c].group){
-									if(typeof columnGroups[groupKey] != 'undefined') {
-										columns[columnGroups[groupKey]].children.push(tempCol);
-									}else {
-										columnGroups[groupKey] = columns.length;
-										columns.push({
-									        headerName: group.name,
-									        headerGroupComponent: CustomHeaderGroupRenderer,
-									        headerParams: group,
-									        children: [tempCol]
-									    });
-									}
-								}
-							})
+						var group = getColumnGroup($scope.ngModel.content.columnSelectedOfDataset[c]);
+						if(group) {
+							if(typeof columnGroups[group.id] != 'undefined') {
+								columns[columnGroups[group.id]].children.push(tempCol);
+							}else {
+								columnGroups[group.id] = columns.length;
+								columns.push({
+							        headerName: group.name,
+							        headerGroupComponent: CustomHeaderGroupRenderer,
+							        headerParams: group,
+							        children: [tempCol]
+							    });
+							}
 						}
 						else columns.push(tempCol);
 						break;
@@ -284,6 +287,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			for(var k in $scope.metadata.fields){
 				if($scope.metadata.fields[k].dataIndex && $scope.metadata.fields[k].dataIndex == colNum) return $scope.metadata.fields[k].header;
 			}
+		}
+
+		function getColumnGroup(col){
+			if(col.group && $scope.ngModel.groups && $scope.ngModel.groups.length > 0){
+				for(var k in $scope.ngModel.groups){
+					var groupKey = $scope.ngModel.groups[k].id ? $scope.ngModel.groups[k].id : $scope.ngModel.groups[k].name;
+					if(groupKey == col.group){
+						return $scope.ngModel.groups[k];
+					}
+				}
+			}else return false;
 		}
 
 		//CUSTOM HEADER TEMPLATE RENDERER
@@ -320,11 +334,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		    	this.mySortAscButton = this.eGui.querySelector(".ag-cell-label-container");
 			    this.eSortDownButton = this.eGui.querySelector(".ag-sort-descending-icon");
 			    this.eSortUpButton = this.eGui.querySelector(".ag-sort-ascending-icon");
-	
+
 			    this.onSortChangedListener = this.onSortChanged.bind(this);
 		        this.agParams.column.addEventListener('sortChanged', this.onSortChangedListener);
 		        this.onSortChanged();
-	
+
 			    this.mySortAscButton.addEventListener('click', function(event) {
 			    	if(params.column.sort == '') params.setSort('asc');
 			    	else params.setSort(params.column.sort == 'asc' ? 'desc' : 'asc');
@@ -468,11 +482,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		};
 
 		cellRenderer.prototype.refresh = function(params) {
-			if($scope.bulkSelection){
+			if($scope.bulkSelection || $scope.resetSelections){
 				this.manageMultiSelection(params);
 			}
 		}
-		
+
 		cellRenderer.prototype.manageMultiSelection = function(params) {
 			params.eParentOfValue.style.backgroundColor = (params.colDef.style && params.colDef.style['background-color']) || 'inherit';
 			if($scope.interaction && ($scope.interaction.crossType == 'allRow' || $scope.interaction.interactionType == 'allRow')){
@@ -534,7 +548,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	            			var tempValue = $filter('number')(params.value,0);
 	            		}else var tempValue = params.valueFormatted || params.value;
 	            		if((!params.style || !params.style['pinnedOnly']) && title) this.eGui.innerHTML ='<b style="margin-right: 4px;">'+title+'</b>';
+	            		if(params.colDef.cellStyle && params.colDef.cellStyle.prefix) this.eGui.innerHTML += params.colDef.cellStyle.prefix;
 	            		this.eGui.innerHTML += tempValue;
+	            		if(params.colDef.cellStyle && params.colDef.cellStyle.suffix) this.eGui.innerHTML += params.colDef.cellStyle.suffix;
             		}
 	    		}
             }
@@ -543,12 +559,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		SummaryRowRenderer.prototype.getGui = function() {
 		    return this.eGui;
 		};
-		
+
 		function indexCellRenderer(params) {
 			return (($scope.ngModel.settings.page - 1) * $scope.ngModel.settings.pagination.itemsNumber) + (params.rowIndex + 1);
 		}
 
 		function TooltipValue(params) {
+			if (params.colDef.style && params.colDef.style.hideSummary && params.node.rowPinned) {
+				return ""
+			}
 			if(params.colDef.style && params.colDef.style.tooltip) {
 				var tempValue = params.valueFormatted || params.value;
 				if(typeof params.colDef.style.tooltip.precision != 'undefined'){
@@ -560,9 +579,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 
 		function RowSpanCalculator(params) {
-			if(params.colDef.rowSpanDimensions && params.colDef.rowSpanDimensions[params.data[params.colDef.field]] && !params.colDef.rowSpanDimensions[params.data[params.colDef.field]].disabled){
-				params.colDef.rowSpanDimensions[params.data[params.colDef.field]].disabled = true;
-				return params.colDef.rowSpanDimensions[params.data[params.colDef.field]].value;
+			if(params.data.span > 1){
+				return params.data.span;
 			}else return 1;
         };
 
@@ -630,7 +648,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					if($scope.ngModel.settings.norows.hide) $scope.advancedTableGrid.api.hideOverlay();
 					if($scope.ngModel.settings.norows.message) $scope.advancedTableGrid.localeText.noRowsToShow = $scope.ngModel.settings.norows.message;
 				}
-				if(!$scope.ngModel.settings.pagination.enabled) $scope.advancedTableGrid.api.paginationSetPageSize($scope.totalRows);
 				if($scope.ngModel.settings.pagination.enabled && $scope.ngModel.settings.pagination.frontEnd && $scope.ngModel.settings.pagination.itemsNumber) $scope.advancedTableGrid.api.paginationSetPageSize($scope.ngModel.settings.pagination.itemsNumber);
 				resizeColumns();
 				$scope.hideWidgetSpinner();
@@ -662,6 +679,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				onCellClicked: onCellClicked,
 				defaultColDef: {
 					resizable: cockpitModule_properties.EDIT_MODE,
+					suppressMovable: true,
 					sortable: true
 				},
 				components: {
@@ -684,7 +702,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 
 		if($scope.ngModel.settings.norows && $scope.ngModel.settings.norows.message) $scope.advancedTableGrid.localeText.noRowsToShow = $filter('i18n')($scope.ngModel.settings.norows.message);
-		
+
 		function getRowHeight(params) {
 			if(_rowHeight > 0) return _rowHeight;
 			else return 28;
@@ -908,7 +926,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 		$scope.cancelBulkSelection = function(){
 			$scope.bulkSelection = false;
+			$scope.resetSelections = true;
 			$scope.advancedTableGrid.api.refreshCells({columns:$scope.columnsNameArray,force:true});
+			$timeout(function(){$scope.resetSelections = false},1000)
+
 		}
 
 		$scope.$watchCollection('ngModel.settings.pagination',function(newValue,oldValue){

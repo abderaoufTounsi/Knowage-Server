@@ -43,13 +43,14 @@ import com.fasterxml.jackson.databind.node.TextNode;
  * @author Andrea Gioia (andrea.gioia@eng.it)
  *
  */
-public class JSONObject extends AbstractJSONObject implements Serializable {
+public class JSONObject extends AbstractJSONObject implements ICommonObject, Serializable {
 
 	private static final long serialVersionUID = -6237508419256769078L;
 
 	private ObjectNode rootNode;
 
-	ObjectNode getWrappedObject() {
+	@Override
+	public ObjectNode getWrappedObject() {
 		return this.rootNode;
 	}
 
@@ -71,8 +72,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 		/**
 		 * A Null object is equal to the null value and to itself.
 		 *
-		 * @param object
-		 *            An object to test for nullness.
+		 * @param object An object to test for nullness.
 		 * @return true if the object parameter is the JSONObject.NULL object or null.
 		 */
 		@Override
@@ -102,20 +102,20 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 */
 	public JSONObject() {
 		ObjectMapper mapper = JacksonMapper.getMapper();
+//		mapper.setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
 		rootNode = mapper.createObjectNode(); // will be of type ObjectNode
 	}
 
 	/**
 	 * Construct a JSONObject from a source JSON text string. This is the most commonly used JSONObject constructor.
 	 *
-	 * @param source
-	 *            A string beginning with <code>{</code>&nbsp;<small>(left brace)</small> and ending with <code>}</code> &nbsp;<small>(right brace)</small>.
-	 * @exception JSONException
-	 *                If there is a syntax error in the source string or a duplicated key.
+	 * @param source A string beginning with <code>{</code>&nbsp;<small>(left brace)</small> and ending with <code>}</code> &nbsp;<small>(right brace)</small>.
+	 * @exception JSONException If there is a syntax error in the source string or a duplicated key.
 	 */
 	public JSONObject(String source) throws JSONException {
 		try {
 			ObjectMapper mapper = JacksonMapper.getMapper();
+//			mapper.setNodeFactory(JsonNodeFactory.withExactBigDecimals(true));
 			// Source can be a File, URL, InputStream etc
 			rootNode = mapper.readValue(source, ObjectNode.class);
 		} catch (Throwable t) {
@@ -142,8 +142,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * For example, if an object has a method named <code>"getName"</code>, and if the result of calling <code>object.getName()</code> is
 	 * <code>"Larry Fine"</code>, then the JSONObject will contain <code>"name": "Larry Fine"</code>.
 	 *
-	 * @param bean
-	 *            An object that has getter methods that should be used to make a JSONObject.
+	 * @param bean An object that has getter methods that should be used to make a JSONObject.
 	 */
 	public JSONObject(Object bean) {
 		this();
@@ -159,8 +158,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * wrap it in a JSONObject. If it is a standard property (Double, String, et al) then it is already wrapped. Otherwise, if it comes from one of the java
 	 * packages, turn it into a string. And if it doesn't, try to wrap it in a JSONObject. If the wrapping fails, then null is returned.
 	 *
-	 * @param object
-	 *            The object to wrap
+	 * @param object The object to wrap
 	 * @return The wrapped value
 	 * @throws JSONException
 	 */
@@ -215,13 +213,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * If only one value is accumulated that is not a JSONArray, then the result will be the same as using put. But if multiple values are accumulated, then the
 	 * result will be like append.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            An object to be accumulated under the key.
+	 * @param key   A key string.
+	 * @param value An object to be accumulated under the key.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the value is an invalid number or if the key is null.
+	 * @throws JSONException If the value is an invalid number or if the key is null.
 	 */
 	public JSONObject accumulate(String key, Object value) throws JSONException {
 		Object object = this.opt(key);
@@ -280,13 +275,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * Append values to the array under a key. If the key does not exist in the JSONObject, then the key is put in the JSONObject with its value being a
 	 * JSONArray containing the value parameter. If the key was already associated with a JSONArray, then the value parameter is appended to it.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            An object to be accumulated under the key.
+	 * @param key   A key string.
+	 * @param value An object to be accumulated under the key.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the key is null or if the current value associated with the key is not a JSONArray.
+	 * @throws JSONException If the key is null or if the current value associated with the key is not a JSONArray.
 	 */
 	public JSONObject append(String key, Object value) throws JSONException {
 		Object object = this.opt(key);
@@ -303,8 +295,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Determine if the value associated with the key is null or if there is no value.
 	 *
-	 * @param key
-	 *            A key string.
+	 * @param key A key string.
 	 * @return true if there is no value associated with the key or if the value is the JSONObject.NULL object.
 	 */
 	public boolean isNull(String key) {
@@ -353,8 +344,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Determine if the JSONObject contains a specific key.
 	 *
-	 * @param key
-	 *            A key string.
+	 * @param key A key string.
 	 * @return true if the key exists in the JSONObject.
 	 */
 	public boolean has(String key) {
@@ -364,8 +354,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Get an optional value associated with a key.
 	 *
-	 * @param key
-	 *            A key string.
+	 * @param key A key string.
 	 * @return An object which is the value, or null if there is no value.
 	 */
 	@Override
@@ -416,10 +405,8 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Get an optional string associated with a key. It returns the defaultValue if there is no such key.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param defaultValue
-	 *            The default.
+	 * @param key          A key string.
+	 * @param defaultValue The default.
 	 * @return A string which is the value.
 	 */
 	@Override
@@ -431,10 +418,8 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/value pair in the JSONObject, where the value will be a JSONArray which is produced from a Collection.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            A Collection value.
+	 * @param key   A key string.
+	 * @param value A Collection value.
 	 * @return this.
 	 * @throws JSONException
 	 */
@@ -446,13 +431,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/double pair in the JSONObject.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            A double which is the value.
+	 * @param key   A key string.
+	 * @param value A double which is the value.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the key is null or if the number is invalid.
+	 * @throws JSONException If the key is null or if the number is invalid.
 	 */
 	public JSONObject put(String key, double value) throws JSONException {
 		this.put(key, new Double(value));
@@ -462,13 +444,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/int pair in the JSONObject.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            An int which is the value.
+	 * @param key   A key string.
+	 * @param value An int which is the value.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the key is null.
+	 * @throws JSONException If the key is null.
 	 */
 	public JSONObject put(String key, int value) throws JSONException {
 		this.put(key, new Integer(value));
@@ -478,13 +457,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/long pair in the JSONObject.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            A long which is the value.
+	 * @param key   A key string.
+	 * @param value A long which is the value.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the key is null.
+	 * @throws JSONException If the key is null.
 	 */
 	public JSONObject put(String key, long value) throws JSONException {
 		this.put(key, new Long(value));
@@ -494,10 +470,8 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/value pair in the JSONObject, where the value will be a JSONObject which is produced from a Map.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            A Map value.
+	 * @param key   A key string.
+	 * @param value A Map value.
 	 * @return this.
 	 * @throws JSONException
 	 */
@@ -507,56 +481,50 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	}
 
 	/**
-	 * Put a key/value pair in the JSONObject. If the value is null, then the key will be removed from the JSONObject if it is present.
+	 * Put a key/value pair in the JSONObject. If the value is null, then the key will NOT be removed from the JSONObject if it is present.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            An object which is the value. It should be of one of these types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the
-	 *            JSONObject.NULL object.
+	 * @param key   A key string.
+	 * @param value An object which is the value. It should be of one of these types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the
+	 *              JSONObject.NULL object.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the value is non-finite number or if the key is null.
+	 * @throws JSONException If the value is non-finite number or if the key is null.
 	 */
 	public JSONObject put(String key, Object value) throws JSONException {
 		if (key == null) {
 			throw new JSONException("Null key");
 		}
-		if (value != null) {
-			Object wrappedValue = JacksonWrapper.wrap(value);
-			if (wrappedValue instanceof Byte) {
-				rootNode.put(key, (Byte) wrappedValue);
-			} else if (wrappedValue instanceof Character) {
-				rootNode.put(key, (Character) wrappedValue);
-			} else if (wrappedValue instanceof Short) {
-				rootNode.put(key, (Short) wrappedValue);
-			} else if (wrappedValue instanceof Integer) {
-				rootNode.put(key, (Integer) wrappedValue);
-			} else if (wrappedValue instanceof Long) {
-				rootNode.put(key, (Long) wrappedValue);
-			} else if (wrappedValue instanceof Boolean) {
-				rootNode.put(key, (Boolean) wrappedValue);
-			} else if (wrappedValue instanceof Float) {
-				rootNode.put(key, (Float) wrappedValue);
-			} else if (wrappedValue instanceof Double) {
-				rootNode.put(key, (Double) wrappedValue);
-			} else if (wrappedValue instanceof BigDecimal) {
-				rootNode.put(key, (BigDecimal) wrappedValue);
-			} else if (wrappedValue instanceof BigInteger) {
-				rootNode.put(key, (BigInteger) wrappedValue);
-			} else if (wrappedValue instanceof String) {
-				rootNode.put(key, (String) wrappedValue);
-			} else if (wrappedValue instanceof JSONObject) {
-				ObjectNode node = ((JSONObject) wrappedValue).getWrappedObject();
-				rootNode.put(key, node);
-			} else if (wrappedValue instanceof JSONArray) {
-				ArrayNode node = ((JSONArray) wrappedValue).getWrappedObject();
-				rootNode.put(key, node);
-			} else if (wrappedValue == NullNode.instance) {
-				rootNode.put(key, NullNode.instance);
-			}
-		} else {
-			this.remove(key);
+		
+		Object wrappedValue = JacksonWrapper.wrap(value);
+		if (wrappedValue instanceof Byte) {
+			rootNode.put(key, (Byte) wrappedValue);
+		} else if (wrappedValue instanceof Character) {
+			rootNode.put(key, (Character) wrappedValue);
+		} else if (wrappedValue instanceof Short) {
+			rootNode.put(key, (Short) wrappedValue);
+		} else if (wrappedValue instanceof Integer) {
+			rootNode.put(key, (Integer) wrappedValue);
+		} else if (wrappedValue instanceof Long) {
+			rootNode.put(key, (Long) wrappedValue);
+		} else if (wrappedValue instanceof Boolean) {
+			rootNode.put(key, (Boolean) wrappedValue);
+		} else if (wrappedValue instanceof Float) {
+			rootNode.put(key, (Float) wrappedValue);
+		} else if (wrappedValue instanceof Double) {
+			rootNode.put(key, (Double) wrappedValue);
+		} else if (wrappedValue instanceof BigDecimal) {
+			rootNode.put(key, (BigDecimal) wrappedValue);
+		} else if (wrappedValue instanceof BigInteger) {
+			rootNode.put(key, (BigInteger) wrappedValue);
+		} else if (wrappedValue instanceof String) {
+			rootNode.put(key, (String) wrappedValue);
+		} else if (wrappedValue instanceof JSONObject) {
+			ObjectNode node = ((JSONObject) wrappedValue).getWrappedObject();
+			rootNode.put(key, node);
+		} else if (wrappedValue instanceof JSONArray) {
+			ArrayNode node = ((JSONArray) wrappedValue).getWrappedObject();
+			rootNode.put(key, node);
+		} else if (wrappedValue == NullNode.instance) {
+			rootNode.put(key, NullNode.instance);
 		}
 
 		return this;
@@ -568,8 +536,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * @param key
 	 * @param value
 	 * @return his.
-	 * @throws JSONException
-	 *             if the key is a duplicate
+	 * @throws JSONException if the key is a duplicate
 	 */
 	public JSONObject putOnce(String key, Object value) throws JSONException {
 		if (key != null && value != null) {
@@ -584,14 +551,11 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Put a key/value pair in the JSONObject, but only if the key and the value are both non-null.
 	 *
-	 * @param key
-	 *            A key string.
-	 * @param value
-	 *            An object which is the value. It should be of one of these types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the
-	 *            JSONObject.NULL object.
+	 * @param key   A key string.
+	 * @param value An object which is the value. It should be of one of these types: Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or the
+	 *              JSONObject.NULL object.
 	 * @return this.
-	 * @throws JSONException
-	 *             If the value is a non-finite number.
+	 * @throws JSONException If the value is a non-finite number.
 	 */
 	public JSONObject putOpt(String key, Object value) throws JSONException {
 		if (key != null && value != null) {
@@ -603,8 +567,7 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	/**
 	 * Remove a name and its value, if present.
 	 *
-	 * @param key
-	 *            The name to be removed.
+	 * @param key The name to be removed.
 	 * @return The value that was associated with the name, or null if there was no value.
 	 */
 	public Object remove(String key) {
@@ -616,12 +579,10 @@ public class JSONObject extends AbstractJSONObject implements Serializable {
 	 * <p>
 	 * Warning: This method assumes that the data structure is acyclical.
 	 *
-	 * @param indentFactor
-	 *            The number of spaces to add to each level of indentation.
+	 * @param indentFactor The number of spaces to add to each level of indentation.
 	 * @return a printable, displayable, portable, transmittable representation of the object, beginning with <code>{</code>&nbsp;<small>(left brace)</small>
 	 *         and ending with <code>}</code>&nbsp;<small>(right brace)</small>.
-	 * @throws JSONException
-	 *             If the object contains an invalid number.
+	 * @throws JSONException If the object contains an invalid number.
 	 */
 	@Override
 	public String toString(int indentFactor) throws JSONException {

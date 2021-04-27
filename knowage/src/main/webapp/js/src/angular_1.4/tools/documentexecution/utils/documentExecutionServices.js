@@ -132,7 +132,7 @@
 				}
 
 
-				for(var parName in parameters) {
+				for(let parName in parameters) {
 					if(!parName.endsWith("_field_visible_description")&& parametersDetail[parName]){
 						// if(!field.isTransient)
 						var parValue = parameters[parName];
@@ -298,10 +298,11 @@
 							}
 						}
 
-						for(var i = 0; i < postForm.elements.length; i++) {
+						// removing unused form elements; we loop backwards, so deletion of items does not affect the loop iterations
+						for (var i = postForm.elements.length - 1; i >= 0; i--) {
 							var postFormElement = postForm.elements[i].id.replace("postForm_", "");
 							if(!postObject.params.hasOwnProperty(postFormElement)) {
-								postForm.elements[i].value = "";
+								postForm.removeChild(postForm.elements[i]);
 							}
 						}
 
@@ -830,8 +831,9 @@
 				preserveScope : true,
 				templateUrl : sbiModule_config.dynamicResourcesBasePath + '/angular_1.4/tools/glossary/commons/templates/dialog-new-parameters-document-execution.html',
 				controllerAs : 'vpCtrl',
-				controller : function($mdDialog) {
+				controller : function($mdDialog, kn_regex) {
 					var vpctl = this;
+					vpctl.regex = kn_regex;
 					vpctl.headerTitle = sbiModule_translate.load("sbi.execution.executionpage.toolbar.saveas");
 					vpctl.name = sbiModule_translate.load("sbi.execution.viewpoints.name");
 					vpctl.description = sbiModule_translate.load("sbi.execution.viewpoints.description");
@@ -915,8 +917,19 @@
 		};
 
 		this.isExecuteParameterDisabled = function() {
-			for(var i = 0; i < execProperties.parametersData.documentParameters.length; i++) {
-				if(execProperties.parametersData.documentParameters[i].mandatory && (typeof execProperties.parametersData.documentParameters[i].parameterValue === 'undefined' || execProperties.parametersData.documentParameters[i].parameterValue == '')){
+			var docParams = execProperties.parametersData.documentParameters;
+			for(var i = 0; i < docParams.length; i++) {
+				var currParam = docParams[i];
+				var currParamValue = currParam.parameterValue;
+				if(currParam.mandatory
+						&& (
+								typeof currParamValue === 'undefined'
+								|| (typeof currParamValue === 'string' && currParamValue.length == 0)
+								|| (typeof currParamValue === 'number' && isNaN(currParamValue) && currParamValue !== 0)
+								|| (Array.isArray(currParamValue) && currParamValue.length == 0)
+								|| currParamValue == null
+							)
+						) {
 					return true;
 				}
 			}

@@ -17,6 +17,7 @@
  */
 package it.eng.spagobi.services.content.service;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -49,7 +50,6 @@ import it.eng.spagobi.engines.drivers.kpi.KpiDriver;
 import it.eng.spagobi.services.content.bo.Content;
 import it.eng.spagobi.services.security.exceptions.SecurityException;
 import it.eng.spagobi.utilities.engines.EngineStartServletIOManager;
-import sun.misc.BASE64Encoder;
 
 public class ContentServiceImplSupplier {
 	static private Logger logger = Logger.getLogger(ContentServiceImplSupplier.class);
@@ -66,7 +66,7 @@ public class ContentServiceImplSupplier {
 	 * @throws EMFUserError      the EMF user error
 	 * @throws EMFInternalError  the EMF internal error
 	 */
-	public Content readTemplate(String user, String document, HashMap parameters) throws SecurityException, EMFUserError, EMFInternalError {
+	public Content readTemplate(String user, String document, Map<String, ?> parameters) throws SecurityException, EMFUserError, EMFInternalError {
 		Content content;
 		BIObject biobj;
 
@@ -143,9 +143,9 @@ public class ContentServiceImplSupplier {
 				}
 			}
 
-			BASE64Encoder bASE64Encoder = new BASE64Encoder();
+			Base64.Encoder bASE64Encoder = Base64.getEncoder();
 			if (template != null) {
-				content.setContent(bASE64Encoder.encode(template));
+				content.setContent(bASE64Encoder.encodeToString(template));
 			} else {
 				content.setContent("");
 			}
@@ -180,7 +180,7 @@ public class ContentServiceImplSupplier {
 	 * @throws EMFUserError      the EMF user error
 	 * @throws EMFInternalError  the EMF internal error
 	 */
-	public Content readTemplateByLabel(String user, String label, HashMap parameters) throws SecurityException, EMFUserError, EMFInternalError {
+	public Content readTemplateByLabel(String user, String label, Map<String, ?> parameters) throws SecurityException, EMFUserError, EMFInternalError {
 		Content content;
 		BIObject biobj;
 
@@ -232,8 +232,8 @@ public class ContentServiceImplSupplier {
 				}
 			}
 
-			BASE64Encoder bASE64Encoder = new BASE64Encoder();
-			content.setContent(bASE64Encoder.encode(template));
+			Base64.Encoder bASE64Encoder = Base64.getEncoder();
+			content.setContent(bASE64Encoder.encodeToString(template));
 			logger.debug("template read");
 			content.setFileName(temp.getName());
 		} catch (NumberFormatException e) {
@@ -261,7 +261,7 @@ public class ContentServiceImplSupplier {
 	 * @param parameters The execution parameters.
 	 * @return true if it is a call to retrieve a subreport
 	 */
-	private boolean isSubReportCall(BIObject biobj, HashMap parameters) {
+	private boolean isSubReportCall(BIObject biobj, Map<String, ?> parameters) {
 		logger.debug("IN");
 		try {
 			Engine engine = biobj.getEngine();
@@ -355,7 +355,7 @@ public class ContentServiceImplSupplier {
 	 * @throws EMFInternalError
 	 * @throws EMFUserError
 	 */
-	private void checkRequestCorrectness(String user, BIObject biobj, HashMap parameters) throws SecurityException, EMFInternalError, EMFUserError {
+	private void checkRequestCorrectness(String user, BIObject biobj, Map<String, ?> parameters) throws SecurityException, EMFInternalError, EMFUserError {
 		logger.debug("IN: user = [" + user + "], biobjectid = [" + biobj + "], parameters = [" + parameters + "]");
 		Monitor monitor = MonitorFactory.start("spagobi.service.ContentSupplier.checkRequestCorrectness");
 		try {

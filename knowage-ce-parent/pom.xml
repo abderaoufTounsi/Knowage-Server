@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>it.eng.knowage</groupId>
   <artifactId>knowage-ce-parent</artifactId>
-  <version>7.3.0-SNAPSHOT</version>
+  <version>8.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>knowage-ce-parent</name>
 
@@ -44,11 +44,6 @@
 		<repository>
 			<id>jaspersoft</id>
 			<url>http://jaspersoft.artifactoryonline.com/jaspersoft/jr-ce-releases</url>
-		</repository>
-		<!-- We use Public Maven Repository for SNAP (snap-repo-public) because it contains jpy, needed by knowagedataminingengine CE; this library is not available on Maven Central -->
-		<repository>
-			<id>snap-repo-public</id>
-			<url>http://nexus.senbox.net/nexus/content/repositories/releases/</url>
 		</repository>
 		<!-- We use Pentaho repository for mondrian, needed by knowagewhatifengine CE -->
 		<repository>
@@ -107,7 +102,6 @@
 		<module>../knowagesdk</module>
 		
 		<module>../knowagecommonjengine</module>
-		<module>../knowagedataminingengine</module>
 		<module>../knowagegeoreportengine</module>
 		<module>../knowagemeta</module>
 		<module>../knowageqbeengine</module>
@@ -335,4 +329,36 @@
 		</profile>
 		
 	</profiles>
+
+	<dependencyManagement>
+
+		<dependencies>
+
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi</artifactId>
+				<version>4.1.2</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.poi</groupId>
+				<artifactId>poi-ooxml</artifactId>
+				<version>4.1.2</version>
+			</dependency>
+			
+			<!-- CometD -->
+			<!-- 
+				Next version is:
+					org.cometd.java:cometd-java-server-common:x.x.x
+			 -->
+			<dependency>
+				<groupId>org.cometd.java</groupId>
+				<artifactId>cometd-java-server</artifactId>
+				<version>4.0.9</version>
+			</dependency>
+
+		</dependencies>
+
+	</dependencyManagement>
+	
 </project>

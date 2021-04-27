@@ -48,7 +48,11 @@ import it.eng.spagobi.dossier.dao.ISbiDossierActivityDAO;
 import it.eng.spagobi.engines.config.dao.IEngineDAO;
 import it.eng.spagobi.engines.config.dao.ISbiExportersDAO;
 import it.eng.spagobi.federateddataset.dao.ISbiFederationDefinitionDAO;
+import it.eng.spagobi.functions.dao.IBIObjFunctionDAO;
 import it.eng.spagobi.functions.dao.ICatalogFunctionDAO;
+import it.eng.spagobi.functions.dao.IFunctionInputColumnDAO;
+import it.eng.spagobi.functions.dao.IFunctionInputVariableDAO;
+import it.eng.spagobi.functions.dao.IFunctionOutputColumnDAO;
 import it.eng.spagobi.georeport.dao.IFeaturesProviderFileDAO;
 import it.eng.spagobi.georeport.dao.IFeaturesProviderWFSDAO;
 import it.eng.spagobi.hotlink.rememberme.dao.IRememberMeDAO;
@@ -252,7 +256,7 @@ public class DAOFactory {
 	 *
 	 * @return the obj paruse dao
 	 *
-	 * 
+	 *
 	 */
 	public static IObjParuseDAO getObjParuseDAO() throws HibernateException {
 		return (IObjParuseDAO) createDAOInstance("ObjParuseDAO");
@@ -263,7 +267,7 @@ public class DAOFactory {
 	 *
 	 * @return the obj parview dao
 	 *
-	 * 
+	 *
 	 */
 	public static IObjParviewDAO getObjParviewDAO() throws HibernateException {
 		return (IObjParviewDAO) createDAOInstance("ObjParviewDAO");
@@ -296,7 +300,7 @@ public class DAOFactory {
 	 *
 	 * @return the data source dao
 	 *
-	 * 
+	 *
 	 */
 	public static IDataSourceDAO getDataSourceDAO() {
 		return (IDataSourceDAO) createDAOInstance("DataSourceDAO");
@@ -307,7 +311,7 @@ public class DAOFactory {
 	 *
 	 * @return the data set dao
 	 *
-	 * 
+	 *
 	 */
 	public static IDataSetDAO getDataSetDAO() {
 		return (IDataSetDAO) createDAOInstance("DataSetDAO");
@@ -318,7 +322,7 @@ public class DAOFactory {
 	 *
 	 * @return the sbi data set dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiDataSetDAO getSbiDataSetDAO() {
 		return (ISbiDataSetDAO) createDAOInstance("SbiDataSetDAO");
@@ -349,7 +353,7 @@ public class DAOFactory {
 	 *
 	 * @return the bin content dao
 	 *
-	 * 
+	 *
 	 */
 	public static IBinContentDAO getBinContentDAO() {
 		return (IBinContentDAO) createDAOInstance("BinContentDAO");
@@ -360,7 +364,7 @@ public class DAOFactory {
 	 *
 	 * @return the obj template dao
 	 *
-	 * 
+	 *
 	 */
 	public static IObjTemplateDAO getObjTemplateDAO() {
 		return (IObjTemplateDAO) createDAOInstance("ObjTemplateDAO");
@@ -371,7 +375,7 @@ public class DAOFactory {
 	 *
 	 * @return the obj note dao
 	 *
-	 * 
+	 *
 	 */
 	public static IObjNoteDAO getObjNoteDAO() {
 		return (IObjNoteDAO) createDAOInstance("ObjNoteDAO");
@@ -382,7 +386,7 @@ public class DAOFactory {
 	 *
 	 * @return the sub object dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISubObjectDAO getSubObjectDAO() {
 		return (ISubObjectDAO) createDAOInstance("SubObjectDAO");
@@ -393,7 +397,7 @@ public class DAOFactory {
 	 *
 	 * @return the snapshot dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISnapshotDAO getSnapshotDAO() {
 		return (ISnapshotDAO) createDAOInstance("SnapshotDAO");
@@ -448,7 +452,7 @@ public class DAOFactory {
 	 *
 	 * @return the distribution list dao
 	 *
-	 * 
+	 *
 	 */
 	public static IDistributionListDAO getDistributionListDAO() {
 		return (IDistributionListDAO) createDAOInstance("DistributionListDAO");
@@ -459,7 +463,7 @@ public class DAOFactory {
 	 *
 	 * @return the remember me dao
 	 *
-	 * 
+	 *
 	 */
 	public static IRememberMeDAO getRememberMeDAO() {
 		return (IRememberMeDAO) createDAOInstance("RememberMeDAO");
@@ -470,7 +474,7 @@ public class DAOFactory {
 	 *
 	 * @return the menu dao
 	 *
-	 * 
+	 *
 	 */
 	public static IMenuDAO getMenuDAO() {
 		return (IMenuDAO) createDAOInstance("MenuDAO");
@@ -481,7 +485,7 @@ public class DAOFactory {
 	 *
 	 * @return the menu roles dao
 	 *
-	 * 
+	 *
 	 */
 	public static IMenuRolesDAO getMenuRolesDAO() {
 		return (IMenuRolesDAO) createDAOInstance("MenuRolesDAO");
@@ -492,7 +496,7 @@ public class DAOFactory {
 	 *
 	 * @return the bI object rating dao
 	 *
-	 * 
+	 *
 	 */
 	public static IBIObjectRating getBIObjectRatingDAO() {
 		return (IBIObjectRating) createDAOInstance("BIObjectRatingDAO");
@@ -503,7 +507,7 @@ public class DAOFactory {
 	 *
 	 * @return the KPI dao
 	 *
-	 * 
+	 *
 	 */
 	public static IKpiDAO getKpiDAO() {
 		return (IKpiDAO) createDAOInstance("KpiDAO");
@@ -664,7 +668,7 @@ public class DAOFactory {
 	 *
 	 * @return the Glossary dao
 	 *
-	 * 
+	 *
 	 */
 	public static IGlossaryDAO getGlossaryDAO() {
 		return (IGlossaryDAO) createDAOInstance("GlossaryDAO");
@@ -692,12 +696,28 @@ public class DAOFactory {
 		return (IBIObjDataSetDAO) createDAOInstance("BIObjDataSetDAO");
 	}
 
+	public static IBIObjFunctionDAO getBIObjFunctionDAO() {
+		return (IBIObjFunctionDAO) createDAOInstance("BIObjFunctionDAO");
+	}
+
+	public static IFunctionInputVariableDAO getFunctionInputVariableDAO() {
+		return (IFunctionInputVariableDAO) createDAOInstance("FunctionInputVariableDAO");
+	}
+
+	public static IFunctionOutputColumnDAO getFunctionOutputColumnDAO() {
+		return (IFunctionOutputColumnDAO) createDAOInstance("FunctionOutputColumnDAO");
+	}
+
+	public static IFunctionInputColumnDAO getFunctionInputColumnDAO() {
+		return (IFunctionInputColumnDAO) createDAOInstance("FunctionInputColumnDAO");
+	}
+
 	/**
 	 * Gets the Timespan dao.
 	 *
 	 * @return the Timespan dao
 	 *
-	 * 
+	 *
 	 */
 	public static ITimespanDAO getTimespanDAO() {
 		return (ITimespanDAO) createDAOInstance("TimespanDAO");
@@ -708,7 +728,7 @@ public class DAOFactory {
 	 *
 	 * @return the IFeaturesProviderFileDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static IFeaturesProviderFileDAO getFeaturesProviderFileDAO() {
 		return (IFeaturesProviderFileDAO) createDAOInstance("IFeaturesProviderFileDAO");
@@ -720,7 +740,7 @@ public class DAOFactory {
 	 *
 	 * @return the IFeaturesProviderWFSDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static IFeaturesProviderWFSDAO getFeaturesProviderWFSDAO() {
 		return (IFeaturesProviderWFSDAO) createDAOInstance("IFeaturesProviderWFSDAO");
@@ -731,7 +751,7 @@ public class DAOFactory {
 	 *
 	 * @return the CrossNavigationDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ICrossNavigationDAO getCrossNavigationDAO() throws HibernateException {
 		return (ICrossNavigationDAO) createDAOInstance("CrossNavigationDAO");
@@ -742,7 +762,7 @@ public class DAOFactory {
 	 *
 	 * @return the OutputParameterDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static IOutputParameterDAO getOutputParameterDAO() {
 		return (IOutputParameterDAO) createDAOInstance("OutputParameterDAO");
@@ -753,7 +773,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaSourceDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaSourceDAO getSbiMetaSourceDAO() {
 		return (ISbiMetaSourceDAO) createDAOInstance("ISbiMetaSourceDAO");
@@ -764,7 +784,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaTableDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaTableDAO getSbiMetaTableDAO() {
 		return (ISbiMetaTableDAO) createDAOInstance("ISbiMetaTableDAO");
@@ -775,7 +795,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaTableColumnDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaTableColumnDAO getSbiMetaTableColumnDAO() {
 		return (ISbiMetaTableColumnDAO) createDAOInstance("ISbiMetaTableColumnDAO");
@@ -786,7 +806,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaBCDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaBCDAO getSbiMetaBCDAO() {
 		return (ISbiMetaBCDAO) createDAOInstance("ISbiMetaBCDAO");
@@ -797,7 +817,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaBCAttributeDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaBCAttributeDAO getSbiMetaBCAttributeDAO() {
 		return (ISbiMetaBCAttributeDAO) createDAOInstance("ISbiMetaBCAttributeDAO");
@@ -808,7 +828,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiMetaJobDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiMetaJobDAO getSbiMetaJobDAO() {
 		return (ISbiMetaJobDAO) createDAOInstance("ISbiMetaJobDAO");
@@ -819,7 +839,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiDsBcDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiDsBcDAO getSbiDsBcDAO() {
 		return (ISbiDsBcDAO) createDAOInstance("ISbiDsBcDAO");
@@ -830,7 +850,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiJobSourceDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiJobSourceDAO getSbiJobSourceDAO() {
 		return (ISbiJobSourceDAO) createDAOInstance("ISbiJobSourceDAO");
@@ -841,7 +861,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiJobTableDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiJobTableDAO getSbiJobTableDAO() {
 		return (ISbiJobTableDAO) createDAOInstance("ISbiJobTableDAO");
@@ -852,7 +872,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiObjDsDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiObjDsDAO getSbiObjDsDAO() {
 		return (ISbiObjDsDAO) createDAOInstance("ISbiObjDsDAO");
@@ -863,7 +883,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiTableBcDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiTableBcDAO getSbiTableBCDAO() {
 		return (ISbiTableBcDAO) createDAOInstance("ISbiTableBcDAO");
@@ -874,7 +894,7 @@ public class DAOFactory {
 	 *
 	 * @return the SbiDsBcDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static ISbiDsBcDAO getDsBcDAO() {
 		return (ISbiDsBcDAO) createDAOInstance("ISbiDsBcDAO");
@@ -893,7 +913,7 @@ public class DAOFactory {
 	 *
 	 * @return the AlertDAO dao
 	 *
-	 * 
+	 *
 	 */
 	public static IAlertDAO getAlertDAO() {
 		return (IAlertDAO) createDAOInstance("AlertDAO");
@@ -904,7 +924,7 @@ public class DAOFactory {
 	 *
 	 * @return the CatalogFunction dao
 	 *
-	 * 
+	 *
 	 */
 	public static ICatalogFunctionDAO getCatalogFunctionDAO() {
 		return (ICatalogFunctionDAO) createDAOInstance("ICatalogFunctionDAO");

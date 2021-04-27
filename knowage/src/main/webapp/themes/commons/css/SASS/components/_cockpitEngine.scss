@@ -73,6 +73,14 @@
         .screenShottingWidget {
             transition: none;
             visibility: visible;
+            cockpit-document-widget{
+            	iframe{
+            		display: none;
+            	}
+            	.pdfExportWarning{
+            		display: flex;
+            	}
+            }
 		}
 	}
 
@@ -190,6 +198,16 @@
 			top: 8px;
 			right: 8px;
 		}
+		
+		.ol-tooltip {
+			position: absolute;
+			background-color: rgba(0,0,0,0.6);
+			color: white;
+			padding:4px;
+			font-size: .6rem;
+			border-radius:4px;
+			transform: translateY(-100%);
+		}
 
 		md-sidenav { 
 			transition: 0.2s linear all;
@@ -238,7 +256,7 @@
 		.mapWidgetLegend{
 			position:absolute;
 			display:block;
-			min-width:240px;
+			min-width:250px;
 			width:auto;
 			height:auto;
 			bottom:0;
@@ -246,6 +264,9 @@
 			background-color:white;
 			opacity:0.9;
 			border-radius:5px;
+			&.ranges{
+				min-width: 100px;
+			}
 			.legendLayerLabel{
 				font-size:.7rem;
 				font-weight:bold;
@@ -774,6 +795,7 @@
 
 	cockpit-chart-widget {
 		/* d3 binded classes for the chart widgets */
+		flex-direction: column;
 		.d3chartclass {
 			position: relative;
 			.tooltip {
@@ -781,14 +803,21 @@
 			}
 		}
 		.sonification-controls{
-			position: absolute;
-		    bottom: 10px;
+		    position: relative;
+		    bottom: 0;
+		    display: inline-flex;
+		    justify-content: space-around;
+		    align-items: center;
+		    text-align: center;
+		    height: 40px;
+		    width: 200px;
+		    padding: 0;
 		    left: 50%;
 		    transform: translateX(-50%);
 		}
 	}
 
-	cockpit-document-widget, cockpit-python-widget {
+	cockpit-python-widget {
 		.canvas-for-iframe{
 		    display: none;
 		    position: absolute;
@@ -801,6 +830,12 @@
 		      display: block;
 		    }
 	  	}
+	}
+
+	cockpit-document-widget{
+    	.pdfExportWarning{
+    		display: none;
+    	}
 	}
 
 	cockpit-selector-widget {
@@ -1374,7 +1409,7 @@
 		&.pivotTableWidget{
 			.pivotTableDesigner{
 				padding:0px;
-				min-height: calc(100% - 134px);
+				min-height: calc(100% - 56px);
 				.contentElementBox {
 					padding: 8px 4px;
 					&:first-child {
@@ -2146,7 +2181,7 @@
 							font-style:normal !important;								
 						}
 					}
-					&.data{
+					&.data, &.dataNoStandardStyle{
 						text-align: center;
 					}
 					&.partialsum{
@@ -2750,6 +2785,7 @@
 								outline: none;
 								font-weight: bold;
 								top: -1px;
+								padding: 0 1px;
 							}
 							&:hover {
 								background-color: darken($detailBackground,5%);

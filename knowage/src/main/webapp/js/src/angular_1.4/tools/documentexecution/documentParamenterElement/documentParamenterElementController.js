@@ -244,6 +244,7 @@
 		$scope.toggleRadioParameter = function(parVal ,parDesc, parameter) {
 			if(parameter.parameterDescription == undefined ) parameter.parameterDescription = "";
 			parameter.parameterDescription = parDesc;
+			$scope.resetCorrelatedParameters(parameter, false);
 		};
 
 		$scope.toggleComboParameter = function(parameter) {
@@ -254,13 +255,15 @@
 				parameter.parameterDescription ="";
 			}
 			addParameterValueDescription(parameter);
+			$scope.resetCorrelatedParameters(parameter, false);
 		}
 
 
 		$scope.popupLookupParameterDialog = function(parameter) {
 
 			$scope.execProperties.hideProgressCircular.status=false;
-			parameter.PARAMETERS=driversExecutionService.buildStringParameters($scope.execProperties.drivers);
+			var params = $scope.execProperties.drivers ? $scope.execProperties.drivers : $scope.execProperties.parametersData.documentParameters;
+			parameter.PARAMETERS=driversExecutionService.buildStringParameters(params);
 			var templateUrl = sbiModule_config.dynamicResourcesBasePath
 				+ '/angular_1.4/tools/documentexecution/templates/popupLookupParameterDialogTemplate.htm';
 
@@ -319,14 +322,15 @@
 		}
 
 		$scope.showRequiredFieldMessage = function(parameter) {
-		return (
-				parameter.mandatory
-				&& (
-						!parameter.parameterValue
-						|| (Array.isArray(parameter.parameterValue) && parameter.parameterValue.length == 0)
-						|| parameter.parameterValue == ''
-				)
-				) == true;
+			var currParamValue = parameter.parameterValue;
+			return parameter.mandatory
+					&& (
+						typeof currParamValue === 'undefined'
+						|| (typeof currParamValue === 'string' && currParamValue.length == 0)
+						|| (typeof currParamValue === 'number' && isNaN(currParamValue) && currParamValue !== 0)
+						|| (Array.isArray(currParamValue) && currParamValue.length == 0)
+						|| currParamValue == null
+					);
 		};
 
 
@@ -428,6 +432,7 @@
 						// Lov parameters NON tree
 						if(paramDialogCtrl.tempParameter.defaultValues && paramDialogCtrl.tempParameter.defaultValuesMeta) {
 							var parameterValueArray = [];
+							paramDialogCtrl.tempParameter.parameterUniqueValue = [];
 							if(paramDialogCtrl.lookoutGridOptions.api.getSelectedRows()) paramDialogCtrl.selectedTableItems = paramDialogCtrl.lookoutGridOptions.api.getSelectedRows();
 							if(paramDialogCtrl.tempParameter.multivalue) {
 
@@ -438,6 +443,7 @@
 
 									parameterValueArrayToShow.push(selectedTableItem[paramDialogCtrl.tempParameter.descriptionColumnNameMetadata.toUpperCase()]);
 									parameterValueArray.push(selectedTableItem[paramDialogCtrl.tempParameter.valueColumnNameMetadata.toUpperCase()]);
+									paramDialogCtrl.tempParameter.parameterUniqueValue.push(selectedTableItem);
 								}
 
 								if(paramDialogCtrl.tempParameter.selectionType == 'LOOKUP'){
@@ -468,7 +474,7 @@
 							driversExecutionService.setParameterValueResult(paramDialogCtrl.initialParameterState);
 						}
 
-
+						$scope.resetCorrelatedParameters(paramDialogCtrl.initialParameterState, false);
 
 						$mdDialog.hide();
 					};
@@ -648,17 +654,17 @@
 							if(paramDialogCtrl.tempParameter.parameterValue && paramDialogCtrl.tempParameter.parameterValue != null) {
 
 								var parameterValue = paramDialogCtrl.tempParameter.parameterValue;
-
+								var parameterUniqueValue = paramDialogCtrl.tempParameter.parameterUniqueValue;
 								var selectedTableItemsArray = [];
 
 								for (var i = 0; i < defaultValues.length; i++) {
 									var defaultValue = defaultValues[i];
 
 									if(isMultivalue) {
-										for (var j = 0; j < parameterValue.length; j++) {
-											var parameterValueItem = parameterValue[j];
+										for (var j = 0; j < parameterUniqueValue.length; j++) {
+											var parameterUniqueValueItem = parameterUniqueValue[j];
 
-											if(parameterValueItem == defaultValue.value) {
+											if(angular.equals(parameterUniqueValueItem, defaultValue)) {
 												selectedTableItemsArray.push(defaultValue);
 												break;
 											}
@@ -767,9 +773,57 @@
 			}
 		}
 
+		$scope.resetParameter = function(parameter, mainReset, endRecursion) {
+			// reset selected parameter
+			$scope.driversExecutionService.resetParameter(parameter, mainReset);
+			// reset also all correlated parameters
+			if (!endRecursion) {
+				$scope.resetCorrelatedParameters(parameter, mainReset);
+			}
+		}
 
+		$scope.resetCorrelatedParameters = function(parameter, mainReset) {
+			var allCorrelatedParams = getCorrelatedParameters(parameter);
+			for (var i=0; i<allCorrelatedParams.length; i++) {
+				var correlatedParam = allCorrelatedParams[i];
+				if (correlatedParam.defaultValues) correlatedParam.parameterValue = "";
+				$scope.resetParameter(correlatedParam, mainReset, true);
+			}
+		}
 
+		$scope.isArray = function(obj) {
+			return Array.isArray(obj);
+		}
 
+		$scope.isBlank = function(value) {
+			return (!value || value == '');
+		}
+
+		$scope.descriptionOf = function(value) {
+			var matches = $scope.parameter.driverDefaultValue ? $scope.parameter.driverDefaultValue.filter(function(e) { return e.value == value; }) : [];
+			if (matches.length > 0) {
+				return matches[0].description;
+			} else if(typeof value == "object" && value.hasOwnProperty("description")) {
+				return value.description;
+			} else {
+				return $scope.parameter.parameterDescription[value];
+			}
+		}
+
+		var getCorrelatedParameters = function(fatherParam) {
+			var toReturn = [];
+			var allParameters = $scope.execProperties.parametersData.documentParameters;
+			for (var i=0; i<allParameters.length; i++) {
+				var dependencies = Object.keys(allParameters[i].dependsOn);
+				for (var j=0; j<dependencies.length; j++) {
+					if (dependencies[j] == fatherParam.urlName) {
+						toReturn.push(allParameters[i]);
+						break;
+					}
+				}
+			}
+			return toReturn;
+		}
 
 
 		var testCondition = function(fieldA, condition, fieldB){

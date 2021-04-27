@@ -93,9 +93,9 @@ angular.module("customWidgetAPI",[]).service("datastore",function($filter){
 		return new datastore(newData);
 	},
 
-	datastore.prototype.filter = function(filterObject){
+	datastore.prototype.filter = function(filterObject, strict){
 		var newData = angular.copy(this.data);
-		newData.rows = $filter('filter')(newData.rows, filterObject);
+		newData.rows = $filter('filter')(newData.rows, filterObject, strict);
 		return new datastore(newData);
 	}
 
@@ -115,23 +115,16 @@ angular.module("customWidgetAPI",[]).service("datastore",function($filter){
 				if (existingPath) {
 					currentLevel = existingPath.children;
 				} else {
-					if(!(part instanceof Object)){
-						if(path.length-j==2 && path[j+1]!=undefined &&  path[j+1] instanceof Object){
-						var newPart = {
+					var newPart = {
 							name: part,
 							children: [],
 						}
-						for (var property in path[j+1]) {
-							newPart[property] = Number(path[j+1][property])
-						}
-						j++
-
-						} else {
-							var newPart = {
-								name: part,
-								children: [],
+					if(!(part instanceof Object)){
+						if(path.length-j==2 && path[j+1]!=undefined && path[j+1] instanceof Object){
+							for (var property in path[j+1]) {
+								newPart[property] = Number(path[j+1][property])
 							}
-
+							j++
 						}
 						var n =  new node(newPart);
 						currentLevel.push(n);
@@ -245,7 +238,16 @@ angular.module("customWidgetAPI",[]).service("datastore",function($filter){
 			for (var prop in measures) {
 				tree.reduce(function x(r, a) {
 					a[prop] = a[prop] || Array.isArray(a.children) && a.children.reduce(x, 0) || 0;
-					return r + a[prop];
+					if(measures[prop].toLowerCase()=='max'){
+						return getMaxValue(r, a[prop]);
+					}
+					else if(measures[prop].toLowerCase()=='min'){
+						if(r!=0) return getMinValue(r, a[prop]);
+						else return a[prop];
+					}
+					else if(measures[prop].toLowerCase()=='sum'){
+						return getSum(r, a[prop]);
+					}
 				}, 0);
 			}
 		}
@@ -258,34 +260,29 @@ angular.module("customWidgetAPI",[]).service("datastore",function($filter){
 	//	this.tree
 	}
 
-	hierarchy.prototype.getLevel = function (level){
-		level++;
+	hierarchy.prototype.getLevel = function(level){
 		var nodes = [];
-		var depth = 1;
 		for (var j=0; j<this.tree.length; j++) {
-			depth = 1;
-			if(depth!=level){ depth++
-				iterate(this.tree[j]);
-			} else{
+			var depth = 0;
+			if(level == depth){
 				nodes.push(this.tree[j]);
+			}else{
+				deeperLevel(this.tree[j],depth + 1);
 			}
+		}
 
-			function iterate(tree) {
-				var children = tree.children;
-				for (var i=0; i<children.length; i++) {
-					if(depth!=level){
-						depth++;
-						iterate(children[i] );
-					} else{
-						nodes.push(children[i]);
-						if(i==children.length-1) depth--;
-					}
+		function deeperLevel(tree,depth){
+			var children = tree.children;
+			for (var i=0; i<children.length; i++) {
+				if(depth == level){
+					nodes.push(children[i]);
+				}else{
+					deeperLevel(children[i],depth + 1);
 				}
 			}
-
 		}
-		return nodes;
 
+		return nodes;
 	}
 
 	node.prototype.getValue = function (measure) {

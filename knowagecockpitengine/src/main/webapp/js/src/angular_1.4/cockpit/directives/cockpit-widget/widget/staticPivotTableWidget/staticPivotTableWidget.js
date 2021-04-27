@@ -868,9 +868,6 @@ function cockpitStaticPivotTableWidgetControllerFunction(
 					}
 					//apply styles on data (values)
 					dataColumnList=row.querySelectorAll(".data");
-					if(dataColumnList.length == 0){
-						dataColumnList=row.querySelectorAll(".dataNoStandardStyle"); //personal user settings
-					}
 					if(dataColumnList.length>0){
 						// alternateRow only if there are not thresholds
 						if ($scope.ngModel.content.style.showAlternateRows
@@ -888,6 +885,12 @@ function cockpitStaticPivotTableWidgetControllerFunction(
 						$scope.applyBorderStyle(dataColumnList);
 					}else{
 						tmpOddRow=false;
+					}
+
+					dataNoStandardColumnList=row.querySelectorAll(".dataNoStandardStyle"); //personal user settings
+					if(dataNoStandardColumnList.length>0){
+						//border cell style
+						$scope.applyBorderStyle(dataNoStandardColumnList);
 					}
 				});
 			}
@@ -1249,6 +1252,58 @@ function cockpitStaticPivotTableWidgetControllerFunction(
 								.measures
 								.splice(index, 1);
 						}
+
+						$scope.deleteCatalogFunction = function(localModel) {
+							//clean columns
+							colsToRemove = [];
+							for (var i=0; i<$scope.localModel.content.crosstabDefinition.columns.length; i++) {
+								var col = $scope.localModel.content.crosstabDefinition.columns[i];
+								if (col.isFunction)
+									colsToRemove.push(col);
+							}
+							for (var j=0; j<colsToRemove.length; j++) {
+								var index=$scope.localModel.content.crosstabDefinition.columns.indexOf(colsToRemove[j]);
+								$scope.localModel.content.crosstabDefinition.columns.splice(index,1);
+							}
+							//clean rows
+							rowsToRemove = [];
+							for (var i=0; i<$scope.localModel.content.crosstabDefinition.rows.length; i++) {
+								var row = $scope.localModel.content.crosstabDefinition.rows[i];
+								if (row.isFunction)
+									rowsToRemove.push(row);
+							}
+							for (var j=0; j<rowsToRemove.length; j++) {
+								var index=$scope.localModel.content.crosstabDefinition.rows.indexOf(rowsToRemove[j]);
+								$scope.localModel.content.crosstabDefinition.rows.splice(index,1);
+							}
+							//clean measures
+							measToRemove = [];
+							for (var i=0; i<$scope.localModel.content.crosstabDefinition.measures.length; i++) {
+								var meas = $scope.localModel.content.crosstabDefinition.measures[i];
+								if (meas.isFunction)
+									measToRemove.push(meas);
+							}
+							for (var j=0; j<measToRemove.length; j++) {
+								var index=$scope.localModel.content.crosstabDefinition.measures.indexOf(measToRemove[j]);
+								$scope.localModel.content.crosstabDefinition.measures.splice(index,1);
+							}
+						}
+
+					$scope.checkAggregation = function(){
+						var isAggregated;
+						var firstColumn = $scope.localModel.content.crosstabDefinition.measures[0];
+						if(firstColumn.funct != 'NONE') {
+							isAggregated = true;
+						} else {
+							isAggregated = false;
+						}
+						for(var i in $scope.localModel.content.crosstabDefinition.measures){
+							var column = $scope.localModel.content.crosstabDefinition.measures[i];
+							if (!isAggregated && column.funct != "NONE") return false;
+							if (isAggregated && column.funct == "NONE") return false;
+						}
+						return true;
+					}
 
 		    	    $scope.saveConfiguration=function(){
 		    		  if($scope.localModel.dataset == undefined){

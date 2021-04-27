@@ -17,11 +17,13 @@
 		  		<md-card-content>
 		  		 	<dataset-selector ng-model=localModel.dataset.dsId on-change="changeDatasetFunction(dsId)"></dataset-selector>
 		  		</md-card-content>
-		  	</md-card>
-			  
+		  	</md-card>		  
 			   
-			   <md-card ng-if="localModel.dataset.dsId!=undefined" flex layout="column">	
-			     	<md-card-content flex layout="row" class="pivotTableDesigner" style="height: 100%;">			     		
+			   <md-card ng-if="localModel.dataset.dsId!=undefined" flex layout="column">
+			   		<md-subheader class="noPadding" style="margin-bottom:8px;" layout="row" layout-align="end center">
+						<catalog-function ng-if="localModel.dataset.dsId" ng-model="localModel" additional-info="datasetAdditionalInfos"></catalog-function>
+					</md-subheader>		
+			     	<md-card-content flex layout="row" class="pivotTableDesigner" >		
 			     		<div layout="column" class="measureAttributeTab">
 			     			<div layout="column" flex="50">
 			     				<md-toolbar class="primaryToolbar">
@@ -74,7 +76,6 @@
 			     			</div>
 			     		</div>
 			     		<div layout="row" flex>
-
 				     			<div flex class="contentElementBox" layout="column">
 				     				<md-toolbar class="md-hue-2 ternaryToolbar">  
 			      						<div class="md-toolbar-tools">
@@ -93,6 +94,7 @@
 			      								dnd-dragend="dragUtils.dragObjectType=undefined">
 			      							 <md-icon md-font-icon="fa fa-bars" style="margin:0!important;"></md-icon>
 			      							{{item.alias}}
+			      							 <md-icon md-font-icon="fa fa-trash" ng-if="item.nature=='catalog_function'" aria-label="Checkbox 1" class="md-secondary" ng-click="deleteCatalogFunction()"></md-icon>
 			      							 <md-icon md-font-icon="fa fa-cog" aria-label="Checkbox 1" class="md-secondary" ng-click="editFieldsProperty(item)"></md-icon>
 			      							</md-list-item>
 			      							<md-list-item class="dndPlaceholder" >
@@ -123,6 +125,7 @@
 			      							 >
 			      							 <md-icon md-font-icon="fa fa-bars" style="margin:0!important;"></md-icon>
 			      							{{item.alias}}
+			      							 <md-icon md-font-icon="fa fa-trash" ng-if="item.nature=='catalog_function'" aria-label="Checkbox 1" class="md-secondary" ng-click="deleteCatalogFunction()"></md-icon>
 			      							 <md-icon md-font-icon="fa fa-cog" aria-label="Checkbox 1" class="md-secondary" ng-click="editFieldsProperty(item)"></md-icon>
 			      							</md-list-item>
 			      							<md-list-item class="dndPlaceholder" >
@@ -154,8 +157,9 @@
 			      							 >
 			      							 <md-icon md-font-icon="fa fa-bars" style="margin:0!important;"></md-icon>
 			      							<span flex> {{item.alias}} </span>
-			      							 <calculated-field ng-if="item.nature=='calculated_field'" ng-model="localModel" selected-item="item" measures-list-func="getAvailableMeasures()" additional-info="datasetAdditionalInfos" callback-add-to="addCalculatedField(newItem)"></calculated-field>
+			      							 <calculated-field ng-if="item.nature=='calculated_field'" ng-model="localModel" selected-item="item" measures-list-func="getAvailableMeasures()" additional-info="datasetAdditionalInfos" callback-add-to="addCalculatedField(newItem)"></calculated-field> 
 			      							 <md-icon md-font-icon="fa fa-trash" ng-if="item.nature=='calculated_field'" aria-label="Checkbox 1" class="md-secondary" ng-click="deleteCalculatedField($index)"></md-icon>
+			      							 <md-icon md-font-icon="fa fa-trash" ng-if="item.nature=='catalog_function'" aria-label="Checkbox 1" class="md-secondary" ng-click="deleteCatalogFunction()"></md-icon>
 			      							 <md-icon md-font-icon="fa fa-cog" aria-label="Checkbox 1" class="md-secondary" ng-click="editFieldsProperty(item)"></md-icon> 
 			      							</md-list-item>
 			      							<md-list-item class="dndPlaceholder" >
@@ -197,7 +201,7 @@
 							<span >{{::translate.load("sbi.crosstab.crosstabdetailswizard.measureson")}}</span>
 							<md-radio-group flex layout="row" ng-model="localModel.content.crosstabDefinition.config.measureson" >
 								<md-radio-button value="columns" class="md-primary">{{::translate.load("sbi.cockpit.pivot.columns")}}</md-radio-button>
-								<md-radio-button value="rows" class="md-primary"> {{::translate.load("sbi.cockpit.pivot.rows")}} </md-radio-button>
+								<md-radio-button ng-click="localModel.content.crosstabDefinition.config.hideZeroRows='false'" value="rows" class="md-primary"> {{::translate.load("sbi.cockpit.pivot.rows")}} </md-radio-button>
 							</md-radio-group>
 						</div>
 						
@@ -236,7 +240,7 @@
 					    </md-input-container>
 					</md-card-content>
 					<md-card-content layout="row" layout-align="space-around center">
-						<md-checkbox ng-model="localModel.content.crosstabDefinition.config.hideZeroRows">
+						<md-checkbox ng-disabled="localModel.content.crosstabDefinition.config.measureson=='rows'" ng-model="localModel.content.crosstabDefinition.config.hideZeroRows">
 				        	{{::translate.load("sbi.crosstab.crosstabdetailswizard.hidezerorows")}}
 				        </md-checkbox>
 				        <md-checkbox ng-model="localModel.content.crosstabDefinition.config.fixedColumn">

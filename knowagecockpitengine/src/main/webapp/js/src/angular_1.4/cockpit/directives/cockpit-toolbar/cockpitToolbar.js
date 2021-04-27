@@ -37,7 +37,7 @@ angular.module('cockpitModule')
 	}
 });
 
-function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCommunicationService,cockpitModule_datasetServices,cockpitModule_widgetServices,cockpitModule_templateServices,cockpitModule_properties,cockpitModule_template,$mdDialog,sbiModule_translate,sbiModule_restServices,sbiModule_messaging,sbiModule_download,sbiModule_user,sbiModule_cockpitDocument,sbiModule_config,cockpitModule_gridsterOptions,$mdPanel,cockpitModule_widgetConfigurator,$mdToast,cockpitModule_generalServices,cockpitModule_widgetSelection,$rootScope){
+function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCommunicationService,cockpitModule_datasetServices,cockpitModule_analyticalDrivers,cockpitModule_widgetServices,cockpitModule_templateServices,cockpitModule_properties,cockpitModule_template,$mdDialog,sbiModule_translate,sbiModule_restServices,sbiModule_messaging,sbiModule_download,sbiModule_user,sbiModule_cockpitDocument,sbiModule_config,cockpitModule_gridsterOptions,$mdPanel,cockpitModule_widgetConfigurator,$mdToast,cockpitModule_generalServices,cockpitModule_widgetSelection,$rootScope){
 	$scope.translate = sbiModule_translate;
 	$scope.cockpitModule_properties=cockpitModule_properties;
 	$scope.cockpitModule_template=cockpitModule_template;
@@ -266,6 +266,8 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 					COCKPIT_SELECTIONS: [],
 					COCKPIT_VARIABLES: []
 			}
+
+			var drivers = formatDrivers(cockpitModule_analyticalDrivers);
 			for(i=0; i<cockpitWidgets.length; i++) {
 				var widget = cockpitWidgets[i];
 				requestUrl.widget[i] = widget;
@@ -287,8 +289,11 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				requestUrl.COCKPIT_SELECTIONS[i] = {};
 				if (widget.type == "map") {
 					requestUrl.COCKPIT_SELECTIONS[i] = [];
-					for (var k=0; k<widget.datasetId.length; k++) {
-						var dsId = widget.datasetId[k];
+					var allDsId = [];
+					if(widget.datasetId) allDsId = widget.datasetId;
+					else allDsId.push(widget.dataset.dsId);
+					for (var k=0; k<allDsId.length; k++) {
+						var dsId = allDsId[k];
 						var dataset = cockpitModule_datasetServices.getDatasetById(dsId);
 						var aggregation;
 						if (widget.settings) {
@@ -305,6 +310,7 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 						requestUrl.COCKPIT_SELECTIONS[i][k] = {};
 						requestUrl.COCKPIT_SELECTIONS[i][k].aggregations = aggregation;
 						requestUrl.COCKPIT_SELECTIONS[i][k].parameters = paramsToSend;
+						requestUrl.COCKPIT_SELECTIONS[i][k].drivers = drivers;
 						requestUrl.COCKPIT_SELECTIONS[i][k].selections = selections;
 					}
 					requestUrl.COCKPIT_VARIABLES[i] = cockpitModule_properties.VARIABLES;
@@ -326,6 +332,7 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 					var paramsToSend = angular.fromJson(parametersString);
 					requestUrl.COCKPIT_SELECTIONS[i].aggregations = aggregation;
 					requestUrl.COCKPIT_SELECTIONS[i].parameters = paramsToSend;
+					requestUrl.COCKPIT_SELECTIONS[i].drivers = drivers;
 					requestUrl.COCKPIT_SELECTIONS[i].selections = selections;
 					requestUrl.COCKPIT_VARIABLES[i] = cockpitModule_properties.VARIABLES;
 				}
@@ -350,6 +357,17 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				sbiModule_messaging.showErrorMessage(sbiModule_translate.load("sbi.cockpit.widgets.exporting.error"), 'Error');
 			});
 		})
+	}
+
+	var formatDrivers = function (analyticalDrivers) {
+		var toReturn = {};
+		for (var key in analyticalDrivers) {
+			if (key.endsWith("_description")) continue;
+			var key_description = key + "_description";
+			toReturn[key] = [{'value': analyticalDrivers[key], 'description': analyticalDrivers[key_description]}];
+			var foo = 0;
+		}
+		return toReturn;
 	}
 
 	$scope.exportPdf = function(){
@@ -422,7 +440,11 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				 	}
 
 				 	function replaceIframe(widget){
-				 		var element = document.querySelector('#w'+widget.id+' iframe').contentWindow.document.getElementsByTagName("iframe")[0].contentWindow.document.getElementsByTagName("iframe")[0].contentWindow.document.getElementsByTagName('body')[0];
+				 		if(widget.type == 'python' && (widget.pythonOutputType == 'html' || widget.pythonOutputType == 'bokeh')) {
+							var element = document.querySelector('#w'+widget.id+' iframe').contentWindow.document.getElementsByTagName('body')[0];
+						}else{
+				 			var element = document.querySelector('#w'+widget.id+' iframe').contentWindow.document.getElementsByTagName("iframe")[0].contentWindow.document.getElementsByTagName("iframe")[0].contentWindow.document.getElementsByTagName('body')[0];
+				 		}
 				 		if(element.className && element.className == 'kn-svgviewer') {
 				 			element = element.querySelector('iframe');
 					 		var xml = new XMLSerializer().serializeToString(angular.element(element)[0].contentWindow.document.getElementsByTagName('svg')[0]);
@@ -439,10 +461,9 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 					 			width: element.clientWidth,
 					 			height: element.scrollHeight
 					 		}).then(function(canvas){
-					 			document.querySelector('#divCanvas_'+widget.id).classList.add('show-for-canvas');
-					 			document.querySelector('#divCanvas_'+widget.id).innerHTML = '';
-					 			canvas.style.height = "100%";
-					 			document.querySelector('#divCanvas_'+widget.id).appendChild(canvas);
+					 			document.querySelector('#canvas_'+widget.id).classList.add('show-for-canvas');
+					 			document.querySelector('#canvas_'+widget.id).innerHTML = '';
+					 			document.querySelector('#canvas_'+widget.id).appendChild(canvas);
 					 		},function(error){
 					 			reject(error);
 					 		})
@@ -503,7 +524,7 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				 					}
 				 				}
 					 		for(var w in sheet.widgets){
-					 			if(sheet.widgets[w].type == 'document' || sheet.widgets[w].type == 'python'){
+					 			if(sheet.widgets[w].type == 'python' && sheet.widgets[w].pythonOutputType != 'img'){
 					 				replaceIframe(sheet.widgets[w]);
 					 			}
 					 		}
@@ -644,9 +665,9 @@ function cockpitSelectionControllerFunction($scope,cockpitModule_template,cockpi
 		var currentDs = cockpitModule_datasetServices.getDatasetByLabel(ds).metadata.fieldsMeta;
 		for(var col in $scope.tmpFilters[ds]){
 			var aliasColumnName;
-			for(var a in cockpitModule_template.configuration.aliases){
-				if(cockpitModule_template.configuration.aliases[a].column == col){
-					aliasColumnName = cockpitModule_template.configuration.aliases[a].alias;
+			for(var a in cockpitModule_properties.aliases){
+				if(cockpitModule_properties.aliases[a].column == col){
+					aliasColumnName = cockpitModule_properties.aliases[a].alias;
 				}
 			}
 			var tmpObj={

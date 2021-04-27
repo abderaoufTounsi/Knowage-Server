@@ -49,6 +49,10 @@ import it.eng.spagobi.utilities.assertion.Assert;
 
 public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationStrategy {
 
+	private static final String TOTAL_PREFIX = "TOTAL_";
+
+	private static final String TOTAL_COUNT_DISTINCT = "TOTAL_COUNT_DISTINCT";
+
 	private static final Logger logger = Logger.getLogger(AbstractEvaluationStrategy.class);
 
 	protected IDataSet dataSet;
@@ -64,13 +68,13 @@ public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationSt
 		if (isUnsatisfiedFilter(filter)) {
 			dataStore = new DataStore(dataSet.getMetadata());
 		} else {
-			List<AbstractSelectionField> newProjections = applyTotalsFunctionsToFormulas(projections, filter, maxRowCount);
+			List<AbstractSelectionField> newProjections = applyTotalsFunctionsToFormulas(dataSet, projections, filter, maxRowCount);
 			dataStore = execute(newProjections, filter, groups, sortings, summaryRowProjections, offset, fetchSize, maxRowCount, indexes);
 			IMetaData dataStoreToUseMeta = dataStore.getMetaData();
 			if (!isSummaryRowIncluded() && summaryRowProjections != null && !summaryRowProjections.isEmpty()) {
 				int i = 0;
 				for (List<AbstractSelectionField> listProj : summaryRowProjections) {
-					List<AbstractSelectionField> replacedSelectionFieldsList = applyTotalsFunctionsToFormulas(listProj, filter, maxRowCount);
+					List<AbstractSelectionField> replacedSelectionFieldsList = applyTotalsFunctionsToFormulas(dataSet, listProj, filter, maxRowCount);
 
 					IDataStore summaryRowDataStore = executeSummaryRow(replacedSelectionFieldsList, dataStoreToUseMeta, filter, maxRowCount);
 					appendSummaryRowToPagedDataStore(newProjections, replacedSelectionFieldsList, dataStore, summaryRowDataStore, i);
@@ -81,45 +85,44 @@ public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationSt
 		return dataStore;
 	}
 
-	private List<AbstractSelectionField> applyTotalsFunctionsToFormulas(List<AbstractSelectionField> projections, Filter filter, int maxRowCount) {
+	private List<AbstractSelectionField> applyTotalsFunctionsToFormulas(IDataSet dataSet, List<AbstractSelectionField> projections, Filter filter,
+			int maxRowCount) {
 
 		List<AbstractSelectionField> toReturnList = new ArrayList<AbstractSelectionField>();
-		Set<String> totalFunctions = new HashSet<String>();
+		Set<String> totalFunctionsSet = new HashSet<String>();
 		for (AbstractSelectionField abstractSelectionField : projections) {
 			if (abstractSelectionField instanceof DataStoreCalculatedField) {
 				String formula = ((DataStoreCalculatedField) abstractSelectionField).getFormula();
-				if (formula.contains("TOTAL_")) {
+				if (formula.contains(TOTAL_PREFIX)) {
 
-					String pattern = "((?:TOTAL_SUM|TOTAL_AVG|TOTAL_MIN|TOTAL_MAX|TOTAL_COUNT)\\()(\\\"[a-zA-Z0-9\\-\\_\\s]*\\\")(\\))";
-
-					// Create a Pattern object
-					Pattern r = Pattern.compile(pattern);
-
-					// Now create matcher object.
-					Matcher m = r.matcher(formula);
+					Matcher m = getMatcherWithQuotes(formula);
 					while (m.find()) {
-						totalFunctions.add(m.group(0).replace("TOTAL_", ""));
+						if (m.group().contains(TOTAL_COUNT_DISTINCT)) {
+							totalFunctionsSet.add(m.group().replace(TOTAL_COUNT_DISTINCT, "COUNT(DISTINCT") + ")");
+						} else {
+							totalFunctionsSet.add(m.group().replace(TOTAL_PREFIX, ""));
+						}
 					}
 
-					pattern = "((?:TOTAL_SUM|TOTAL_AVG|TOTAL_MIN|TOTAL_MAX|TOTAL_COUNT)\\()([a-zA-Z0-9\\-\\+\\/\\*\\_\\s\\$\\{\\}\\\"]*)(\\))";
-					// Create a Pattern object
-					r = Pattern.compile(Pattern.quote(pattern));
-
-					// Now create matcher object.
-					m = r.matcher(formula);
+					m = getMatcherWithParameters(formula);
 					while (m.find()) {
-						totalFunctions.add(m.group(0).replace("TOTAL_", ""));
+						if (m.group().contains(TOTAL_COUNT_DISTINCT)) {
+							totalFunctionsSet.add(m.group().replace(TOTAL_COUNT_DISTINCT, "COUNT(DISTINCT") + ")");
+						} else {
+							totalFunctionsSet.add(m.group().replace(TOTAL_PREFIX, ""));
+						}
 					}
 				}
 			}
 		}
 
-		if (!totalFunctions.isEmpty()) {
-			IDataStore totalsFunctionDataStore = executeTotalsFunctions(totalFunctions, filter, maxRowCount);
+		if (!totalFunctionsSet.isEmpty()) {
+
+			IDataStore totalsFunctionDataStore = executeTotalsFunctions(dataSet, totalFunctionsSet, filter, maxRowCount);
 
 			HashMap<String, String> totalsMap = new HashMap<String, String>();
 			int i = 0;
-			for (String function : totalFunctions) {
+			for (String function : totalFunctionsSet) {
 				totalsMap.put(function, String.valueOf(totalsFunctionDataStore.getRecordAt(0).getFieldAt(i).getValue()));
 				i++;
 			}
@@ -128,9 +131,34 @@ public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationSt
 				AbstractSelectionField tmp = abstractSelectionField;
 				if (tmp instanceof DataStoreCalculatedField) {
 					String formula = ((DataStoreCalculatedField) tmp).getFormula();
-					if (formula.contains("TOTAL_")) {
+					if (formula.contains(TOTAL_PREFIX)) {
+
 						for (String totalFunction : totalsMap.keySet()) {
-							formula = formula.replace("TOTAL_" + totalFunction, totalsMap.get(totalFunction));
+
+							if (formula.contains(TOTAL_COUNT_DISTINCT) && totalFunction.startsWith("COUNT(DISTINCT")) {
+
+								boolean replaced = false;
+
+								Matcher m = getMatcherWithQuotes(formula);
+								while (m.find()) {
+									if ((m.group().replace(TOTAL_COUNT_DISTINCT, "COUNT(DISTINCT") + ")").equals(totalFunction)) {
+										formula = formula.replace(m.group(), totalsMap.get(totalFunction));
+										replaced = true;
+									}
+								}
+
+								if (!replaced) {
+									m = getMatcherWithParameters(formula);
+									while (m.find()) {
+										if ((m.group().replace(TOTAL_COUNT_DISTINCT, "COUNT(DISTINCT") + ")").equals(totalFunction))
+											formula = formula.replace(m.group(), totalsMap.get(totalFunction));
+									}
+								}
+
+							} else {
+								formula = formula.replace(TOTAL_PREFIX + totalFunction, totalsMap.get(totalFunction));
+							}
+
 						}
 						((DataStoreCalculatedField) tmp).setFormula(formula);
 					}
@@ -141,6 +169,20 @@ public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationSt
 			toReturnList = projections;
 		}
 		return toReturnList;
+	}
+
+	private Matcher getMatcherWithQuotes(String formula) {
+		String pattern = "((?:TOTAL_SUM|TOTAL_AVG|TOTAL_MIN|TOTAL_MAX|TOTAL_COUNT|TOTAL_COUNT_DISTINCT)\\()(\\\"[a-zA-Z0-9\\-\\_\\s]*\\\")(\\))";
+		Pattern r = Pattern.compile(pattern);
+
+		return r.matcher(formula);
+	}
+
+	private Matcher getMatcherWithParameters(String formula) {
+		String pattern = "((?:TOTAL_SUM|TOTAL_AVG|TOTAL_MIN|TOTAL_MAX|TOTAL_COUNT|TOTAL_COUNT_DISTINCT)\\()([a-zA-Z0-9\\-\\+\\/\\*\\_\\s\\$\\{\\}\\\"]*)(\\))";
+		Pattern r = Pattern.compile(Pattern.quote(pattern));
+
+		return r.matcher(formula);
 	}
 
 	@Override
@@ -240,7 +282,7 @@ public abstract class AbstractEvaluationStrategy implements IDatasetEvaluationSt
 
 	}
 
-	protected IDataStore executeTotalsFunctions(Set<String> summaryRowProjections, Filter filter, int maxRowCount) {
+	protected IDataStore executeTotalsFunctions(IDataSet dataSet, Set<String> totalFunctionsProjections, Filter filter, int maxRowCount) {
 		// TODO Auto-generated method stub
 		return null;
 	}

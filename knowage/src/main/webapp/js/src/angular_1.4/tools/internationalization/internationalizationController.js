@@ -18,7 +18,7 @@
 
 (function() {
 	'use strict';
-	
+
 	angular.module('InternationalizationModule', ['ngMaterial', 'sbiModule', 'i18nAvailableLanguagesModule'])
 		   .config([
 			   '$mdThemingProvider',
@@ -27,84 +27,90 @@
 				   $mdThemingProvider.theme('knowage');
 				   $mdThemingProvider.setDefaultTheme('knowage');
 			   }
-		   ]).controller('internationalizationController', ['$scope', 'i18nAvailableLanguagesService', 'sbiModule_restServices', 'sbiModule_messaging', 'sbiModule_translate', '$mdDialog', InternationalizationController])
-		     .filter('findEmpty', ['$filter', function($filter){
-		    	 return function(messages, emptyMessage) {
-		    		 if(emptyMessage) {
-			    		 return $filter('filter')(messages, {message: ''}, true);
-			    	 } else {
-			    		 return messages;
-			    	 }
-		    	 }
-		     }]);
-	
-	function InternationalizationController($scope, i18nAvailableLanguagesService, sbiModule_restServices, sbiModule_messaging, sbiModule_translate, $mdDialog) {
+		   ]).controller('internationalizationController', ['$scope', 'i18nAvailableLanguagesService', 'sbiModule_restServices', 'sbiModule_messaging', 'sbiModule_translate', '$mdDialog', '$filter', InternationalizationController])
+
+	function InternationalizationController($scope, i18nAvailableLanguagesService, sbiModule_restServices, sbiModule_messaging, sbiModule_translate, $mdDialog,$filter) {
 		var availableLanguagesService = i18nAvailableLanguagesService.getAvailableLanguages();
-		$scope.availableLanguages = availableLanguagesService.languages;		
-		$scope.defaultLangMessages = [];	
+		$scope.availableLanguages = availableLanguagesService.languages;
+		$scope.defaultLangMessages = [];
 		$scope.messages = [];
 		$scope.isTechnicalUser = isTechnicalUser;
-		$scope.emptyMessage = false;
 		$scope.translate = sbiModule_translate;
-		
+
+		$scope.toggleEmptyMessages = function(){
+			if($scope.emptyMessage.value){
+				$scope.emptyMessage.originalMessages = angular.copy($scope.messages);
+				$scope.messages = $filter('filter')($scope.messages, function(value){
+					return !value.message
+				})
+			}else {
+				$scope.messages = angular.copy($scope.emptyMessage.originalMessages);
+			}
+					
+		}
+
 		//REST
 		$scope.getMessages = function(selectedTab) {
 			$scope.messages = [];
-			sbiModule_restServices.promiseGet("2.0/i18nMessages", "internationalization/?currLanguage="+selectedTab.language)
-				.then(function(response){	
+			sbiModule_restServices.promiseGet("2.0/i18nMessages", "internationalization/?currLanguage="+selectedTab.iso3code)
+				.then(function(response){
+					$scope.emptyMessage = {value:false, originalMessages:[]};
 					//For Default Language
 					if(selectedTab.defaultLanguage) {
 						//If database is empty show one row of input fields
 						if(response.data.length == 0) {
-							var newBlankMessage = {
+							$scope.messages = [{
 								language: '',
 								label: '',
 								message: ''
-							};
-							$scope.messages.push(newBlankMessage);
+							}];
+							$scope.defaultLangMessages = [];
 						} else {
 							$scope.defaultLangMessages = response.data;
 							angular.copy($scope.defaultLangMessages, $scope.messages);
-						}						
+						}
 					} else {
 					//For other languages
-						//If there are some messages in database 
-						if(response.data.length != 0) {							
-							$scope.defaultLangMessages.forEach(function(defMess){								
-								response.data.forEach(function(newMess){
-									if(defMess.label == newMess.label) {
-										newMess.defaultMessageCode = defMess.message;
-										$scope.messages.push(newMess);
-									}								
-								});								
+						//If there are some messages in database
+						if(response.data.length != 0) {
+							$scope.defaultLangMessages.forEach(function(defMess){
+								// searching if default message was translated into current language
+								var translatedMessageArray = response.data.filter(function(item){
+									return item.label == defMess.label;
+								});
+
+								if (translatedMessageArray[0]) {
+									// in case default message was translated into current language, we add the default translation message as a reference for translators
+									translatedMessageArray[0].defaultMessageCode = defMess.message;
+									$scope.messages.push(translatedMessageArray[0]);
+								} else {
+									// in case default message was not translated into current language, we add an empty translation message
+									var message = {
+										language : selectedTab.iso3code,
+										label : defMess.label,
+										defaultMessageCode : defMess.message,
+										message : ''
+									};
+									$scope.messages.push(message);
+								}
 							});
-							
-							for(var i = response.data.length; i < $scope.defaultLangMessages.length; i++) {
-								var defMess = $scope.defaultLangMessages[i];
-								var mess = {};
-								mess.language = selectedTab.language;
-								mess.label = defMess.label;
-								mess.defaultMessageCode = defMess.message;
-								mess.message = '';
-								$scope.messages.push(mess);
-							}
-							 							
+
 						} else {
-						//If there is no messages in database, take Label and Message Code from Default one 
-							$scope.defaultLangMessages.forEach(function(defMess){								
+						//If there is no messages in database, take Label and Message Code from Default one
+							$scope.defaultLangMessages.forEach(function(defMess){
 								var newMess = {};
-								newMess.language = selectedTab.language;
+								newMess.language = selectedTab.iso3code;
 								newMess.label = defMess.label;
 								newMess.defaultMessageCode = defMess.message;
 								newMess.message = '';
 								$scope.messages.push(newMess);
 							});
-						}						
-					} 											
+						}
+					}
 				});
 		};
-		
-		//Adding new blank row in Default Language table		
+
+		//Adding new blank row in Default Language table
 		$scope.addLabel = function() {
 			var tempMessage = {
 					language: '',
@@ -113,13 +119,13 @@
 			};
 			$scope.messages.unshift(tempMessage);
 		};
-		
+
 		//REST
 		$scope.saveLabel = function(langObj, message) {
 			if(message.hasOwnProperty('id')) {
-				//UPDATE I18NMessage								
+				//UPDATE I18NMessage
 				var toModify = angular.copy(message, {});
-				delete toModify.defaultMessageCode;	
+				delete toModify.defaultMessageCode;
 				sbiModule_restServices.promisePut("2.0/i18nMessages", "", toModify)
 				.then(function(response){
 					console.log('[PUT]: SUCCESS!');
@@ -128,16 +134,16 @@
 						$scope.getMessages(langObj);
 					}
 				}, function(response){
-					sbiModule_messaging.showErrorMessage(response.data.errors[0].message, 'Error');
+					sbiModule_messaging.showErrorMessage(response.data, 'Error');
 				});
-														
+
 			} else {
 				//INSERT I18NMessage
 				var toInsert = angular.copy(message, {});
 				if(toInsert.hasOwnProperty('defaultMessageCode')) {
 					delete toInsert.defaultMessageCode;
 				}
-				toInsert.language = langObj.language;
+				toInsert.language = langObj.iso3code;
 				sbiModule_restServices.promisePost("2.0/i18nMessages", "", toInsert)
 					.then(function(response){
 						console.log("[POST]: SUCCESS!");
@@ -146,25 +152,25 @@
 							$scope.getMessages(langObj);
 						}
 					}, function(response){
-						sbiModule_messaging.showErrorMessage(response.data.errors[0].message, 'Error');
-					});				
-			}						
+						sbiModule_messaging.showErrorMessage(response.data, 'Error');
+					});
+			}
 		};
-			
+
 		//REST
 		//DELETE
 		$scope.deleteLabel = function(langObj, message, event) {
 			if(message.hasOwnProperty('id')) {
 				//Deleting Non-Default I18NMessage
-				if(message.hasOwnProperty('defaultMessageCode')) {					
+				if(message.hasOwnProperty('defaultMessageCode')) {
 					var confirm = $mdDialog.confirm()
 					.title(sbiModule_translate.load('kn.internationalization.delete.confirm.title'))
 		            .textContent(sbiModule_translate.load('kn.internationalization.delete.confirm.message'))
 		            .targetEvent(event)
 		            .ok(sbiModule_translate.load('kn.internationalization.delete.confirm.yes'))
 		            .cancel(sbiModule_translate.load('kn.internationalization.delete.confirm.no'));
-					
-					$mdDialog.show(confirm).then(function(){						
+
+					$mdDialog.show(confirm).then(function(){
 						sbiModule_restServices.promiseDelete("2.0/i18nMessages", message.id)
 						.then(function(response){
 							console.log("[DELETE]: SUCCESS!");
@@ -182,7 +188,7 @@
 		            .targetEvent(event)
 		            .ok(sbiModule_translate.load('kn.internationalization.delete.confirm.yes'))
 		            .cancel(sbiModule_translate.load('kn.internationalization.delete.confirm.no'));
-					
+
 					$mdDialog.show(confirm).then(function(){
 						sbiModule_restServices.promiseDelete("2.0/i18nMessages/deletedefault", message.id)
 						.then(function(response){
@@ -193,7 +199,7 @@
 							sbiModule_messaging.showErrorMessage(response.data.errors[0].message, 'Error');
 						});
 					});
-				}				
+				}
 			} else {
 				//Can't delete Default I18NMessage from other tab
 				$mdDialog.show(
@@ -205,9 +211,7 @@
 					.ok(sbiModule_translate.load('kn.internationalization.delete.alert.ok'))
 				);
 			}
-			
+
 		};
-		
-		
 	};
 })();

@@ -279,6 +279,9 @@ md-card.md-knowage-theme {
     &.flexCard{
       display: flex;
     }
+    &.disabled {
+		background-color: $ternaryColor !important;
+	}
 }
 
 md-tab-content md-content.md-knowage-theme {
@@ -315,7 +318,7 @@ a.md-button.md-knowage-theme.md-primary.md-raised, .md-button.md-knowage-theme.m
 }
 
 //Raised Button
-.md-button.md-knowage-theme.md-raised:not(.md-fab) {
+.md-button.md-knowage-theme.md-raised:not(.md-fab):not([disabled]) {
     color: $baseColor;
     background-color: $secondaryColor;
 }
@@ -1280,6 +1283,10 @@ filter-by-tags {
   width: 90%;
 }
 
+iframe {
+  border: 0;
+}
+
 @supports (-ms-ime-align: auto) {
   .kn-list-detail {
     overflow-y: hidden;
@@ -1289,6 +1296,18 @@ filter-by-tags {
   }
 }
 
+.kn-loadingSpinner {
+ 	position: absolute;	
+   	z-index:500;
+	display:flex;
+	flex-direction:row;
+	background:rgba(0,0,0,0.3);
+	md-progress-circular{
+		top:50%;
+		left:50%;
+		transform:translateX(-50%) translateY(-50%);
+	}
+}
 /* IE11 fix */
 
 @media all and (-ms-high-contrast: none), (-ms-high-contrast: active) {

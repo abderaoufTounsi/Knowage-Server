@@ -31,6 +31,7 @@ import javax.mail.internet.InternetAddress;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -72,14 +73,17 @@ import it.eng.spagobi.profiling.bean.SbiAttribute;
 import it.eng.spagobi.profiling.bean.SbiUser;
 import it.eng.spagobi.profiling.bean.SbiUserAttributes;
 import it.eng.spagobi.profiling.bean.SbiUserAttributesId;
+import it.eng.spagobi.profiling.bo.ProfileAttributesValueTypes;
 import it.eng.spagobi.profiling.dao.ISbiAttributeDAO;
 import it.eng.spagobi.profiling.dao.ISbiUserDAO;
 import it.eng.spagobi.rest.publishers.PublisherService;
 import it.eng.spagobi.security.Password;
 import it.eng.spagobi.services.rest.annotations.PublicService;
+import it.eng.spagobi.signup.service.rest.dto.SignupDTO;
 import it.eng.spagobi.signup.validation.SignupJWTTokenManager;
+import it.eng.spagobi.tenant.TenantManager;
+import it.eng.spagobi.user.UserProfileManager;
 import it.eng.spagobi.utilities.exceptions.SpagoBIServiceException;
-import it.eng.spagobi.utilities.rest.RestUtilities;
 import it.eng.spagobi.utilities.themes.ThemesManager;
 import it.eng.spagobi.wapp.services.ChangeTheme;
 import net.logicsquad.nanocaptcha.image.ImageCaptcha;
@@ -96,6 +100,9 @@ public class Signup {
 	private final static long MAX_TIME_DELTA_DEFAULT_MS = 30000;
 
 	private static Logger logger = Logger.getLogger(PublisherService.class);
+
+	@Context
+	private HttpServletRequest request;
 
 	@GET
 	@Path("/prepareUpdate")
@@ -237,36 +244,24 @@ public class Signup {
 	@POST
 	@Path("/update")
 	@Produces(MediaType.APPLICATION_JSON)
-	public String update(@Context HttpServletRequest req) {
+	public String update(@Valid SignupDTO signupDTO) {
 		logger.debug("IN");
 
 		MessageBuilder msgBuilder = new MessageBuilder();
-		Locale locale = msgBuilder.getLocale(req);
+		Locale locale = msgBuilder.getLocale(request);
 
-		JSONObject requestJSON = null;
-		try {
-			requestJSON = RestUtilities.readBodyAsJSONObject(req);
-		} catch (Throwable t) {
-			logger.error("Error during body read", t);
-			throw new SpagoBIServiceException(msgBuilder.getMessage("signup.check.error", "messages", locale), t);
-		}
-
-		String name = GeneralUtilities.trim(requestJSON.optString("name"));
-		String surname = GeneralUtilities.trim(requestJSON.optString("surname"));
-		String password = GeneralUtilities.trim(requestJSON.optString("password"));
-		String email = GeneralUtilities.trim(requestJSON.optString("email"));
-		String birthDate = GeneralUtilities.trim(requestJSON.optString("birthDate"));
-		String address = GeneralUtilities.trim(requestJSON.optString("address"));
-		// String biography = GeneralUtilities.trim(requestJSON.optString("biography"));
-		// String language = GeneralUtilities.trim(requestJSON.optString("language"));
+		String name = signupDTO.getName();
+		String surname = signupDTO.getSurname();
+		String password = signupDTO.getPassword();
+		String email = signupDTO.getEmail();
 
 		try {
-			UserProfile profile = (UserProfile) req.getSession().getAttribute(IEngUserProfile.ENG_USER_PROFILE);
+			UserProfile profile = getUserProfile();
 			ISbiUserDAO userDao = DAOFactory.getSbiUserDAO();
 			ISbiAttributeDAO attrDao = DAOFactory.getSbiAttributeDAO();
+			attrDao.setUserProfile(profile);
 
 			SbiUser user = userDao.loadSbiUserByUserId((String) profile.getUserId());
-
 			try {
 				PasswordChecker.getInstance().isValid(user, user.getPassword(), true, password, password);
 			} catch (Exception e) {
@@ -284,24 +279,32 @@ public class Signup {
 			user.setFullName(name + " " + surname);
 			if (password != null && !password.equals(defaultPassword))
 				user.setPassword(Password.encriptPassword(password));
+
 			userDao.updateSbiUser(user, userId);
 
 			SbiAttribute currEmail = attrDao.loadSbiAttributeByName("email");
-			SbiAttribute currBirthDate = attrDao.loadSbiAttributeByName("birth_date");
-			SbiAttribute currAddress = attrDao.loadSbiAttributeByName("address");
+			/* email user attribute is mandatory */
+			if (email != null && currEmail == null) {
+				SbiAttribute emailSbiAttribute = new SbiAttribute();
+				emailSbiAttribute.setAttributeName("email");
+				emailSbiAttribute.setDescription("AUTO GENERATED email profile attribute");
+				emailSbiAttribute.setValue(ProfileAttributesValueTypes.STRING);
+				SbiCommonInfo sbiCommonInfo = new SbiCommonInfo();
+				sbiCommonInfo.setOrganization(TenantManager.getTenant().getName());
+				sbiCommonInfo.setUserIn("server");
+				sbiCommonInfo.setTimeIn(new Date());
+				sbiCommonInfo.setSbiVersionIn(SbiCommonInfo.getVersion());
+				emailSbiAttribute.setCommonInfo(sbiCommonInfo);
+
+				Integer newId = attrDao.saveSbiAttribute(emailSbiAttribute);
+				currEmail = attrDao.loadSbiAttributeById(newId);
+			}
+
 			updAttribute(userDao, attrDao, email, user.getUserId(), userId, currEmail);
-			updAttribute(userDao, attrDao, birthDate, user.getUserId(), userId, currBirthDate);
-			updAttribute(userDao, attrDao, address, user.getUserId(), userId, currAddress);
-			// updAttribute(userDao, attrDao, biography, user.getUserId(), userId, attrDao.loadSbiAttributeByName("short_bio").getAttributeId());
-			// updAttribute(userDao, attrDao, language, user.getUserId(), userId, attrDao.loadSbiAttributeByName("language").getAttributeId());
 
 			profile.setAttributeValue("name", name);
 			profile.setAttributeValue("surname", surname);
-			profile.setAttributeValue("birth_date", birthDate);
 			profile.setAttributeValue("email", email);
-			// profile.setAttributeValue("language", language);
-			// profile.setAttributeValue("short_bio", biography);
-			profile.setAttributeValue("location", address);
 
 		} catch (Throwable t) {
 			logger.error("An unexpected error occurred while executing the subscribe action", t);
@@ -427,33 +430,25 @@ public class Signup {
 	@Path("/create")
 	@Produces(MediaType.APPLICATION_JSON)
 	@PublicService
-	public Response create(@Context HttpServletRequest req) {
+	public Response create(@Valid SignupDTO signupDTO) {
 		logger.debug("IN");
 
 		// String strLocale = GeneralUtilities.trim(req.getParameter("locale"));
 		// Locale locale = new Locale(strLocale.substring(0, strLocale.indexOf("_")), strLocale.substring(strLocale.indexOf("_")+1));
 		MessageBuilder msgBuilder = new MessageBuilder();
-		Locale locale = msgBuilder.getLocale(req);
+		Locale locale = msgBuilder.getLocale(request);
 
-		JSONObject requestJSON = null;
-		try {
-			requestJSON = RestUtilities.readBodyAsJSONObject(req);
-		} catch (Throwable t) {
-			logger.error("Error during body read", t);
-			throw new SpagoBIServiceException(msgBuilder.getMessage("signup.check.error", "messages", locale), t);
-		}
-
-		String name = GeneralUtilities.trim(requestJSON.optString("name"));
-		String surname = GeneralUtilities.trim(requestJSON.optString("surname"));
-		String username = GeneralUtilities.trim(requestJSON.optString("username"));
+		String name = signupDTO.getName();
+		String surname = signupDTO.getSurname();
+		String username = signupDTO.getUsername();
 		if (username == null || username.equals("")) {
 			logger.error("Username is mandatory");
 			JSONObject errObj = buildErrorMessage(msgBuilder, locale, "signup.check.usernameMandatory");
 			return Response.ok(errObj.toString()).build();
 		}
 
-		String password = GeneralUtilities.trim(requestJSON.optString("password"));
-		String confirmPassword = GeneralUtilities.trim(requestJSON.optString("confirmPassword"));
+		String password = signupDTO.getPassword();
+		String confirmPassword = signupDTO.getConfirmPassword();
 		if (password == null || password.equals("") || confirmPassword == null || !password.equals(confirmPassword)) {
 			logger.error("Passwortd and confirm password are different");
 			JSONObject errObj = buildErrorMessage(msgBuilder, locale, "signup.check.pwdNotEqual");
@@ -472,27 +467,26 @@ public class Signup {
 			}
 		}
 
-		String email = GeneralUtilities.trim(requestJSON.optString("email"));
+		String email = signupDTO.getEmail();
 		if (email == null || email.equals("")) {
 			logger.error("email is mandatory");
 			JSONObject errObj = buildErrorMessage(msgBuilder, locale, "signup.check.emailMandatory");
 			return Response.ok(errObj.toString()).build();
 		}
 
-		String sex = GeneralUtilities.trim(requestJSON.optString("sex"));
-		String birthDate = GeneralUtilities.trim(requestJSON.optString("birthDate"));
-		String address = GeneralUtilities.trim(requestJSON.optString("address"));
-		String enterprise = GeneralUtilities.trim(requestJSON.optString("enterprise"));
-		String biography = GeneralUtilities.trim(requestJSON.optString("biography"));
-		String language = GeneralUtilities.trim(requestJSON.optString("language"));
-		String captcha = GeneralUtilities.trim(requestJSON.optString("captcha"));
+		String gender = signupDTO.getGender();
+		String birthDate = signupDTO.getBirthDate();
+		String address = signupDTO.getAddress();
+		String enterprise = signupDTO.getEnterprise();
+		String biography = signupDTO.getBiography();
+		String language = signupDTO.getLanguage();
+		String captcha = signupDTO.getCaptcha();
 
-		String strUseCaptcha = (requestJSON.optString("useCaptcha") == null || requestJSON.optString("useCaptcha").equals("")) ? "true"
-				: requestJSON.optString("useCaptcha");
+		String strUseCaptcha = (signupDTO.getUseCaptcha() == null || signupDTO.getUseCaptcha().equals("")) ? "true" : signupDTO.getUseCaptcha();
 		boolean useCaptcha = Boolean.valueOf(strUseCaptcha);
 
 		try {
-			ImageCaptcha c = (ImageCaptcha) req.getSession().getAttribute("simpleCaptcha");
+			ImageCaptcha c = (ImageCaptcha) request.getSession().getAttribute("simpleCaptcha");
 
 			if (useCaptcha && captcha == null) {
 				logger.error("empty captcha");
@@ -573,7 +567,7 @@ public class Signup {
 			attrDao.setTenant(defaultTenant);
 			addAttribute(attributes, attrDao.loadSbiAttributeByName("email").getAttributeId(), email);
 			if (attrDao.loadSbiAttributeByName("gender") != null)
-				addAttribute(attributes, attrDao.loadSbiAttributeByName("gender").getAttributeId(), sex);
+				addAttribute(attributes, attrDao.loadSbiAttributeByName("gender").getAttributeId(), gender);
 			if (attrDao.loadSbiAttributeByName("birth_date") != null)
 				addAttribute(attributes, attrDao.loadSbiAttributeByName("birth_date").getAttributeId(), birthDate);
 			if (attrDao.loadSbiAttributeByName("location") != null)
@@ -597,12 +591,12 @@ public class Signup {
 				logger.debug("User [" + username + "] would be part of community [" + enterprise + "]");
 				SbiCommunity community = DAOFactory.getCommunityDAO().loadSbiCommunityByName(enterprise);
 				CommunityManager communityManager = new CommunityManager();
-				communityManager.saveCommunity(community, enterprise, user.getUserId(), req);
+				communityManager.saveCommunity(community, enterprise, user.getUserId(), request);
 			}
 
-			String host = req.getServerName();
+			String host = request.getServerName();
 			logger.debug("Activation url host is equal to [" + host + "]");
-			int port = req.getServerPort();
+			int port = request.getServerPort();
 			logger.debug("Activation url port is equal to [" + port + "]");
 
 			// Get confirmation mail template
@@ -615,8 +609,8 @@ public class Signup {
 			String token = SignupJWTTokenManager.createJWTToken(user.getUserId());
 			String version = SbiCommonInfo.getVersion().substring(0, SbiCommonInfo.getVersion().lastIndexOf("."));
 
-			String urlString = req.getContextPath() + "/restful-services/signup/prepareActive?token=" + token + "&locale=" + locale + "&version=" + version;
-			URL url = new URL(req.getScheme(), host, port, urlString);
+			String urlString = request.getContextPath() + "/restful-services/signup/prepareActive?token=" + token + "&locale=" + locale + "&version=" + version;
+			URL url = new URL(request.getScheme(), host, port, urlString);
 
 			// Replacing all placeholder occurencies in template with dynamic user values
 			mailText = mailText.replaceAll("%%WELCOME%%", msgBuilder.getMessage("signup.active.welcome", "messages", locale));
@@ -644,7 +638,7 @@ public class Signup {
 			String okMsg = msgBuilder.getMessage("signup.ok.message", "messages", locale);
 
 			// Captcha is burned and must be reloaded at client side
-			req.getSession().removeAttribute("simpleCaptcha");
+			request.getSession().removeAttribute("simpleCaptcha");
 
 			logger.debug("OUT");
 			return Response.ok(new JSONObject().put("message", okMsg).toString()).build();
@@ -731,4 +725,7 @@ public class Signup {
 
 	}
 
+	private UserProfile getUserProfile() {
+		return UserProfileManager.getProfile();
+	}
 }
