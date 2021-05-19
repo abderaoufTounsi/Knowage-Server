@@ -88,6 +88,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				}
 			}
 		}
+		
+		var replacePlaceholders = function(text, data){
+			function adaptToType(value) {
+				return isNaN(value) ? '"'+value+'"' : value;
+			}
+			// variables
+			text = text.replace(/\$V\{([a-zA-Z0-9\_\-\.]+)\}/g, function(match,variable){
+				return adaptToType(cockpitModule_properties.VARIABLES[variable]);
+			});
+			// fields
+			text = text.replace(/\$F\{([a-zA-Z0-9\_\-\.]+)\}/g, function(match,field){
+				return adaptToType(data[field]);
+			});
+			// parameters
+			text = text.replace(/\$P\{([a-zA-Z0-9\_\-\.]+)\}/g, function(match,parameter){
+				return adaptToType(cockpitModule_analyticalDrivers[parameter]);
+			});
+			return text;
+		}
 
 		var _rowHeight;
 		if(!$scope.ngModel.settings){
@@ -123,7 +142,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						$scope.columnsNameArray.push(fields[f].name);
 						var tempCol = {"headerName":$scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias,
 								"field":fields[f].name,"measure":$scope.ngModel.content.columnSelectedOfDataset[c].fieldType};
-						tempCol.headerTooltip = $scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias;
+						if($scope.ngModel.content.columnSelectedOfDataset[c].style && $scope.ngModel.content.columnSelectedOfDataset[c].style.enableCustomHeaderTooltip){
+							tempCol.headerTooltip = replacePlaceholders($scope.ngModel.content.columnSelectedOfDataset[c].style.customHeaderTooltip);
+						}else{
+							tempCol.headerTooltip = $scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias;
+						}
 						tempCol.pinned = $scope.ngModel.content.columnSelectedOfDataset[c].pinned;
 
 						if ($scope.ngModel.content.columnSelectedOfDataset[c].isCalculated){
@@ -668,6 +691,64 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				obj["type"] = 'table';
 			return obj;
 		}
+		
+		function rowThresholdComparer(data){
+			var validThresholds = [];
+			for(var k in $scope.ngModel.settings.rowThresholds.list){
+				var threshold = angular.copy($scope.ngModel.settings.rowThresholds.list[k]);
+				if(typeof threshold.formula != 'undefined'){
+					threshold.formula = replacePlaceholders(threshold.formula, data);
+					if(eval(threshold.formula)){
+						// changing border color property to override ag-grid default behaviour
+						if(threshold.style['border-bottom-color']) threshold.style['border-bottom'] = "1px solid "+threshold.style['border-bottom-color'];
+						if(threshold.style['border-top-color']) threshold.style['border-top'] = "1px solid "+threshold.style['border-top-color'];
+						validThresholds.push(threshold.style)
+					}
+				}
+				else{
+					// getting the value to compare with
+					var valueToCompare;
+					if(threshold.compareValueType == 'static') valueToCompare = threshold.compareValue;
+					if(threshold.compareValueType == 'variable') {
+						if(threshold.compareValueKey) valueToCompare = cockpitModule_properties.VARIABLES[threshold.compareValue][threshold.compareValueKey];
+						else valueToCompare = cockpitModule_properties.VARIABLES[threshold.compareValue];
+					}
+					if(threshold.compareValueType == 'parameter') valueToCompare = cockpitModule_analyticalDrivers[threshold.compareValue];
+					
+					// getting the condition to compare with and comparing
+					var fullfilledCondition = false;
+					switch(threshold.condition){
+					case '==':
+						fullfilledCondition = data[threshold.column] == valueToCompare;
+						break;
+					case '>=':
+						fullfilledCondition = data[threshold.column] >= valueToCompare;
+						break;
+					case '<=':
+						fullfilledCondition = data[threshold.column] <= valueToCompare;
+						break;
+					case 'IN':
+						fullfilledCondition = valueToCompare.split(',').indexOf(data[threshold.column]) != -1;
+						break;
+					case '>':
+						fullfilledCondition = data[threshold.column] > valueToCompare;
+					case '<':
+						fullfilledCondition = data[threshold.column] < valueToCompare;
+					case '!=':
+						fullfilledCondition = data[threshold.column] != valueToCompare;
+					}
+					
+					if(fullfilledCondition){
+						// changing border color property to override ag-grid default behaviour
+						if(threshold.style['border-bottom-color']) threshold.style['border-bottom'] = "1px solid "+threshold.style['border-bottom-color'];
+						if(threshold.style['border-top-color']) threshold.style['border-top'] = "1px solid "+threshold.style['border-top-color'];
+						if(threshold.condition == '==') return threshold.style;
+						else validThresholds.push(threshold.style)
+					}
+				}
+			}
+			return validThresholds[0];
+		}
 
 		$scope.advancedTableGrid = {
 				angularCompileRows: true,
@@ -688,6 +769,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				onColumnResized: columnResized,
 				getRowHeight: getRowHeight,
 				getRowStyle: function(params) {
+					if($scope.ngModel.settings.rowThresholds && $scope.ngModel.settings.rowThresholds.enabled){
+						if(rowThresholdComparer(mapRow(params.data))) return rowThresholdComparer(mapRow(params.data));
+					}
 					// TODO : make this a CSS rule with a custom class
 					if($scope.ngModel.settings.alternateRows && $scope.ngModel.settings.alternateRows.enabled){
 					    if($scope.ngModel.settings.alternateRows.oddRowsColor && params.node.rowIndex % 2 === 0) {

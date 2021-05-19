@@ -15,20 +15,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.eng.spagobi.services.execute.bo;
+package it.eng.knowage.knowagevue;
 
-import java.util.HashMap;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 
-public class ParametersWrapper {
-
-	private HashMap<String, ?> map = new HashMap<>();
-
-	public HashMap<String, ?> getMap() {
-		return map;
-	}
-
-	public void setMap(HashMap<String, ?> map) {
-		this.map = map;
-	}
+@Configuration
+@ComponentScan("it.eng.knowage.knowagevue.controller")
+public class KnowageVueConfiguration {
 
 }

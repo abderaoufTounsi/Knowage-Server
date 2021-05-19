@@ -43,9 +43,10 @@
 							</div>
 							<div class="p-col-12">
 								<span class="p-float-label kn-material-input">
-									<Chips v-model="template.tags" @change="setDirty" :allowDuplicate="false" />
+									<Chips v-model="template.tags" @add="setDirty" @remove="setDirty" :allowDuplicate="false" />
 									<label class="kn-material-input-label" for="tags">{{ $t('common.tags') }}</label>
 								</span>
+								<small id="username1-help">{{ $t('managers.widgetGallery.tags.availableCharacters') }}</small>
 							</div>
 						</div>
 					</template>
@@ -103,25 +104,7 @@
 	import TabPanel from 'primevue/tabpanel'
 	import Textarea from 'primevue/textarea'
 	import galleryDescriptor from './GalleryManagementDescriptor.json'
-
-	interface GalleryTemplate {
-		id: string
-		author: string
-		name: string
-		type: string
-		description?: string
-		outputType?: string
-		code: Code
-		tags?: Array<string>
-		image: string | ArrayBuffer
-	}
-
-	interface Code {
-		html: string
-		python: string
-		javascript: string
-		css: string
-	}
+	import { IGalleryTemplate } from './GalleryManagement'
 
 	export default defineComponent({
 		name: 'gallery-management-detail',
@@ -140,19 +123,18 @@
 		},
 		data() {
 			return {
-				dirty: false,
+				dirty: false as Boolean,
 				files: [],
-				loading: false,
-				test: '',
+				loading: false as Boolean,
+				test: '' as String,
 				galleryTemplates: [],
-				template: {} as GalleryTemplate,
+				template: {} as IGalleryTemplate,
 				galleryDescriptor: galleryDescriptor,
 				windowWidth: window.innerWidth,
 				windowWidthBreakPoint: 1500
 			}
 		},
 		created() {
-			this.dirty = false
 			this.loadTemplate(this.id)
 			window.addEventListener('resize', this.resizeHandler)
 		},
@@ -160,35 +142,21 @@
 			downloadTemplate(): void {
 				if (this.dirty) {
 					this.$confirm.require({
-						message: 'Are you sure you want to proceed?',
-						header: 'Confirmation',
+						message: this.$t('managers.widgetGallery.templateIsNotSaved'),
+						header: this.$t('managers.widgetGallery.downloadTemplate'),
 						icon: 'pi pi-exclamation-triangle',
 						accept: () => {
-							this.$toast.add({
-								severity: 'info',
-								summary: 'Confirmed',
-								detail: 'You have accepted',
-								life: 3000
-							})
-						},
-						reject: () => {
-							this.$toast.add({
-								severity: 'info',
-								summary: 'Rejected',
-								detail: 'You have rejected',
-								life: 3000
-							})
+							downloadDirect(JSON.stringify(this.template), this.template.name, 'application/json')
 						}
 					})
 				} else {
-					downloadDirect(JSON.stringify(this.template), this.template.name + '.json')
+					downloadDirect(JSON.stringify(this.template), this.template.name, 'application/json')
 				}
 			},
 			closeTemplate(): void {
-				this.$router.push('/knowage/gallerymanagement')
+				this.$router.push('/gallerymanagement')
 			},
 			loadTemplate(id?: string): void {
-				this.dirty = false
 				this.loading = true
 				if (id) {
 					axios
@@ -197,25 +165,31 @@
 							this.template = response.data
 						})
 						.catch((error) => console.error(error))
-						.finally(() => (this.loading = false))
+						.finally(() => {
+							this.loading = false
+							this.dirty = false
+						})
 				} else {
-					this.template = { type: 'html', code: { html: '', css: '', javascript: '', python: '' } } as GalleryTemplate
+					this.template = { type: 'html', code: { html: '', css: '', javascript: '', python: '' } } as IGalleryTemplate
 					this.loading = false
+					this.dirty = false
 				}
 			},
 			onCmCodeChange(): void {
 				this.setDirty()
 			},
 			saveTemplate(): void {
-				let postUrl = this.id ? '1.0/widgetgallery/' + this.id : '1.0/widgetgallery'
-				axios
-					.post(process.env.VUE_APP_API_PATH + postUrl, this.template)
-					.then((response) => {
-						this.$store.commit('setInfo', { title: 'Saved template', msg: 'template saved correctly' })
-						this.$router.push('/knowage/gallerymanagement/' + response.data.id)
-						this.$emit('saved')
-					})
-					.catch((error) => console.error(error))
+				if (this.validateTags()) {
+					let postUrl = this.id ? '1.0/widgetgallery/' + this.id : '1.0/widgetgallery'
+					axios
+						.post(process.env.VUE_APP_API_PATH + postUrl, this.template)
+						.then((response) => {
+							this.$store.commit('setInfo', { title: this.$t('managers.widgetGallery.saveTemplate'), msg: this.$t('managers.widgetGallery.templateSuccessfullySaved') })
+							this.$router.push('/gallerymanagement/' + response.data.id)
+							this.$emit('saved')
+						})
+						.catch((error) => console.error(error))
+				}
 			},
 			setDirty(): void {
 				this.dirty = true
@@ -232,10 +206,23 @@
 				)
 				if (event.srcElement.files[0] && event.srcElement.files[0].size < process.env.VUE_APP_MAX_UPLOAD_IMAGE_SIZE) {
 					reader.readAsDataURL(event.srcElement.files[0])
-				} else this.$store.commit('setError', { title: 'Error in file upload', msg: this.$t('common.error.exceededSize', { size: '(200KB)' }) })
+					this.setDirty()
+				} else this.$store.commit('setError', { title: this.$t('common.error.uploading'), msg: this.$t('common.error.exceededSize', { size: '(200KB)' }) })
 			},
 			resizeHandler(): void {
 				this.windowWidth = window.innerWidth
+			},
+			validateTags(): Boolean {
+				const validationRegex = /^([a-zA-Z0-9\\-\\_])*$/g
+				for (var idx in this.template.tags) {
+					let currentTag = this.template.tags[idx]
+					const valid = currentTag.match(validationRegex)
+					if (!valid) {
+						this.$store.commit('setError', { title: this.$t('common.error.uploading'), msg: this.$t('common.error.tags.tagIsNotValid', { tag: currentTag }) })
+						return false
+					}
+				}
+				return true
 			}
 		},
 		watch: {

@@ -123,7 +123,7 @@
 				requiredFunctionality="NewsManagement"
 				to="${SPAGOBI_CONTEXT}/restful-services/publish?PUBLISHER=/WEB-INF/jsp/tools/news/newsManagement.jsp" />
 			<ITEM label="menu.WidgetGalleryManagement"
-				to="${SPAGOBI_CONTEXT}/gallerymanagement" />
+				to="/gallery-management" />
 		</GROUP_ITEM>
 
 		<GROUP_ITEM id="6000" label="menu.KpiModel"
@@ -220,7 +220,7 @@
 	</TECHNICAL_USER_FUNCTIONALITIES>
 
 	<COMMON_USER_FUNCTIONALITIES>
-		<ITEM label="menu.home" iconCls="pi pi-fw pi-home" to="/knowage" />
+		<ITEM label="menu.home" iconCls="pi pi-fw pi-home" to="/" />
 		<ITEM label="menu.Languages" iconCls="fab fa-font-awesome-flag"
 			command="languageSelection" />
 		<ITEM label="menu.RoleSelection" iconCls="fas fa-users-cog"

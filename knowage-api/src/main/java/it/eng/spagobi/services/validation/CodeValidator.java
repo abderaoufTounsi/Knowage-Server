@@ -1,6 +1,6 @@
 /*
  * Knowage, Open Source Business Intelligence suite
- * Copyright (C) 2021 Engineering Ingegneria Informatica S.p.A.
+ * Copyright (C) 2016 Engineering Ingegneria Informatica S.p.A.
  *
  * Knowage is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -15,20 +15,25 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.eng.spagobi.services.content.bo;
+package it.eng.spagobi.services.validation;
 
-import java.util.HashMap;
+import javax.validation.ConstraintValidator;
+import javax.validation.ConstraintValidatorContext;
 
-public class ParametersWrapper {
+import it.eng.knowage.knowageapi.resource.dto.Code;
 
-	private HashMap<String, ?> map = new HashMap<>();
+public class CodeValidator implements ConstraintValidator<CodeConstraint, Code> {
 
-	public HashMap<String, ?> getMap() {
-		return map;
+	@Override
+	public void initialize(CodeConstraint arg0) {
 	}
 
-	public void setMap(HashMap<String, ?> map) {
-		this.map = map;
+	@Override
+	public boolean isValid(Code toValidate, ConstraintValidatorContext constraintContext) {
+		if (toValidate == null)
+			return true;
+
+		return true;
 	}
 
 }

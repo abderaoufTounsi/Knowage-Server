@@ -75,6 +75,7 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 
 	$scope.$watch('parameterItems',function(newValue,oldValue){
 		$scope.datasetForm.$setValidity("duplicates",!$scope.hasDuplicates(newValue,'name'))
+		if ($scope.selectedDataSet) $scope.selectedDataSet.pars = $scope.parameterItems
 	},true)
 
 	$scope.hasDuplicates = function(array,property){
@@ -1184,7 +1185,10 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 
 		var queryParams = "offset="+start+"&fetchSize="+limit;
 		if(filter!=null && filter!=""){
-			var filters = {"columnFilter":"label","typeValueFilter":"","typeFilter":"like","valueFilter":filter};
+			var filters = [
+				{"columnFilter":"label","typeValueFilter":"","typeFilter":"like","valueFilter":filter},
+				{"columnFilter":"name","typeValueFilter":"","typeFilter":"like","valueFilter":filter}
+			];
 			queryParams = queryParams+"&filters="+angular.toJson(filters);
 		}
 		if(reverseOrdering!==null && reverseOrdering!==""){
@@ -3400,7 +3404,8 @@ function datasetFunction($scope, $log, $http, sbiModule_config, sbiModule_transl
 						for(var f in fields){
 							if(typeof fields[f] != 'object') continue;
 							var tempCol = {"headerName":fields[f].header,"field":fields[f].name, "tooltipField":fields[f].name};
-							tempCol.headerComponentParams = {template: headerTemplate(fields[f].type)};
+							// If there is a subtype, show that
+							tempCol.headerComponentParams = {template: headerTemplate(fields[f].subtype || fields[f].type)};
 							columns.push(tempCol);
 						}
 						return columns;

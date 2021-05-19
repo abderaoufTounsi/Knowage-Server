@@ -4,23 +4,51 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.validation.constraints.NotNull;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import it.eng.spagobi.services.validation.AlphanumericNoSpaces;
+import it.eng.spagobi.services.validation.CodeConstraint;
+import it.eng.spagobi.services.validation.ListStringConstraint;
+import it.eng.spagobi.services.validation.UUIDAlphanumericNoSpaces;
+import it.eng.spagobi.services.validation.Xss;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WidgetGalleryDTO {
 
+	@UUIDAlphanumericNoSpaces
 	private String id;
+
 	private String author;
+
+	@AlphanumericNoSpaces
+	@NotNull
+	@Xss
 	private String name;
+
+	@Xss
 	private String description;
+
 	private String type;
+
+	@ListStringConstraint(message = "One or more tag is not valid")
 	private List<String> tags = new ArrayList<String>();
+
 	private String image = null;
 
 	private String organization;
 	private String sbiversion;
+
 	private String template;
+
 	private Timestamp timestamp;
-	private String user;
+
 	private int usageCounter;
+
+	@CodeConstraint
 	private Code code = new Code();
+
 	private String outputType;
 
 	public String getId() {
@@ -137,14 +165,6 @@ public class WidgetGalleryDTO {
 
 	public void setTimestamp(Timestamp timestamp) {
 		this.timestamp = timestamp;
-	}
-
-	public String getUser() {
-		return user;
-	}
-
-	public void setUser(String user) {
-		this.user = user;
 	}
 
 	public int getUsageCounter() {

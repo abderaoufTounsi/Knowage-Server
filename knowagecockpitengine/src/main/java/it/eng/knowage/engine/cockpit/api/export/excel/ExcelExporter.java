@@ -24,9 +24,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -64,6 +66,8 @@ import it.eng.spagobi.utilities.exceptions.SpagoBIRuntimeException;
 public class ExcelExporter {
 
 	static private Logger logger = Logger.getLogger(ExcelExporter.class);
+
+	public static final String UNIQUE_ALIAS_PLACEHOLDER = "_$_";
 
 	private final String userUniqueIdentifier;
 	private final boolean isSingleWidgetExport;
@@ -373,12 +377,16 @@ public class ExcelExporter {
 		Map<String, Object> map = new java.util.HashMap<String, Object>();
 		JSONArray multiDataStore = new JSONArray();
 		try {
+			JSONObject configuration = template.getJSONObject("configuration");
 			JSONArray datasetIds = widget.getJSONArray("datasetId");
 			for (int i = 0; i < datasetIds.length(); i++) {
 				int datasetId = datasetIds.getInt(i);
 				IDataSet dataset = DAOFactory.getDataSetDAO().loadDataSetById(datasetId);
 				String datasetLabel = dataset.getLabel();
 				JSONObject cockpitSelections = getMultiCockpitSelectionsFromBody(widget, datasetId);
+
+				if (getRealtimeFromWidget(datasetId, configuration))
+					map.put("nearRealtime", true);
 
 				JSONArray summaryRow = getSummaryRowFromWidget(widget);
 				if (summaryRow != null)
@@ -457,11 +465,32 @@ public class ExcelExporter {
 				}
 				cockpitSelections = body.getJSONArray("COCKPIT_SELECTIONS").getJSONObject(i);
 			}
+			forceUniqueHeaders(cockpitSelections);
 		} catch (Exception e) {
 			logger.error("Cannot get cockpit selections", e);
 			return new JSONObject();
 		}
 		return cockpitSelections;
+	}
+
+	private void forceUniqueHeaders(JSONObject cockpitSelections) throws JSONException {
+		JSONObject aggregations = cockpitSelections.getJSONObject("aggregations");
+		JSONArray measures = aggregations.getJSONArray("measures");
+		manipulateDimensions(measures);
+		JSONArray categories = aggregations.getJSONArray("categories");
+		manipulateDimensions(categories);
+	}
+
+	private void manipulateDimensions(JSONArray dimensions) throws JSONException {
+		Set<String> dimensionsAliases = new HashSet<String>();
+		for (int i = 0; i < dimensions.length(); i++) {
+			JSONObject d = dimensions.getJSONObject(i);
+			String alias = d.getString("alias");
+			if (dimensionsAliases.contains(alias)) {
+				d.put("alias", alias + UNIQUE_ALIAS_PLACEHOLDER + i);
+			}
+			dimensionsAliases.add(alias);
+		}
 	}
 
 	private JSONObject getMultiCockpitSelectionsFromBody(JSONObject widget, int datasetId) {
