@@ -1,8 +1,13 @@
 .kn-page {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100vh;
+    &--full {
+        @extend .kn-page;
+        width: calc(100vw - #{$mainmenu-width});
+    }
     .kn-page-content {
         flex: 1;
+        overflow-y: auto;
     }
 }

@@ -15,7 +15,7 @@
 	<md-dialog-content layout="column" style="max-height:810px; ">
 	
 		<md-tabs class="mozScroll hideTabs" md-dynamic-height md-border-bottom>
-			<md-tab id="eventTabDetail" label="{{::translate.load('sbi.generic.details')}}">
+			<md-tab id="eventTabDetail" label="{{::translate.load('sbi.scheduler.schedulation.events.detail')}}">
 				<md-content class="md-padding internalContent" layout="column" >
 					<md-input-container  class="md-block">
 						<label>{{::translate.load("scheduler.schedname","component_scheduler_messages")}}</label>
@@ -507,7 +507,7 @@
 									<md-input-container class="md-block">
 										<label>{{::translate.load("scheduler.mailtext", "component_scheduler_messages")}}:</label>
 										<textarea ng-model="activityEventCtrl.selectedDocument.mailtxt" columns="1"
-												maxlength="500" ng-maxlength="500" md-maxlength="500" ng-disabled="activityEventCtrl.isUniqueMailSettedInAnotherDoc()">
+												maxlength="2000" ng-maxlength="2000" md-maxlength="2000" ng-disabled="activityEventCtrl.isUniqueMailSettedInAnotherDoc()">
                                         </textarea>
 									</md-input-container> 
 								</md-content>

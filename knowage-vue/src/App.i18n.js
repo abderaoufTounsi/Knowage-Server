@@ -8,17 +8,17 @@ const messages = {
 	en_US: require('@/i18n/en_US.json'),
 	es_ES: require('@/i18n/es_ES.json'),
 	fr_FR: require('@/i18n/fr_FR.json'),
+	hu_HU: require('@/i18n/hu_HU.json'),
 	it_IT: require('@/i18n/it_IT.json'),
 	ja_JP: require('@/i18n/ja_JP.json'),
 	ko_KR: require('@/i18n/ko_KR.json'),
 	pt_BR: require('@/i18n/pt_BR.json'),
 	ru_RU: require('@/i18n/ru_RU.json'),
 	tr_TR: require('@/i18n/tr_TR.json'),
-	'zh_CN_#hans': require('@/i18n/zh_Hans_CN.json')
-	
+	'zh_CN_#Hans': require('@/i18n/zh_Hans_CN.json')
 }
 
-let currentLocale = localStorage.getItem('locale') ? localStorage.getItem('locale') : store.local
+let currentLocale = localStorage.getItem('locale') ? localStorage.getItem('locale') : store.locale
 
 const i18n = createI18n({
 	locale: currentLocale,

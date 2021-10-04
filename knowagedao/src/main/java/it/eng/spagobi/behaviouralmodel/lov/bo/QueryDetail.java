@@ -31,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import javax.naming.NamingException;
@@ -779,9 +780,7 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 		DataConnection dataConnection = null;
 		SQLCommand sqlCommand = null;
 		DataResult dataResult = null;
-		try {
-			// gets connection
-			Connection conn = getConnection(profile, dataSource);
+		try(Connection conn = getConnection(profile, dataSource)) {
 			dataConnection = getDataConnection(conn);
 			sqlCommand = dataConnection.createSelectCommand(statement, false);
 			dataResult = sqlCommand.execute();
@@ -834,12 +833,13 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 			statement = getValidationQuery(profile, driver, values);
 			logger.debug("Executing validation statement [" + statement + "] ...");
 			// gets connection
-			Connection conn = getConnection(profile, dataSource);
-			dataConnection = getDataConnection(conn);
-			sqlCommand = dataConnection.createSelectCommand(statement, false);
-			dataResult = sqlCommand.execute();
-			ScrollableDataResult scrollableDataResult = (ScrollableDataResult) dataResult.getDataObject();
-			result = scrollableDataResult.getSourceBean();
+			try (Connection conn = getConnection(profile, dataSource)) {
+				dataConnection = getDataConnection(conn);
+				sqlCommand = dataConnection.createSelectCommand(statement, false);
+				dataResult = sqlCommand.execute();
+				ScrollableDataResult scrollableDataResult = (ScrollableDataResult) dataResult.getDataObject();
+				result = scrollableDataResult.getSourceBean();
+			}
 		} finally {
 			Utils.releaseResources(dataConnection, sqlCommand, dataResult);
 		}
@@ -1229,7 +1229,8 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 			SQLMapper sqlMapper = (SQLMapper) mapperClass.newInstance();
 			dataCon = new DataConnection(con, "2.1", sqlMapper);
 		} catch (Exception e) {
-			logger.error("Error while getting Data Source " + e);
+			String conAsString = Optional.ofNullable(con).map(Connection::toString).orElse("null");
+			logger.error("Error while getting Data Source from connection " + conAsString, e);
 			throw new EMFInternalError(EMFErrorSeverity.ERROR, "cannot build spago DataConnection object");
 		}
 		return dataCon;

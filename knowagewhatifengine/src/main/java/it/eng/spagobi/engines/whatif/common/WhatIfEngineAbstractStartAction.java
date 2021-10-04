@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.Locale.Builder;
 import java.util.Map;
 import java.util.Set;
 
@@ -47,20 +48,20 @@ import it.eng.spagobi.utilities.engines.rest.AbstractEngineStartRestService;
 import it.eng.spagobi.utilities.exceptions.SpagoBIRestServiceException;
 
 public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestService {
-	
+
 	// SESSION PARAMETRES
 	public static final String ENGINE_INSTANCE = EngineConstants.ENGINE_INSTANCE;
 	public static final String STARTUP_ERROR = EngineConstants.STARTUP_ERROR;
 	private static final String SUCCESS_REQUEST_DISPATCHER_URL = "/WEB-INF/jsp/whatIf2.jsp";
 	private static final String FAILURE_REQUEST_DISPATCHER_URL = "/WEB-INF/jsp/errors/startupError.jsp";
-	
 
 	// Defaults
 	public static final Locale DEFAULT_LOCALE = Locale.ENGLISH;
-	@Context HttpServletRequest request;
-	@Context HttpServletResponse response;
-	
-	
+	@Context
+	HttpServletRequest request;
+	@Context
+	HttpServletResponse response;
+
 	@Override
 	public String getEngineName() {
 		return WhatIfConstants.ENGINE_NAME;
@@ -70,11 +71,9 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 	public HttpServletRequest getServletRequest() {
 		return request;
 	}
-	
+
 	public void startAction(boolean whatif) {
 		logger.debug("IN");
-
-
 
 		try {
 			SourceBean templateBean = getTemplateAsSourceBean();
@@ -91,12 +90,21 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 				logger.debug("Audit enabled: [FALSE]");
 			}
 
+			Map<String, Object> env = getEnv();
+
+			WhatIfEngineAnalysisState analysisState = getAnalysisState();
+			if (analysisState != null) {
+				// in case there is a subobject (i.e. analyses state is not null), we must update env variable with drivers saved along with subobject
+				Map<String, Object> drivers = analysisState.getDriversValues();
+				env.putAll(drivers);
+			}
+
 			WhatIfEngineInstance whatIfEngineInstance = null;
 
 			logger.debug("Creating engine instance ...");
 
 			try {
-				whatIfEngineInstance = WhatIfEngine.createInstance(templateBean, whatif, getEnv());
+				whatIfEngineInstance = WhatIfEngine.createInstance(templateBean, whatif, env);
 			} catch (WhatIfTemplateParseException e) {
 				SpagoBIEngineStartupException engineException = new SpagoBIEngineStartupException(getEngineName(), "Template not valid", e);
 				engineException.setDescription(e.getCause().getMessage());
@@ -112,15 +120,13 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 
 			// loads subobjects
 			whatIfEngineInstance.setAnalysisMetadata(getAnalysisMetadata());
-			if (getAnalysisStateRowData() != null) {
+			if (analysisState != null) {
 				logger.debug("Loading subobject [" + whatIfEngineInstance.getAnalysisMetadata().getName() + "] ...");
 				try {
-					WhatIfEngineAnalysisState analysisState = new WhatIfEngineAnalysisState();
-					analysisState.load(getAnalysisStateRowData());
 					whatIfEngineInstance.setAnalysisState(analysisState);
-				} catch (Throwable t) {
-					logger.error("Error loading the subobject", t);
-					throw new SpagoBIRestServiceException("sbi.olap.start.load.subobject.error", getLocale(), "Error loading the subobject", t);
+				} catch (Exception e) {
+					logger.error("Error loading the subobject", e);
+					throw new SpagoBIRestServiceException("sbi.olap.start.load.subobject.error", getLocale(), "Error loading the subobject", e);
 				}
 				logger.debug("Subobject [" + whatIfEngineInstance.getAnalysisMetadata().getName() + "] succesfully loaded");
 			}
@@ -132,8 +138,8 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 				request.getRequestDispatcher(SUCCESS_REQUEST_DISPATCHER_URL).forward(request, response);
 			} catch (Exception e) {
 				logger.error("Error starting the What-If engine: error while forwarding the execution to the jsp " + SUCCESS_REQUEST_DISPATCHER_URL, e);
-				throw new SpagoBIEngineRuntimeException("Error starting the What-If engine: error while forwarding the execution to the jsp "
-						+ SUCCESS_REQUEST_DISPATCHER_URL, e);
+				throw new SpagoBIEngineRuntimeException(
+						"Error starting the What-If engine: error while forwarding the execution to the jsp " + SUCCESS_REQUEST_DISPATCHER_URL, e);
 			}
 
 			if (getAuditServiceProxy() != null) {
@@ -153,12 +159,25 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 				request.getRequestDispatcher(FAILURE_REQUEST_DISPATCHER_URL).forward(request, response);
 			} catch (Exception ex) {
 				logger.error("Error starting the What-If engine: error while forwarding the execution to the jsp " + FAILURE_REQUEST_DISPATCHER_URL, ex);
-				throw new SpagoBIEngineRuntimeException("Error starting the What-If engine: error while forwarding the execution to the jsp "
-						+ FAILURE_REQUEST_DISPATCHER_URL, ex);
+				throw new SpagoBIEngineRuntimeException(
+						"Error starting the What-If engine: error while forwarding the execution to the jsp " + FAILURE_REQUEST_DISPATCHER_URL, ex);
 			}
 		} finally {
 			logger.debug("OUT");
 		}
+	}
+
+	private WhatIfEngineAnalysisState getAnalysisState() {
+		WhatIfEngineAnalysisState toReturn = null;
+		try {
+			if (getAnalysisStateRowData() != null) {
+				toReturn = new WhatIfEngineAnalysisState();
+				toReturn.load(getAnalysisStateRowData());
+			}
+		} catch (Exception e) {
+			throw new SpagoBIEngineRuntimeException("Error while getting analyses state content", e);
+		}
+		return toReturn;
 	}
 
 	protected SpagoBIEngineStartupException getWrappedException(Exception e) {
@@ -181,7 +200,7 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 		}
 		return serviceException;
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public Map getEnv() {
@@ -213,7 +232,7 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 
 		return env;
 	}
-	
+
 	@Override
 	public Locale getLocale() {
 		logger.debug("IN");
@@ -221,8 +240,15 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 		try {
 			String language = this.getServletRequest().getParameter(LANGUAGE);
 			String country = this.getServletRequest().getParameter(COUNTRY);
+			String script = this.getServletRequest().getParameter(SCRIPT);
+			logger.debug("Locale parameters received: language = [" + language + "] ; country = [" + country + "]");
+
 			if (StringUtils.isNotEmpty(language) && StringUtils.isNotEmpty(country)) {
-				toReturn = new Locale(language, country);
+				Builder builder = new Builder().setLanguage(language).setRegion(country);
+				if (StringUtils.isNotBlank(script)) {
+					builder.setScript(script);
+				}
+				toReturn = builder.build();
 			} else {
 				logger.warn("Language and country not specified in request. Considering default locale that is " + DEFAULT_LOCALE.toString());
 				toReturn = DEFAULT_LOCALE;
@@ -234,7 +260,7 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 		logger.debug("OUT");
 		return toReturn;
 	}
-	
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void copyRequestParametersIntoEnv(Map env, HttpServletRequest servletRequest) {
 
@@ -278,7 +304,7 @@ public class WhatIfEngineAbstractStartAction extends AbstractEngineStartRestServ
 		logger.debug("OUT");
 
 	}
-	
+
 	@Override
 	public UserProfile getUserProfile() {
 		return super.getUserProfile();

@@ -1082,10 +1082,23 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 							if(parameter.bindType == 'jwt') paramValue = sbiModule_user.userUniqueIdentifier;
 							if(parameter.bindType == 'dynamic') {
 								if(parameter.column && parameter.column != 'column_name_mode') {
-									for(var c in $scope.ngModel.content.columnSelectedOfDataset){
-										if($scope.ngModel.content.columnSelectedOfDataset[c].name == parameter.column) {
-											paramValue = row[$scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow];
-											break;
+									if(parameter.column == 'measure_name'){
+										paramValue = modalColumn;
+									}else if(model.type=='static-pivot-table'){
+										if (Array.isArray(columnName)){
+											var index = columnName.indexOf(parameter.column);
+											if(index != -1) paramValue = columnValue[index];
+										}else if(parameter.column == columnName){
+											paramValue = columnValue;
+										}
+										
+									}
+									else{
+										for(var c in $scope.ngModel.content.columnSelectedOfDataset){
+											if($scope.ngModel.content.columnSelectedOfDataset[c].name == parameter.column) {
+												paramValue = row[$scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow];
+												break;
+											}
 										}
 									}
 								}
@@ -1096,7 +1109,7 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 								if(selectionsObj && selectionsObj.length > 0){
 									var found = false;
 									for(var i = 0; i < selectionsObj.length && found == false; i++){
-										if(selectionsObj[i].ds == parameter.dataset && selectionsObj[i].columnName == parameter.column){
+										if(selectionsObj[i].ds == parameter.dataset && selectionsObj[i].columnName.toLowerCase() == parameter.column.toLowerCase() ){
 											paramValue = selectionsObj[i].value;
 											found = true;
 										}
@@ -1641,22 +1654,25 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 	$scope.showChartTypes = function(ev,widgetName){
 		if(!$scope.ngModel.content.chartTemplateOriginal){
 			$scope.ngModel.content.chartTemplateOriginal = angular.copy($scope.ngModel.content.chartTemplate);
-
-		}else{
-			$scope.ngModel.content.chartTemplate = angular.copy($scope.ngModel.content.chartTemplateOriginal);
 		}
 		$scope.chartTypes.length = 0;
 		var serie = $scope.ngModel.content.chartTemplate.CHART.VALUES.SERIE;
 		var numOfCateg = cockpitModule_widgetServices.checkNumOfCategory($scope.ngModel.content.chartTemplate.CHART.VALUES.CATEGORY);
 		var minMaxCategoriesSeries = cockpitModule_widgetServices.createCompatibleCharts();
+		
+		
+		if($scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase() != $scope.ngModel.content.chartTemplate.CHART.type.toLowerCase()) {
+			$scope.chartTypes.push($scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase());
+		}
 		for (var attrname in minMaxCategoriesSeries.serie.min) {
 			if((minMaxCategoriesSeries.serie.min[attrname] <= serie.length) && (minMaxCategoriesSeries.categ.min[attrname] <= numOfCateg) ){
-				if(minMaxCategoriesSeries.charts[$scope.ngModel.content.chartTemplate.CHART.type.toLowerCase()] && minMaxCategoriesSeries.charts[$scope.ngModel.content.chartTemplate.CHART.type.toLowerCase()].indexOf(attrname) != -1){
-					$scope.chartTypes.push(attrname);
+				if(minMaxCategoriesSeries.charts[$scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase()] && minMaxCategoriesSeries.charts[$scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase()].indexOf(attrname) != -1){
+					if(attrname != $scope.ngModel.content.chartTemplate.CHART.type) $scope.chartTypes.push(attrname);
 				}
 			}
 		}
-
+		
+		
 		if(!tempOriginalChartType){
 			var tempOriginalChartType = $scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase();
 		}
@@ -1738,7 +1754,7 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 	};
 
 	$scope.exportToExcel = function(event, ngModel, options) {
-		cockpitModule_exportWidgetService.exportWidgetToExcel('xlsx', ngModel, options);
+		cockpitModule_exportWidgetService.exportWidgetToExcel('xlsx', angular.copy(ngModel), options);
 	}
 
 	$scope.getPerWidgetDatasetIds = function() {

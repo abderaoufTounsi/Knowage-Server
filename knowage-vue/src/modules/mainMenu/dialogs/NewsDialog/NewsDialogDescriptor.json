@@ -1,4 +1,14 @@
 {
+	"icons": {
+		"read": {
+			"icon": "far fa-envelope-open",
+			"style": "background-color:transparent;"
+		},
+		"unread": {
+			"icon": "far fa-envelope",
+			"style": "background-color:transparent;"
+		}
+	},
 	"newsType": {
 		"1": {
 			"className": "fas fa-rss",

@@ -38,6 +38,7 @@ public class SpagoBIConstants {
 	public static final String EXECUTION_ROLE = "SBI_EXECUTION_ROLE";
 	public static final String SBI_LANGUAGE = "SBI_LANGUAGE";
 	public static final String SBI_COUNTRY = "SBI_COUNTRY";
+	public static final String SBI_SCRIPT = "SBI_SCRIPT";
 	public static final String EXECUTE_DOCUMENT_ACTION = "EXECUTE_DOCUMENT_ACTION";
 	public static final String SBI_ENVIRONMENT = "SBI_ENVIRONMENT";
 
@@ -334,12 +335,14 @@ public class SpagoBIConstants {
 
 	public static final String COUNTRY = "country";
 	public static final String LANGUAGE = "language";
+	public static final String SCRIPT = "script";
 
 	// public static final String CURRENT_COUNTRY = "AF_COUNTRY";
 
 	public static final String CURRENT_LANGUAGE = "CURRENT_LANGUAGE";
 	public static final String AF_LANGUAGE = "AF_LANGUAGE";
 	public static final String AF_COUNTRY = "AF_COUNTRY";
+	public static final String AF_SCRIPT = "AF_SCRIPT";
 	public static final String AF_LANGUAGE_TAG = "AF_LANGUAGE_TAG";
 
 	public static final String TEMPLATE_ID = "TEMPLATE_ID";
@@ -395,6 +398,7 @@ public class SpagoBIConstants {
 	public static final String KPI_SCHEDULATION = "KpiSchedulation";
 	public static final String PROFILE_MANAGEMENT = "ProfileManagement";
 	public static final String FINAL_USERS_MANAGEMENT = "FinalUsersManagement";
+	public static final String PROFILE_ATTRIBUTES_LIST = "ProfileAttributeListManagement";
 	public static final String SELF_SERVICE_DATASET_MANAGEMENT = "SelfServiceDatasetManagement";
 	public static final String READ_ROLES = "ReadRoles";
 
@@ -601,5 +605,8 @@ public class SpagoBIConstants {
 	// Session Parameters
 	public static final String SESSION_PARAMETERS_STORE_NAME = "sessionParameterService";
 	public static final String SESSION_PARAMETER_STATE_OBJECT_KEY = "parameterStateKey";
+
+	// License Read Only
+	public static final String LICENSE_READ_ONLY = "LicenseReadOnly";
 
 }

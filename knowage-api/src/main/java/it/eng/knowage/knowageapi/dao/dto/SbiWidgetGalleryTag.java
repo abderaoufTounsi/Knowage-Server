@@ -1,3 +1,20 @@
+/*
+ * Knowage, Open Source Business Intelligence suite
+ * Copyright (C) 2021 Engineering Ingegneria Informatica S.p.A.
+ *
+ * Knowage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Knowage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package it.eng.knowage.knowageapi.dao.dto;
 
 import java.io.Serializable;
@@ -7,8 +24,8 @@ import javax.persistence.Column;
 import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
 import javax.persistence.JoinColumn;
+import javax.persistence.JoinColumns;
 import javax.persistence.ManyToOne;
-import javax.persistence.MapsId;
 import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 
@@ -17,12 +34,10 @@ import javax.persistence.Table;
  *
  */
 @Entity
-@Table(name = "sbi_widget_gallery_tags")
+@Table(name = "SBI_WIDGET_GALLERY_TAGS")
 @NamedQuery(name = "SbiWidgetGalleryTag.findAll", query = "SELECT s FROM SbiWidgetGalleryTag s")
 public class SbiWidgetGalleryTag implements Serializable {
 	private static final long serialVersionUID = 1L;
-
-	private String organization;
 
 	@Column(name = "SBI_VERSION_DE")
 	private String sbiVersionDe;
@@ -55,12 +70,13 @@ public class SbiWidgetGalleryTag implements Serializable {
 	private String userUp;
 
 	// bi-directional many-to-one association to SbiWidgetGallery
-	@MapsId("widgetId")
+	@JoinColumns({ @JoinColumn(name = "WIDGET_ID", referencedColumnName = "UUID", insertable = false, updatable = false),
+			@JoinColumn(name = "ORGANIZATION", referencedColumnName = "ORGANIZATION", insertable = false, updatable = false) })
 	@ManyToOne
-	@JoinColumn(name = "WIDGET_ID")
 	private SbiWidgetGallery sbiWidgetGallery;
 
 	public SbiWidgetGalleryTag() {
+		id = new SbiWidgetGalleryTagId();
 	}
 
 	public SbiWidgetGalleryTagId getId() {
@@ -69,14 +85,6 @@ public class SbiWidgetGalleryTag implements Serializable {
 
 	public void setId(SbiWidgetGalleryTagId id) {
 		this.id = id;
-	}
-
-	public String getOrganization() {
-		return this.organization;
-	}
-
-	public void setOrganization(String organization) {
-		this.organization = organization;
 	}
 
 	public String getSbiVersionDe() {

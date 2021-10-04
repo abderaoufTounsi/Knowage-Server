@@ -17,14 +17,18 @@
  */
 package it.eng.spagobi.commons.serializer.v3;
 
+import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.http.HttpSession;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -49,6 +53,7 @@ import it.eng.spagobi.profiling.PublicProfile;
 import it.eng.spagobi.security.InternalSecurityServiceSupplierImpl;
 import it.eng.spagobi.services.common.SsoServiceInterface;
 import it.eng.spagobi.utilities.assertion.Assert;
+import it.eng.spagobi.utilities.exceptions.SpagoBIRuntimeException;
 import it.eng.spagobi.wapp.bo.Menu;
 import it.eng.spagobi.wapp.services.DetailMenuModule;
 import it.eng.spagobi.wapp.util.MenuUtilities;
@@ -102,11 +107,40 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 	private Set<Integer> technicalUserMenuIds = new HashSet<Integer>();
 
+	/*
+	 * Menus that are available to non-administrator users but have the required functionality. The map contains the pair (label, id of the technical menu of
+	 * which it is a duplicate).
+	 */
+	private Map<String, Integer> allowedMenuToNotDuplicate = new HashMap<String, Integer>();
+
+	/*
+	 * Technical menus that will be available for Community OR Enterprise edition key: Community menu ID Value: Enterprise menu ID
+	 */
+	private Map<String, String> technicalMenuCommunityOrEnterprise = new HashMap<String, String>();
+
 	public MenuListJSONSerializerForREST(IEngUserProfile userProfile, HttpSession session, String currentTheme) {
 		Assert.assertNotNull(userProfile, "User profile in input is null");
 		this.setUserProfile(userProfile);
 		this.setHttpSession(session);
 		this.currentTheme = currentTheme;
+
+		allowedMenuToNotDuplicate.put("menu.Users", 2003);
+		allowedMenuToNotDuplicate.put("menu.HierarchiesEditor", 5003);
+		allowedMenuToNotDuplicate.put("menu.glossary.technical", 4007);
+		allowedMenuToNotDuplicate.put("menu.glossary.business", 4008);
+		allowedMenuToNotDuplicate.put("menu.cross.definition", 5005);
+		allowedMenuToNotDuplicate.put("menu.calendar", 4010);
+		allowedMenuToNotDuplicate.put("menu.lovs.management", 3002);
+		allowedMenuToNotDuplicate.put("menu.template.management", 8002);
+		allowedMenuToNotDuplicate.put("menu.importexport.document", 10002);
+		allowedMenuToNotDuplicate.put("menu.importexport.resources", null);
+		allowedMenuToNotDuplicate.put("menu.importexport.users", 10004);
+		allowedMenuToNotDuplicate.put("menu.importexport.glossary", 10008);
+		allowedMenuToNotDuplicate.put("menu.importexport.catalog", 10006);
+		allowedMenuToNotDuplicate.put("menu.i18n", 9001);
+		allowedMenuToNotDuplicate.put("menu.news", 5007);
+
+		technicalMenuCommunityOrEnterprise.put("5008", "5009");
 	}
 
 	@Override
@@ -160,7 +194,7 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 		logger.debug("IN");
 
-		JSONArray userMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, ALLOWED_USER_FUNCTIONALITIES, false);
+		JSONArray userMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, MenuType.ALLOWED_USER_FUNCTIONALITIES);
 
 		logger.debug("OUT");
 
@@ -172,7 +206,7 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 		logger.debug("IN");
 
-		JSONArray commonUserFunctionalitiesMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, COMMON_USER_FUNCTIONALITIES, false);
+		JSONArray commonUserFunctionalitiesMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, MenuType.COMMON_USER_FUNCTIONALITIES);
 
 		logger.debug("OUT");
 
@@ -184,7 +218,7 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 		logger.debug("IN");
 
-		JSONArray technicalUserMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, TECHNICAL_USER_FUNCTIONALITIES, true);
+		JSONArray technicalUserMenu = createMenu(menuDefinitionFile, locale, technicalUserMenuJSONArray, MenuType.TECHNICAL_USER_FUNCTIONALITIES);
 
 		logger.debug("OUT");
 
@@ -271,47 +305,68 @@ public class MenuListJSONSerializerForREST implements Serializer {
 		return menuUserList;
 	}
 
-	private JSONArray createMenu(SourceBean menuDefinitionFile, Locale locale, JSONArray technicalUserMenuJSONArray, String attribute,
-			boolean isTechnicalUserMenu) throws JSONException, EMFInternalError {
+	private JSONArray createMenu(SourceBean menuDefinitionFile, Locale locale, JSONArray technicalUserMenuJSONArray, MenuType menuType)
+			throws JSONException, EMFInternalError {
 		MessageBuilder messageBuilder = new MessageBuilder();
-		List attributeList = menuDefinitionFile.getAttributeAsList(attribute);
-		return buildMenuTreeBranch(locale, messageBuilder, attributeList, technicalUserMenuJSONArray, isTechnicalUserMenu);
+		List attributeList = menuDefinitionFile.getAttributeAsList(menuType.name());
+		return buildMenuTreeBranch(locale, messageBuilder, attributeList, technicalUserMenuJSONArray, menuType);
 	}
 
 	private JSONArray buildMenuTreeBranch(Locale locale, MessageBuilder messageBuilder, List attributeList, JSONArray technicalUserMenuJSONArray,
-			boolean isTechnicalUserMenu) throws JSONException, EMFInternalError {
+			MenuType menuType) throws JSONException, EMFInternalError {
 		JSONArray tempMenuList = new JSONArray();
 		List funcs = (List) userProfile.getFunctionalities();
 
-		if (isTechnicalUserMenu) {
+		if (menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES) {
 			for (Object domain : attributeList) {
 
 				List menuCategory = ((SourceBean) domain).getAttributeAsList(GROUP_ITEM);
 
 				for (Object groupItem : menuCategory) {
 
-					if (isLicensedMenu(((SourceBean) groupItem))) {
+					SourceBean groupItemSB = (SourceBean) groupItem;
 
-						List itemsSBList = ((SourceBean) groupItem).getAttributeAsList(ITEM);
+					boolean isGroupItemToAdd = isGroupItemToAdd(groupItemSB);
 
-						JSONArray children = createItemsArray(locale, messageBuilder, funcs, technicalUserMenuJSONArray, itemsSBList, isTechnicalUserMenu);
+					if (isGroupItemToAdd) {
+
+						List itemsSBList = groupItemSB.getAttributeAsList(ITEM);
+
+						JSONArray children = createItemsArray(locale, messageBuilder, funcs, technicalUserMenuJSONArray, itemsSBList, menuType);
 
 						if (children.length() > 0) {
-
-							SourceBean objSB = (SourceBean) groupItem;
-							JSONObject groupItemJSON = createMenuNode(locale, messageBuilder, objSB, isTechnicalUserMenu);
+							JSONObject groupItemJSON = createMenuNodeAndRecordGroupMenu(locale, messageBuilder, groupItemSB, menuType);
 							groupItemJSON.put(ITEMS, children);
 
 							tempMenuList.put(groupItemJSON);
 						}
-					}
-				}
+					} else if (isEnterpriseEdition() && groupItemSB.getAttribute("id").equals("8000")) {
 
+						List itemsSBList = groupItemSB.getAttributeAsList(ITEM);
+						JSONObject groupItemJSON = createMenuNodeAndRecordGroupMenu(locale, messageBuilder, groupItemSB, menuType);
+
+						for (Object object : itemsSBList) {
+							SourceBean objectSB = (SourceBean) object;
+
+							if (objectSB.getAttribute("id").equals("8012")) {
+								JSONArray children = new JSONArray();
+								JSONObject licenseMenu = createMenuNodeAndRecordGroupMenu(locale, messageBuilder, objectSB, menuType);
+								children.put(licenseMenu);
+								groupItemJSON.put(ITEMS, children);
+								tempMenuList.put(groupItemJSON);
+								break;
+							}
+						}
+
+					}
+
+				}
 			}
+
 		} else {
 			for (Object domain : attributeList) {
 				List itemsSBList = ((SourceBean) domain).getAttributeAsList(ITEM);
-				JSONArray children = createItemsArray(locale, messageBuilder, funcs, technicalUserMenuJSONArray, itemsSBList, isTechnicalUserMenu);
+				JSONArray children = createItemsArray(locale, messageBuilder, funcs, technicalUserMenuJSONArray, itemsSBList, menuType);
 				tempMenuList = children;
 			}
 		}
@@ -320,36 +375,120 @@ public class MenuListJSONSerializerForREST implements Serializer {
 	}
 
 	private JSONArray createItemsArray(Locale locale, MessageBuilder messageBuilder, List funcs, JSONArray technicalUserMenuJSONArray, List itemsSBList,
-			boolean isTechnicalUserMenu) throws JSONException, EMFInternalError {
+			MenuType menuType) throws JSONException, EMFInternalError {
 		JSONArray items = new JSONArray();
 		for (Object item : itemsSBList) {
 
 			SourceBean itemSB = (SourceBean) item;
+
 			if (!isInTechnicalUserMenu(technicalUserMenuJSONArray, itemSB, messageBuilder, locale)) {
+
+				String condition = (String) itemSB.getAttribute(CONDITION);
 
 				boolean addElement = true;
 
-				String condition = (String) itemSB.getAttribute(CONDITION);
 				String requiredFunctionality = (String) itemSB.getAttribute(REQUIRED_FUNCTIONALITY);
 
 				/* ALL_USERS or ALLOWED_USER_FUNCTIONALITIES */
 				if (condition != null && !condition.isEmpty()) {
 					addElement = menuConditionIsSatisfied(itemSB);
-				} else if (requiredFunctionality != null) {
-					if (isAbleTo(requiredFunctionality, funcs)) {
-						addElement = isLicensedMenu(itemSB);
-					} else
-						addElement = false;
+				} else if (StringUtils.isNotBlank(requiredFunctionality)) {
+					addElement = false;
+
+					String[] reqFunc = requiredFunctionality.split(",", -1);
+					for (int i = 0; i < reqFunc.length; i++) {
+						if (isAbleTo(reqFunc[i], funcs)) {
+							addElement = isGroupItemToAdd(itemSB);
+						}
+						if (addElement)
+							break;
+					}
 				}
 
+				if (addElement)
+					addElement &= isUserMenuForNotAdmin(menuType, itemSB);
+
+				if (addElement)
+					addElement &= isMenuForKnowageCurrentType(menuType, itemSB);
+
 				if (addElement) {
-					JSONObject menu = createMenuNode(locale, messageBuilder, itemSB, isTechnicalUserMenu);
+					JSONObject menu = createMenuNode(locale, messageBuilder, itemSB, menuType);
 					items.put(menu);
+					if (menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES)
+						technicalUserMenuIds.add(Integer.valueOf((String) itemSB.getAttribute(ID)));
+				}
+			}
+
+		}
+
+		return items;
+	}
+
+	/**
+	 *
+	 * @param menuType
+	 * @param itemSB
+	 *
+	 *                 Method to know if the menu is part of the allowed user functionality that must be added even if the user is not an administrator
+	 */
+	private boolean isUserMenuForNotAdmin(MenuType menuType, SourceBean itemSB) {
+		boolean isToAdd = true;
+		if (menuType == MenuType.ALLOWED_USER_FUNCTIONALITIES || menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES) {
+			String menuLabel = (String) itemSB.getAttribute(LABEL);
+
+			if (menuType == MenuType.ALLOWED_USER_FUNCTIONALITIES) {
+				// allowed user menu to add only if it is not admin and functionality is permitted in any case
+				Integer technicalMenuId = allowedMenuToNotDuplicate.get(menuLabel);
+				if (technicalMenuId != null && technicalUserMenuIds.contains(technicalMenuId)) {
+					return false;
+				}
+
+				try {
+					if ("menu.news".equals(menuLabel) && !UserUtilities.hasUserRole(this.getUserProfile())) {
+						return false;
+					}
+				} catch (Exception e) {
+					String message = "Error while retrieving user profile";
+					logger.debug(message);
+					throw new SpagoBIRuntimeException(message, e);
+				}
+			}
+
+		}
+
+		return isToAdd;
+
+	}
+
+	/**
+	 *
+	 * @param menuType
+	 * @param itemSB
+	 *
+	 *                 Method handle menus that can be switched from Community to Enterprise
+	 */
+	private boolean isMenuForKnowageCurrentType(MenuType menuType, SourceBean itemSB) {
+		boolean isToAdd = true;
+		if (menuType == MenuType.ALLOWED_USER_FUNCTIONALITIES || menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES) {
+
+			String menuId = (String) itemSB.getAttribute(ID);
+			if (menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES) {
+				if (technicalMenuCommunityOrEnterprise.containsKey(menuId)) {
+					isToAdd = !isEnterpriseEdition();
+					if (!isToAdd)
+						return false;
+				}
+
+				if (technicalMenuCommunityOrEnterprise.containsValue(menuId)) {
+					isToAdd = isEnterpriseEdition();
+					if (!isToAdd)
+						return false;
 				}
 			}
 		}
 
-		return items;
+		return isToAdd;
+
 	}
 
 	private boolean isInTechnicalUserMenu(JSONArray technicalUserMenuJSONArray, SourceBean itemSB, MessageBuilder messageBuilder, Locale locale)
@@ -365,21 +504,46 @@ public class MenuListJSONSerializerForREST implements Serializer {
 		return false;
 	}
 
-	private boolean isLicensedMenu(SourceBean itemSB) {
+	private boolean isGroupItemToAdd(SourceBean itemSB) {
 		Boolean isLicensed = true;
 
-		boolean toBeLicensed = "true".equals(itemSB.getAttribute(TO_BE_LICENSED));
-		if (toBeLicensed) {
-			try {
-				Class.forName("it.eng.knowage.tools.servermanager.importexport.ExporterMetadata", false, this.getClass().getClassLoader());
+		String requiredLicensesString = (String) itemSB.getAttribute(TO_BE_LICENSED);
+		if (requiredLicensesString != null) {
+			if (requiredLicensesString.isEmpty()) {
+				try {
+					Class.forName("it.eng.knowage.tools.servermanager.importexport.ExporterMetadata", false, this.getClass().getClassLoader());
 
-				isLicensed = DocumentUtilities.getValidLicenses().size() > 0;
-			} catch (ClassNotFoundException e) {
-				isLicensed = false;
+					isLicensed = !DocumentUtilities.getValidLicenses().isEmpty();
+				} catch (ClassNotFoundException e) {
+					isLicensed = false;
+				}
+			} else {
+				try {
+					String[] requiredLicenses = requiredLicensesString.split(",", -1);
+					Class productProfilerEE = Class.forName("it.eng.knowage.enterprise.security.ProductProfiler");
+					Method getActiveProductsMethod = productProfilerEE.getMethod("getActiveProducts");
+					List<String> activeProducts = (List<String>) getActiveProductsMethod.invoke(productProfilerEE);
+					for (String lic : requiredLicenses) {
+						isLicensed = activeProducts.contains(lic);
+						if (isLicensed)
+							break;
+					}
+				} catch (Exception e) {
+					isLicensed = false;
+				}
 			}
 		}
 
 		return isLicensed;
+	}
+
+	private boolean isEnterpriseEdition() {
+		try {
+			Class.forName("it.eng.knowage.tools.servermanager.utils.LicenseManager");
+			return true;
+		} catch (ClassNotFoundException e) {
+			return false;
+		}
 	}
 
 	private boolean menuConditionIsSatisfied(SourceBean itemSB) throws EMFInternalError {
@@ -401,10 +565,6 @@ public class MenuListJSONSerializerForREST implements Serializer {
 						isSatisfied = true;
 					}
 				}
-				break;
-
-			case "multiple_roles":
-				isSatisfied = userProfile.getRoles().size() > 1;
 				break;
 
 			case "public_user":
@@ -434,7 +594,22 @@ public class MenuListJSONSerializerForREST implements Serializer {
 		return isSatisfied;
 	}
 
-	private JSONObject createMenuNode(Locale locale, MessageBuilder messageBuilder, SourceBean itemSB, boolean isTechnicalUserMenu) throws JSONException {
+	private JSONObject createMenuNodeAndRecordGroupMenu(Locale locale, MessageBuilder messageBuilder, SourceBean itemSB, MenuType menuType)
+			throws JSONException {
+		JSONObject menu = createMenuNode(locale, messageBuilder, itemSB, menuType);
+
+//		if (menuType == MenuType.TECHNICAL_USER_FUNCTIONALITIES) {
+//			String strId = (String) itemSB.getAttribute(ID);
+//			if (strId != null) {
+//				Integer id = Integer.valueOf(strId);
+//				technicalUserMenuIds.add(id);
+//			}
+//		}
+
+		return menu;
+	}
+
+	private JSONObject createMenuNode(Locale locale, MessageBuilder messageBuilder, SourceBean itemSB, MenuType menuType) throws JSONException {
 		JSONObject menu = new JSONObject();
 
 		List containedAttributes = itemSB.getContainedAttributes();
@@ -442,36 +617,34 @@ public class MenuListJSONSerializerForREST implements Serializer {
 		for (Object objAttribute : containedAttributes) {
 			SourceBeanAttribute attribute = (SourceBeanAttribute) objAttribute;
 
-			if (!attribute.getKey().equals(ITEM) && attribute.getValue() != null && !String.valueOf(attribute.getValue()).isEmpty()) {
+			if (isAttributeToIgnore(attribute))
+				continue;
+			String value = String.valueOf(attribute.getValue());
+			String key = attribute.getKey();
+			if (!key.equals(ITEM) && StringUtils.isNotBlank(value)) {
 
-				String value = (String) attribute.getValue();
-				if (!attribute.getKey().equals(REQUIRED_FUNCTIONALITY) && !attribute.getKey().equals(CONDITION) && !attribute.getKey().equals(TO_BE_LICENSED)
-						&& !attribute.getKey().equals(ID)) {
-					if (attribute.getKey().equals(LABEL)) {
-						value = messageBuilder.getMessage((String) attribute.getValue(), locale);
-					} else if (attribute.getKey().equals(TO)) {
-						value = value.replace(PLACEHOLDER_SPAGOBI_CONTEXT, contextName);
-						value = value.replace(PLACEHOLDER_KNOWAGE_VUE_CONTEXT, vueContextName);
-						
-						value = value.replace(PLACEHOLDER_SPAGO_ADAPTER_HTTP, GeneralUtilities.getSpagoAdapterHttpUrl());
+				if (key.equals(LABEL)) {
+					String menuLabel = (String) attribute.getValue();
+					value = messageBuilder.getMessage(menuLabel, locale);
+				} else if (key.equals(TO)) {
+					value = value.replace(PLACEHOLDER_SPAGOBI_CONTEXT, contextName);
+					value = value.replace(PLACEHOLDER_KNOWAGE_VUE_CONTEXT, vueContextName);
 
-						value = value.replace(PLACEHOLDER_KNOWAGE_THEME, currentTheme);
-					}
+					value = value.replace(PLACEHOLDER_SPAGO_ADAPTER_HTTP, GeneralUtilities.getSpagoAdapterHttpUrl());
 
-					menu.put(attribute.getKey(), value);
+					value = value.replace(PLACEHOLDER_KNOWAGE_THEME, currentTheme);
 				}
 
-			}
-			if (isTechnicalUserMenu) {
-				String strId = (String) itemSB.getAttribute(ID);
-				if (strId != null) {
-					Integer id = Integer.valueOf(strId);
-					technicalUserMenuIds.add(id);
-				}
+				menu.put(key, value);
+
 			}
 		}
 
 		return menu;
+	}
+
+	private boolean isAttributeToIgnore(SourceBeanAttribute attribute) {
+		return attribute.getKey().equals(REQUIRED_FUNCTIONALITY) || attribute.getKey().equals(CONDITION) || attribute.getKey().equals(ID);
 	}
 
 	private Object getChildren(List filteredMenuList, List children, int level, Locale locale) throws JSONException {
@@ -505,8 +678,9 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 				try {
 					switch (titleCode) {
-					case "menu.ServerManager":
+					case "menu.group.ServerManager":
 					case "menu.CacheManagement":
+					case "menu.group.ImportExport":
 						Class.forName("it.eng.knowage.tools.servermanager.importexport.ExporterMetadata", false, this.getClass().getClassLoader());
 						break;
 					}
@@ -570,6 +744,7 @@ public class MenuListJSONSerializerForREST implements Serializer {
 			} else if (childElem.isAdminsMenu() && childElem.getUrl() != null) {
 				setPropertiesForAdminWithUrlMenu(childElem, locale, temp2, path);
 			}
+			temp2.put("prog", childElem.getProg());
 
 		}
 
@@ -605,19 +780,16 @@ public class MenuListJSONSerializerForREST implements Serializer {
 	}
 
 	private void setPropertiesForExternalAppMenu(Menu childElem, JSONObject temp2, String path) throws JSONException {
-		temp2.put(URL, StringEscapeUtils.escapeJavaScript(childElem.getExternalApplicationUrl()));
+		String externalAppUrl = childElem.getExternalApplicationUrl();
+		temp2.put(URL, StringEscapeUtils.escapeJava(externalAppUrl));
 	}
 
 	private void setPropertiesForFunctionalityMenu(Menu childElem, JSONObject temp2, String path) throws JSONException {
-		temp2.put(URL, StringEscapeUtils.escapeJavaScript(DetailMenuModule.findFunctionalityUrl(childElem, contextName)));
+		temp2.put(TO, StringEscapeUtils.escapeJavaScript(DetailMenuModule.findFunctionalityUrl(childElem, contextName)));
 	}
 
 	private void setPropertiesForStaticMenu(Menu childElem, JSONObject temp2, String path) throws JSONException {
 		temp2.put(TO, contextName + "/servlet/AdapterHTTP?ACTION_NAME=READ_HTML_FILE&MENU_ID=" + childElem.getMenuId());
-	}
-
-	private boolean isAbleTo(String func, List funcs) {
-		return funcs.contains(func);
 	}
 
 	public IEngUserProfile getUserProfile() {
@@ -634,6 +806,17 @@ public class MenuListJSONSerializerForREST implements Serializer {
 
 	public void setHttpSession(HttpSession httpSession) {
 		this.httpSession = httpSession;
+	}
+
+	private boolean isAbleTo(String func, List funcs) {
+		boolean toReturn = false;
+		for (int i = 0; i < funcs.size(); i++) {
+			if (func.equals(funcs.get(i))) {
+				toReturn = true;
+				break;
+			}
+		}
+		return toReturn;
 	}
 
 }

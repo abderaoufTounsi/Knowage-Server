@@ -31,6 +31,7 @@ import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
 import it.eng.spagobi.commons.dao.DAOFactory;
@@ -53,14 +54,20 @@ public class LdapSecurityServiceSupplier implements ISecurityServiceSupplier {
 
 	static protected String LDAP_AUTHENTICATION_CONFIG = "ldap.config";
 
-	private static final String SEARCH_USER_BEFORE_PSW = "SEARCH_USER_BEFORE_PSW";
-	private static final String SEARCH_USER_BEFORE_USER = "SEARCH_USER_BEFORE_USER";
-	private static final String SEARCH_USER_BEFORE = "SEARCH_USER_BEFORE";
-	private static final String SEARCH_USER_BEFORE_FILTER = "SEARCH_USER_BEFORE_FILTER";
+	protected static final String SEARCH_USER_BEFORE_PSW = "SEARCH_USER_BEFORE_PSW";
+	protected static final String SEARCH_USER_BEFORE_USER = "SEARCH_USER_BEFORE_USER";
+	protected static final String SEARCH_USER_BEFORE = "SEARCH_USER_BEFORE";
+	protected static final String SEARCH_USER_BEFORE_FILTER = "SEARCH_USER_BEFORE_FILTER";
+
+	protected static final String INITIAL_CONTEXT_FACTORY = "INITIAL_CONTEXT_FACTORY";
+	protected static final String PROVIDER_URL = "PROVIDER_URL";
+	protected static final String SECURITY_AUTHENTICATION = "SECURITY_AUTHENTICATION";
+	protected static final String DN_PREFIX = "DN_PREFIX";
+	protected static final String DN_POSTFIX = "DN_POSTFIX";
 
 	protected static int USER_JWT_TOKEN_EXPIRE_HOURS = 10; // JWT token for regular users will expire in 10 HOURS
 
-	private String ldapPrefix = "";
+	protected String ldapPrefix = "";
 
 	public LdapSecurityServiceSupplier() {
 
@@ -117,6 +124,21 @@ public class LdapSecurityServiceSupplier implements ISecurityServiceSupplier {
 			throw new SpagoBIRuntimeException("An error occurred while retrieving LDAP configuration", e);
 		}
 
+	}
+
+	protected boolean checkProperties() {
+		Properties properties = getConfig();
+
+		boolean propertiesAreValid = true;
+
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + INITIAL_CONTEXT_FACTORY));
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + PROVIDER_URL));
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + SECURITY_AUTHENTICATION));
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + DN_PREFIX));
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + DN_POSTFIX));
+		propertiesAreValid &= !StringUtils.isBlank(properties.getProperty(ldapPrefix + SEARCH_USER_BEFORE));
+
+		return propertiesAreValid;
 	}
 
 	private SpagoBIUserProfile getUserProfile(String userId) {

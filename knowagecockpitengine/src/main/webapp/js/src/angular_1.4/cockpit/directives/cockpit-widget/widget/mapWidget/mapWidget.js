@@ -178,6 +178,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		$scope.zoomControl = undefined; // Zoom control on map
 		$scope.scaleControl = undefined; // Scale indicator
 		$scope.mouseWheelZoomInteraction = undefined; // Manage the mouse wheel on map
+		$scope.isShowLegend = true; //legend is on by default
 		$scope.i18n = sbiModule_i18n;
 
 		$scope.i18n.loadI18nMap();
@@ -428,6 +429,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				tmpLayer.isHeatmap = false;
 			}
 			$scope.createLayerWithData(layerName, $scope.values[layerName], tmpLayer.isCluster, tmpLayer.isHeatmap);
+			$scope.thematizeMeasure(layerName, null);
 		}
 
 	    $scope.getOptions =function(){
@@ -460,8 +462,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //############################################## SPECIFIC MAP WIDGET METHODS #########################################################################
 
-	    $scope.getLegend = function(referenceId){
-	    	$scope.legend = cockpitModule_mapThematizerServices.getLegend(referenceId);
+	    $scope.getLegend = function(referenceId, visualizationType){
+	    	$scope.legend = cockpitModule_mapThematizerServices.getLegend(referenceId, visualizationType);
 	    }
 
 		function syncDatasetMetadata(layerDef) {
@@ -605,8 +607,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 
 			cockpitModule_mapThematizerServices.setActiveConf($scope.ngModel.id + "|" + layerDef.name, layerDef);
-			cockpitModule_mapThematizerServices.updateLegend($scope.ngModel.id + "|" + layerDef.name, data); //add legend to internal structure
-			if (layerDef.visualizationType == 'choropleth') $scope.getLegend($scope.ngModel.id);
+			cockpitModule_mapThematizerServices.updateLegend($scope.ngModel.id + "|" + layerDef.name, data, $scope.ngModel.style.legend); //add legend to internal structure
+			if (layerDef.visualizationType == 'choropleth') {
+				if ($scope.ngModel.style.legend)
+					$scope.getLegend($scope.ngModel.id, $scope.ngModel.style.legend.visualizationType);
+				else
+					$scope.getLegend($scope.ngModel.id);
+			}
 			var layer;
 			if (isCluster) {
 				var clusterSource = new ol.source.Cluster({source: featuresSource
@@ -635,7 +642,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			layer.setZIndex(
 					/* a little offset to get space for background */
 					10 + /* then */ layerDef.order*1000);
-			layer.modalSelectionColumn = layerDef.modalSelectionColumn || getDefaultModalSelectionColumn(layerDef);
+			layer.modalSelectionColumn = layerDef.modalSelectionColumn;
 			layer.hasShownDetails = layerDef.hasShownDetails;
 			layer.isHeatmap = isHeatmap;
 			layer.isCluster = isCluster;
@@ -871,6 +878,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							.find(function(e) { return tooltipCol == e.name; });
 						var value = $scope.getPropValueFromProps(props, prop);
 
+						// A little offset just to let the user click the underneath feature
+						coordinate[0] = coordinate[0]+25;
+						coordinate[1] = coordinate[1]+25;
+
 						$scope.tooltipOverlay.setPosition(coordinate);
 						$scope.tooltipContainer.style["visibility"] = 'visible';
 						$scope.tooltip = value || "n.d.";
@@ -1074,14 +1085,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 	    }
 
-	    $scope.toggleLayerExpanse = function(layer){
-	    	layer.expandedNav = !layer.expandedNav;
-	    }
+		$scope.toggleLayerExpanse = function(layer){
+			if ($scope.hasMeasures(layer)) {
+				layer.expandedNav = !layer.expandedNav;
+			} else {
+				layer.expandedNav = false;
+			}
+		}
 
 	    $scope.getLayerVisibility = function(n){
 	    	var l = $scope.getLayerByName(n);
 	    	if (!l || !l.getVisible) return; //do nothing
 	    	return l.getVisible();
+	    }
+
+	    $scope.getVisibleLayersCount = function(){
+	    	var visibleLayersCount = 0;
+	    	for (var i=0; i<$scope.layers.length; i++) {
+	    		var l = $scope.layers[i].layer;
+	    		if (l && l.getVisible && l.getVisible()) {
+	    			visibleLayersCount++;
+	    		}
+	    	}
+	    	return visibleLayersCount;
 	    }
 
 	    $scope.getIndicatorVisibility = function(l,n){
@@ -1116,15 +1142,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	    $scope.refreshStyle = function (layer, measure, config, configColumns, values, geoColumn){
 			//prepare object for thematization
 	    	var layerID = $scope.ngModel.id + "|" + config.name;
-	    	var elem = cockpitModule_mapServices.getColumnConfigByProp(configColumns, 'aliasToShow', measure);
+	    	var elem = null;
+
+			if (measure == null) {
+				elem = cockpitModule_mapServices.getColumnConfigByProp(configColumns, 'aliasToShow', measure);
+			} else {
+				var activeIndicator = cockpitModule_mapThematizerServices.getActiveIndicator();
+				elem = cockpitModule_mapServices.getColumnConfigByProp(configColumns, 'name', activeIndicator);
+			}
+
 	    	if (elem){
 		    	cockpitModule_mapThematizerServices.setActiveIndicator(elem.name);
 		    	config.defaultIndicator = elem.name;
 
 		    	cockpitModule_mapThematizerServices.loadIndicatorMaxMinVal(config.name +'|'+ elem.name, values);
-		    	cockpitModule_mapThematizerServices.updateLegend(layerID, values);
+		    	cockpitModule_mapThematizerServices.updateLegend(layerID, values,$scope.ngModel.style.legend);
 
-		    	$scope.getLegend($scope.ngModel.id);
+		    	$scope.getLegend($scope.ngModel.id, $scope.ngModel.style.legend.visualizationType);
 			}
 
 			layer.getSource().changed();
@@ -1553,7 +1587,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if (!(prop.name in props)) {
 				return null;
 			}
-		
+
 			var currProp = props[prop.name];
 			var currPropValue = currProp.value;
 			var ret = "";
@@ -1680,16 +1714,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			return layer && layer.targetDefault || false;
 		}
 
-		function getDefaultModalSelectionColumn(layerDef) {
-			return layerDef.dataset
-				.metadata
-				.fieldsMeta
-				.find(function(field) {
-						return field.fieldType == 'SPATIAL_ATTRIBUTE';
-					})
-				.name;
-		}
-
 		// In edit mode, if a remove dataset from cokpit it has to be deleted also from widget
 		if (cockpitModule_properties.EDIT_MODE) {
 			$scope.$watchCollection("cockpitModule_template.configuration.datasets", function (newValue, oldValue, $scope) {
@@ -1712,7 +1736,26 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 
 		$scope.getPerWidgetDatasetIds = function() {
-			return $scope.ngModel.content.layers.map(function(e) { return e.dataset.id.dsId; });
+			return $scope.ngModel.content.layers
+				&& $scope.ngModel.content.layers.map(function(e) { return e.dataset.id.dsId; })
+				|| [];
+		}
+
+		$scope.hideLegend = function() {
+			$scope.isShowLegend = false;
+		}
+
+		$scope.showLegend = function() {
+			$scope.isShowLegend = true;
+		}
+
+		// Manage resize of the window
+		window.addEventListener('resize', function(){
+			setTimeout( function() { if ($scope.map) { $scope.map.updateSize(); } }, 200);
+		});
+
+		$scope.hasMeasures = function(layer) {
+			return layer.content.columnSelectedOfDataset.some(function(e) { return e.properties && e.properties.showMap == true; });
 		}
 
 	}

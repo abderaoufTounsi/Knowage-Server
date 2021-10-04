@@ -5,6 +5,7 @@
 		<RoleDialog v-model:visibility="roleDisplay"></RoleDialog>
 		<DownloadsDialog v-model:visibility="downloadsDisplay"></DownloadsDialog>
 		<NewsDialog v-model:visibility="newsDisplay"></NewsDialog>
+		<LicenseDialog v-model:visibility="licenseDisplay" v-if="user && user.isSuperadmin"></LicenseDialog>
 		<div class="menu-scroll-content">
 			<div>
 				<div class="profile">
@@ -29,7 +30,7 @@
 				<ul class="layout-menu">
 					<MainMenuAdmin :model="technicalUserFunctionalities" v-if="technicalUserFunctionalities && technicalUserFunctionalities.length > 0" @click="itemClick"></MainMenuAdmin>
 					<template v-for="(item, i) of allowedUserFunctionalities" :key="i">
-						<MainMenuItem :item="item" @click="itemClick" v-if="!item.conditionedView || (item.conditionedView == 'downloads' && downloads) || (item.conditionedView == 'news' && news)" :badge="getBadgeValue(item)"></MainMenuItem>
+						<MainMenuItem :item="item" @click="itemClick" :badge="getBadgeValue(item)"></MainMenuItem>
 					</template>
 					<template v-for="(item, i) of dynamicUserFunctionalities" :key="i">
 						<MainMenuItem :item="item" @click="itemClick"></MainMenuItem>
@@ -46,6 +47,7 @@
 	import MainMenuItem from '@/modules/mainMenu/MainMenuItem.vue'
 	import MainMenuAdmin from '@/modules/mainMenu/MainMenuAdmin.vue'
 	import LanguageDialog from '@/modules/mainMenu/dialogs/LanguageDialog/LanguageDialog.vue'
+	import LicenseDialog from '@/modules/mainMenu/dialogs/LicenseDialog/LicenseDialog.vue'
 	import NewsDialog from '@/modules/mainMenu/dialogs/NewsDialog/NewsDialog.vue'
 	import RoleDialog from '@/modules/mainMenu/dialogs/RoleDialog.vue'
 	import { getGravatar } from '@/helpers/commons/gravatarHelper'
@@ -53,6 +55,7 @@
 	import auth from '@/helpers/commons/authHelper'
 	import axios from 'axios'
 	import DownloadsDialog from '@/modules/mainMenu/dialogs/DownloadsDialog/DownloadsDialog.vue'
+	import { IMenuItem } from '@/modules/mainMenu/MainMenu'
 
 	export default defineComponent({
 		name: 'Knmenu',
@@ -61,6 +64,7 @@
 			MainMenuAdmin,
 			MainMenuItem,
 			LanguageDialog,
+			LicenseDialog,
 			NewsDialog,
 			RoleDialog,
 			DownloadsDialog
@@ -68,15 +72,16 @@
 		data() {
 			return {
 				showProfileMenu: false,
-				dynamicUserFunctionalities: new Array<MenuItem>(),
-				allowedUserFunctionalities: new Array<MenuItem>(),
-				commonUserFunctionalities: new Array<MenuItem>(),
-				technicalUserFunctionalities: new Array<MenuItem>(),
+				dynamicUserFunctionalities: new Array<IMenuItem>(),
+				allowedUserFunctionalities: new Array<IMenuItem>(),
+				commonUserFunctionalities: new Array<IMenuItem>(),
+				technicalUserFunctionalities: new Array<IMenuItem>(),
 				display: false,
 				languageDisplay: false,
 				roleDisplay: false,
 				downloadsDisplay: false,
-				newsDisplay: false
+				newsDisplay: false,
+				licenseDisplay: false
 			}
 		},
 		emits: ['update:visibility'],
@@ -93,11 +98,28 @@
 			downloadsSelection() {
 				this.downloadsDisplay = !this.downloadsDisplay
 			},
+			isItemToDisplay(item) {
+				if (item.conditionedView) {
+					if (item.conditionedView === 'downloads' && this.downloads && this.downloads.count.total > 0) return true
+
+					if (item.conditionedView === 'news' && this.news && this.news.count.total > 0) return true
+
+					if (item.conditionedView === 'roleSelection' && this.user && this.user.roles.length > 1) return true
+
+					return false
+				} else {
+					return true
+				}
+			},
 			languageSelection() {
 				this.languageDisplay = !this.languageDisplay
 			},
 			newsSelection() {
+				console.log('ALLOWED: ', this.allowedUserFunctionalities)
 				this.newsDisplay = !this.newsDisplay
+			},
+			licenseSelection() {
+				this.licenseDisplay = !this.licenseDisplay
 			},
 			itemClick(event) {
 				const item = event.item
@@ -117,8 +139,14 @@
 			},
 			updateNewsAndDownload() {
 				for (var idx in this.allowedUserFunctionalities) {
-					let menu = this.allowedUserFunctionalities[idx]
+					let menu = this.allowedUserFunctionalities[idx] as any
 					if (menu.conditionedView) {
+						if (menu.conditionedView === 'downloads') {
+							menu.visible = this.downloads.count.total > 0
+						} else if (menu.conditionedView === 'news') {
+							menu.visible = this.news.count.total > 0
+						}
+
 						menu.badge = this.getBadgeValue(menu)
 					}
 				}
@@ -126,58 +154,109 @@
 			getBadgeValue(item) {
 				if (item.conditionedView === 'downloads') {
 					if (Object.keys(this.downloads).length !== 0) return this.downloads.count.total - this.downloads.count.alreadyDownloaded
-				} else if (item.conditionedView === 'news') return this.news && this.news.count && this.news.count.unread
-
+				} else if (item.conditionedView === 'news') {
+					if (Object.keys(this.news).length !== 0) return this.news.count.unread
+				}
 				return 0
+			},
+			findHomePage(dynMenu) {
+				let toRet = undefined
+
+				for (var idx in dynMenu) {
+					let menu = dynMenu[idx]
+
+					if (menu.to || menu.url) return menu
+				}
+
+				return toRet
 			}
 		},
-		mounted() {
+		async mounted() {
+			this.$store.commit('setLoading', true)
 			let localObject = { locale: this.$i18n.fallbackLocale.toString() }
 			if (Object.keys(this.locale).length !== 0) localObject = { locale: this.locale }
 			if (localStorage.getItem('locale')) {
 				localObject = { locale: localStorage.getItem('locale') || this.$i18n.fallbackLocale.toString() }
 			}
 
-			axios
-				.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '3.0/menu/enduser?locale=' + encodeURIComponent(localObject.locale.replaceAll('_', '-')))
+			localObject.locale = localObject.locale.replaceAll('_', '-')
+
+			// script handling
+			let splittedLocale = localObject.locale.split('-')
+			if (splittedLocale.length > 2) {
+				localObject.locale = splittedLocale[0] + '-' + splittedLocale[2].replaceAll('#', '') + '-' + splittedLocale[1]
+			}
+
+			await axios
+				.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '3.0/menu/enduser?locale=' + encodeURIComponent(localObject.locale))
 				.then((response) => {
-					this.dynamicUserFunctionalities = response.data.dynamicUserFunctionalities
-					this.technicalUserFunctionalities = response.data.technicalUserFunctionalities
-					this.commonUserFunctionalities = response.data.commonUserFunctionalities
-					this.allowedUserFunctionalities = response.data.allowedUserFunctionalities
+					this.technicalUserFunctionalities = response.data.technicalUserFunctionalities.filter((groupItem: any) => {
+						let childItems = groupItem.items.filter((x) => {
+							let currentHostName = this.licenses.hosts[0] ? this.licenses.hosts[0].hostName : undefined
+							return x.toBeLicensed && currentHostName && this.licenses[currentHostName] ? this.licenses.licenses[currentHostName].filter((lic) => lic.product === x.toBeLicensed).length == 1 : true
+						})
+						return childItems.length > 0
+					})
+
+					let responseCommonUserFunctionalities = response.data.commonUserFunctionalities
+					for (var index in responseCommonUserFunctionalities) {
+						let item = responseCommonUserFunctionalities[index]
+						item.visible = this.isItemToDisplay(item)
+
+						this.commonUserFunctionalities.push(item)
+					}
+
+					let responseAllowedUserFunctionalities = response.data.allowedUserFunctionalities
+					for (var idx in responseAllowedUserFunctionalities) {
+						let item = responseAllowedUserFunctionalities[idx]
+						item.visible = this.isItemToDisplay(item)
+
+						this.allowedUserFunctionalities.push(item)
+					}
+
+					this.dynamicUserFunctionalities = response.data.dynamicUserFunctionalities.sort((el1, el2) => {
+						return el1.prog - el2.prog
+					})
+
+					if (this.dynamicUserFunctionalities.length > 0) {
+						let homePage = this.findHomePage(this.dynamicUserFunctionalities) || {}
+						if (homePage && Object.keys(homePage).length !== 0) {
+							if (!this.stateHomePage.label) {
+								this.$store.commit('setHomePage', homePage)
+							}
+						}
+					}
 					this.updateNewsAndDownload()
 				})
 				.catch((error) => console.error(error))
+				.finally(() => this.$store.commit('setLoading', false))
 		},
 		computed: {
 			...mapState({
 				user: 'user',
 				downloads: 'downloads',
 				locale: 'locale',
-				news: 'news'
+				news: 'news',
+				stateHomePage: 'homePage',
+				isEnterprise: 'isEnterprise',
+				licenses: 'licenses'
 			})
 		},
 		watch: {
-			download(newDownload, oldDownload) {
-				if (oldDownload != this.downloads) this.downloads = newDownload
+			downloads(newDownload, oldDownload) {
+				if (oldDownload != this.downloads) {
+					this.downloads = newDownload
+				}
 				this.updateNewsAndDownload()
 			},
 			news(newNews, oldNews) {
-				if (oldNews != this.news) this.news = newNews
+				if (oldNews != this.news) {
+					this.news = newNews
+				}
 				this.updateNewsAndDownload()
 			}
 		}
 	})
-
-	interface MenuItem {
-		label: string
-		url?: string
-		to?: string
-		iconCls?: string
-		items?: Array<MenuItem> | Array<Array<MenuItem>>
-		conditionedView?: string
-		badge?: number
-	}
 </script>
 
 <style lang="scss" scoped>

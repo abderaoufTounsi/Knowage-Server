@@ -45,6 +45,7 @@ import it.eng.spago.security.IEngUserProfile;
 import it.eng.spagobi.commons.bo.SessionUserProfileBuilder;
 import it.eng.spagobi.commons.bo.UserProfile;
 import it.eng.spagobi.commons.services.LoginActionByToken;
+import it.eng.spagobi.commons.services.LoginActionWeb;
 import it.eng.spagobi.commons.services.LoginModule;
 import it.eng.spagobi.commons.utilities.ChannelUtilities;
 import it.eng.spagobi.commons.utilities.GeneralUtilities;
@@ -162,11 +163,12 @@ public class ProfileFilter implements Filter {
 					UserProfileManager.setProfile((UserProfile) profile);
 				} else {
 					String contextName = ChannelUtilities.getSpagoBIContextName(httpRequest);
-					if (!requestIsForHomePage(httpRequest) && !requestIsForLoginByToken(httpRequest)) {
+					if (!requestIsForHomePage(httpRequest) && !requestIsForLoginByToken(httpRequest) && !requestIsForLoginByJavaScriptSDK(httpRequest)) {
 						String targetService = httpRequest.getRequestURI() + "?" + httpRequest.getQueryString();
 						String redirectURL = contextName + "/servlet/AdapterHTTP?PAGE=LoginPage&NEW_SESSION=TRUE&targetService="
 								+ URLEncoder.encode(targetService, "UTF-8");
 						httpResponse.sendRedirect(redirectURL);
+						return;
 					}
 
 				}
@@ -196,6 +198,11 @@ public class ProfileFilter implements Filter {
 				&& request.getParameter(Constants.ACTION_NAME).equalsIgnoreCase(LoginActionByToken.SERVICE_NAME);
 	}
 
+	private boolean requestIsForLoginByJavaScriptSDK(HttpServletRequest request) {
+		// returns true in case request has ACTION_NAME=LOGIN_ACTION_WEB parameter, false otherwise
+		return request.getParameter(Constants.ACTION_NAME) != null && request.getParameter(Constants.ACTION_NAME).equalsIgnoreCase(LoginActionWeb.SERVICE_NAME);
+	}
+
 	private void storeProfileInSession(UserProfile userProfile, SessionContainer permanentContainer, HttpSession httpSession) {
 		logger.debug("IN");
 		permanentContainer.setAttribute(IEngUserProfile.ENG_USER_PROFILE, userProfile);
@@ -204,10 +211,11 @@ public class ProfileFilter implements Filter {
 	}
 
 	private static String getSessionFileName() throws NamingException {
-		return (String) (new InitialContext().lookup("java:/comp/env/fileSessionTest"));
+		return (String) (new InitialContext().lookup("java:comp/env/fileSessionTest"));
 	}
 
 	private String getUserIdInWebModeWithoutSSO(HttpServletRequest httpRequest) {
+		SpagoBIUserProfile profile = null;
 		UsernamePasswordCredentials credentials = this.findUserCredentials(httpRequest);
 		if (credentials != null) {
 			logger.debug("User credentials found.");
@@ -217,7 +225,7 @@ public class ProfileFilter implements Filter {
 			}
 			logger.debug("Authenticating user ...");
 			try {
-				this.authenticate(credentials);
+				profile = this.authenticate(credentials);
 				logger.debug("User authenticated");
 				httpRequest.getSession().setAttribute(SsoServiceInterface.SILENT_LOGIN, Boolean.TRUE);
 			} catch (Throwable t) {
@@ -228,11 +236,11 @@ public class ProfileFilter implements Filter {
 			logger.debug("User credentials not found.");
 		}
 
-		String userId = credentials != null ? credentials.getUserName() : null;
+		String userId = profile != null ? profile.getUniqueIdentifier() : null;
 		return userId;
 	}
 
-	private void authenticate(UsernamePasswordCredentials credentials) throws Throwable {
+	private SpagoBIUserProfile authenticate(UsernamePasswordCredentials credentials) throws Throwable {
 		logger.debug("IN: userId = " + credentials.getUserName());
 		try {
 			ISecurityServiceSupplier supplier = SecurityServiceSupplierFactory.createISecurityServiceSupplier();
@@ -241,6 +249,7 @@ public class ProfileFilter implements Filter {
 				logger.error("Authentication failed for user " + credentials.getUserName());
 				throw new SecurityException("Authentication failed");
 			}
+			return profile;
 		} catch (Throwable t) {
 			logger.error("Error while authenticating userId = " + credentials.getUserName(), t);
 			throw t;

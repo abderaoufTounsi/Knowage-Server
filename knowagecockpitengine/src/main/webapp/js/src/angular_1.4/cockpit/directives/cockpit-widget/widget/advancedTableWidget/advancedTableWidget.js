@@ -89,9 +89,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 		}
 		
-		var replacePlaceholders = function(text, data){
+		var replacePlaceholders = function(text, data, skipAdapting){
 			function adaptToType(value) {
-				return isNaN(value) ? '"'+value+'"' : value;
+				if(skipAdapting) return value;
+				else return isNaN(value) ? '"'+value+'"' : value;
 			}
 			// variables
 			text = text.replace(/\$V\{([a-zA-Z0-9\_\-\.]+)\}/g, function(match,variable){
@@ -103,7 +104,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			});
 			// parameters
 			text = text.replace(/\$P\{([a-zA-Z0-9\_\-\.]+)\}/g, function(match,parameter){
-				return adaptToType(cockpitModule_analyticalDrivers[parameter]);
+				var parameterKey = cockpitModule_analyticalDrivers[parameter+'_description'] ? parameter+'_description' : parameter;
+				return adaptToType(cockpitModule_analyticalDrivers[parameterKey]);
 			});
 			return text;
 		}
@@ -143,7 +145,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						var tempCol = {"headerName":$scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias,
 								"field":fields[f].name,"measure":$scope.ngModel.content.columnSelectedOfDataset[c].fieldType};
 						if($scope.ngModel.content.columnSelectedOfDataset[c].style && $scope.ngModel.content.columnSelectedOfDataset[c].style.enableCustomHeaderTooltip){
-							tempCol.headerTooltip = replacePlaceholders($scope.ngModel.content.columnSelectedOfDataset[c].style.customHeaderTooltip);
+							tempCol.headerTooltip = replacePlaceholders($scope.ngModel.content.columnSelectedOfDataset[c].style.customHeaderTooltip, null, true);
 						}else{
 							tempCol.headerTooltip = $scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias;
 						}
@@ -153,7 +155,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							tempCol.isCalculated = $scope.ngModel.content.columnSelectedOfDataset[c].isCalculated;
 						}
 
-						if(sortedDefault && sortedDefault[0].colId == fields[f].name){
+						if(sortedDefault && (sortedDefault[0].colId == fields[f].name || sortedDefault[0].colId == fields[f].name+"_1")){
 							tempCol.sort = sortedDefault[0].sort;
 						}
 
@@ -436,13 +438,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				return $filter('number')(params.value, (params.colDef.style && typeof params.colDef.style.precision != 'undefined') ? params.colDef.style.precision : defaultPrecision);
 			}else return params.value;
 		}
+		
 
-		$scope.showHiddenValues = function(e,values){
+		$scope.showHiddenValues = function(e,values,multi){
 			e.stopImmediatePropagation();
 			e.preventDefault();
 		    $mdDialog.show({
 		      controller: function($scope, listValues, sbiModule_translate){
 		    	  $scope.translate = sbiModule_translate;
+		    	  $scope.multi = multi;
 		    	  $scope.listValues = listValues;
 		    	  $scope.close = function(){
 		    		  $mdDialog.hide();
@@ -497,7 +501,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if($scope.bulkSelection){
 				this.manageMultiSelection(params);
 			}
-			if(typeof tempValue != "undefined" && this.eGui.innerHTML == '') this.eGui.innerHTML = ((params.colDef.style && params.colDef.style.prefix) || '') + tempValue + ((params.colDef.style && params.colDef.style.suffix) || '');
+			if(typeof tempValue != "undefined" && this.eGui.innerHTML == '') {
+				this.eGui.innerHTML = ((params.colDef.style && params.colDef.style.prefix) || '') + tempValue + ((params.colDef.style && params.colDef.style.suffix) || '');
+				if(params.colDef.style && params.colDef.style.maxChars && params.value.length > params.colDef.style.maxChars){
+					this.eGui.style["display"] = "inline-flex";
+					this.eGui.style["width"] = "100%";
+					this.eGui.innerHTML += '<span class="flex"></span><i class="fa fa-search maxcharsButton"></i>';
+					this.eButton = this.eGui.querySelector('.maxcharsButton');
+					this.eventListener = function(e) {
+				        $scope.showHiddenValues(e,params.value, false);
+				    };
+				    this.eButton.addEventListener('click', this.eventListener);
+				}
+			}
 		}
 
 		cellRenderer.prototype.getGui = function() {
@@ -540,7 +556,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					this.eGui.innerHTML += '<i class="fa fa-search maxcharsButton"></i>';
 					this.eButton = this.eGui.querySelector('.maxcharsButton');
 					this.eventListener = function(e) {
-				        $scope.showHiddenValues(e,params.value);
+				        $scope.showHiddenValues(e,params.value, true);
 				    };
 				    this.eButton.addEventListener('click', this.eventListener);
 				}
@@ -565,7 +581,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
             else {
             	var title = $filter('i18n')(params.summaryRows[params.rowIndex].label);
             	if(title && params.style && params.style['pinnedOnly'] && params.column.pinned) this.eGui.innerHTML ='<b style="margin-right: 4px;">'+title+'</b>';
-            	if(params.valueFormatted || params.value){
+            	if(params.valueFormatted || (typeof params.value != "string" && typeof params.value != 'undefined')){
             		if (params.rowIndex == 0 || !params.colDef.isCalculated) {
 	            		if(params.summaryRows[params.rowIndex].aggregation == 'COUNT' || params.summaryRows[params.rowIndex].aggregation == 'COUNT_DISTINCT') {
 	            			var tempValue = $filter('number')(params.value,0);
@@ -713,7 +729,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						if(threshold.compareValueKey) valueToCompare = cockpitModule_properties.VARIABLES[threshold.compareValue][threshold.compareValueKey];
 						else valueToCompare = cockpitModule_properties.VARIABLES[threshold.compareValue];
 					}
-					if(threshold.compareValueType == 'parameter') valueToCompare = cockpitModule_analyticalDrivers[threshold.compareValue];
+					if(threshold.compareValueType == 'parameter') {
+						var parameterKey = cockpitModule_analyticalDrivers[threshold.compareValue+'_description'] ? threshold.compareValue+'_description' : threshold.compareValue;
+						valueToCompare = cockpitModule_analyticalDrivers[parameterKey];
+					}
 					
 					// getting the condition to compare with and comparing
 					var fullfilledCondition = false;
@@ -732,10 +751,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						break;
 					case '>':
 						fullfilledCondition = data[threshold.column] > valueToCompare;
+						break;
 					case '<':
 						fullfilledCondition = data[threshold.column] < valueToCompare;
+						break;
 					case '!=':
 						fullfilledCondition = data[threshold.column] != valueToCompare;
+						break;
 					}
 					
 					if(fullfilledCondition){
@@ -973,10 +995,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				if ($scope.ngModel.settings.modalSelectionColumn!= undefined) {
 
 					var rows = [];
+					var tempAlias = '';
+					
+					for(var i in $scope.ngModel.content.columnSelectedOfDataset){
+						if($scope.ngModel.content.columnSelectedOfDataset[i].name == $scope.ngModel.settings.modalSelectionColumn){
+							tempAlias = $scope.ngModel.content.columnSelectedOfDataset[i].aliasToShow;
+						}
+					}
+					
 					rows.push(mapRow(node.data));
 
 					for(var k in rows){
-						newValue.push(rows[k][$scope.ngModel.settings.modalSelectionColumn]);
+						newValue.push(rows[k][tempAlias]);
 					}
 				}
 				else {

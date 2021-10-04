@@ -5,7 +5,23 @@ module.exports = {
     outputDir: './src/main/webapp',
     devServer: {
         proxy: {
+            '^/knowagedossierengine/api': {
+                target: process.env.VUE_APP_HOST_URL,
+                changeOrigin: true
+            },
+            '^/knowageqbeengine/': {
+                target: process.env.VUE_APP_HOST_URL,
+                changeOrigin: true
+            },
+            '^/knowagemeta/restful-services/1.0/': {
+                target: process.env.VUE_APP_HOST_URL,
+                changeOrigin: true
+            },
             '^/knowage/restful-services/[0-9].0': {
+                target: process.env.VUE_APP_HOST_URL,
+                changeOrigin: true
+            },
+            '^/knowage/restful-services/': {
                 target: process.env.VUE_APP_HOST_URL,
                 changeOrigin: true
             },

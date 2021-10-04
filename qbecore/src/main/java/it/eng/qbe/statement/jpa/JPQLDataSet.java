@@ -30,7 +30,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.persistence.EntityManager;
-import javax.persistence.Query;
 
 import org.apache.log4j.Logger;
 import org.hibernate.Filter;
@@ -102,7 +101,7 @@ public class JPQLDataSet extends AbstractQbeDataSet {
 		javax.persistence.Query jpqlQuery = entityManager.createQuery(statementStr);
 
 		if (this.isCalculateResultNumberOnLoadEnabled()) {
-			resultNumber = getResultNumber(jpqlQuery);
+			resultNumber = getResultNumber(filteredStatement);
 			logger.info("Number of fetched records: " + resultNumber + " for query " + filteredStatement.getQueryString());
 			overflow = (maxResults > 0) && (resultNumber >= maxResults);
 		}
@@ -238,10 +237,12 @@ public class JPQLDataSet extends AbstractQbeDataSet {
 		return ret;
 	}
 
-	private int getResultNumber(Query jpqlQuery) {
+	private int getResultNumber(IStatement filteredStatement) {
 		int resultNumber = 0;
 		try {
-			resultNumber = jpqlQuery.getResultList().size();
+			String sqlQueryString = filteredStatement.getSqlQueryString();
+			Number singleResult = (Number) getEntityMananger().createNativeQuery("SELECT COUNT(*) FROM (" + sqlQueryString + ") COUNT_INLINE_VIEW").getSingleResult();
+			resultNumber = singleResult.intValue();
 		} catch (Exception e) {
 			throw new RuntimeException("Impossible to get result number", e);
 		}

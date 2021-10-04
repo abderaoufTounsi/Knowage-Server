@@ -17,6 +17,8 @@
  */
 package it.eng.spagobi.commons.services;
 
+import java.io.IOException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collection;
@@ -25,17 +27,19 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Locale.Builder;
 import java.util.Properties;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 
-import it.eng.knowage.wapp.Environment;
-import it.eng.knowage.wapp.Version;
 import it.eng.spago.base.Constants;
 import it.eng.spago.base.RequestContainer;
 import it.eng.spago.base.SessionContainer;
@@ -82,11 +86,24 @@ public class LoginModule extends AbstractHttpModule {
 
 	private static final String PROP_NODE = "changepwd.";
 	public static final String LIST_MENU = "LIST_MENU";
+	private static final String USER_SCRIPT = "AF_SCRIPT";
 
 	/** The format date to manage the data validation. */
 	private static final String DATE_FORMAT = "yyyy-MM-dd";
 
 	public static final String PAGE_NAME = "LoginPage";
+
+	private static final String VUE_ENVIRONMENT = "vue.environment";
+	private static boolean isProduction = true;
+
+	static {
+		String vueEnvironment = System.getProperty(VUE_ENVIRONMENT);
+		logger.info("Retrieved " + VUE_ENVIRONMENT + " system property. Vue environment is: [" + vueEnvironment + "]");
+		if (vueEnvironment != null && vueEnvironment.equalsIgnoreCase("development")) {
+			logger.info("Setting production mode to off. Development mode is now enabled.");
+			isProduction = false;
+		}
+	}
 
 	/**
 	 * Service.
@@ -115,6 +132,22 @@ public class LoginModule extends AbstractHttpModule {
 
 		manageLocale(permSess);
 
+		String language = (String) permSess.getAttribute(Constants.USER_LANGUAGE);
+		String country = (String) permSess.getAttribute(Constants.USER_COUNTRY);
+		String script = permSess.getAttribute(USER_SCRIPT) != null ? (String) permSess.getAttribute(USER_SCRIPT) : null;
+		Builder tmpLocale = new Builder().setLanguage(language).setRegion(country);
+		if (StringUtils.isNotBlank(script)) {
+			tmpLocale.setScript(script);
+		}
+		Locale browserLocale = tmpLocale.build();
+
+		String localeCookie = browserLocale.toLanguageTag();
+		Cookie localeCookie_fl = new Cookie("kn.lang", localeCookie);
+		localeCookie_fl.setHttpOnly(true);
+		localeCookie_fl.setPath("/");
+		HttpServletResponse resp = getHttpResponse();
+		resp.addCookie(localeCookie_fl);
+
 		MessageBuilder msgBuilder = new MessageBuilder();
 		Locale locale = msgBuilder.getLocale(servletRequest);
 
@@ -133,9 +166,8 @@ public class LoginModule extends AbstractHttpModule {
 				logger.debug("User is authenticated");
 				// fill response
 				List lstMenu = MenuUtilities.getMenuItems(profile);
-				String url = "knowage-vue/index.html";
 				servletRequest.getSession().setAttribute(LIST_MENU, lstMenu);
-				getHttpRequest().getRequestDispatcher(url).forward(getHttpRequest(), getHttpResponse());
+				redirectToKnowageVue();
 				return;
 			} else {
 				// user must authenticate
@@ -346,27 +378,24 @@ public class LoginModule extends AbstractHttpModule {
 			}
 			// End writing log in the DB
 
-//			List lstMenu = MenuUtilities.getMenuItems(profile);
-//
-//			String url = "/themes/" + currTheme + "/jsp/";
-//			if (UserUtilities.isTechnicalUser(profile)) {
-//				url += "adminHome.jsp";
-//			} else {
-//				url += "userHome.jsp";
-//			}
-//			servletRequest.getSession().setAttribute(LIST_MENU, lstMenu);
-//			getHttpRequest().getRequestDispatcher(url).forward(getHttpRequest(), getHttpResponse());
-			if(Version.getEnvironment() == Environment.PRODUCTION) {
-				getHttpResponse().sendRedirect("/knowage-vue");
-			}else {
-				getHttpResponse().sendRedirect("http://localhost:3000/knowage-vue");
-			}
+			redirectToKnowageVue();
 		} finally {
 			// since TenantManager uses a ThreadLocal, we must clean after request processed in each case
 			TenantManager.unset();
 		}
 
 		logger.debug("OUT");
+	}
+
+	private void redirectToKnowageVue() throws IOException {
+		if (isProduction) {
+			getHttpResponse().sendRedirect("/knowage-vue");
+		} else {
+			URL url = new URL(getHttpRequest().getRequestURL().toString());
+			URL newUrl = new URL("http", url.getHost(), 3000, "/knowage-vue");
+
+			getHttpResponse().sendRedirect(newUrl.toString());
+		}
 	}
 
 	private void checkIfIsBefore72AuthMethod(SourceBean response, MessageBuilder msgBuilder, Locale locale, SbiUser user) throws SourceBeanException {
@@ -407,6 +436,7 @@ public class LoginModule extends AbstractHttpModule {
 				logger.debug("locale taken as default is " + locale.getLanguage() + " - " + locale.getCountry());
 				permSess.setAttribute(Constants.USER_LANGUAGE, locale.getLanguage());
 				permSess.setAttribute(Constants.USER_COUNTRY, locale.getCountry());
+				permSess.setAttribute(USER_SCRIPT, locale.getScript());
 			}
 		} else {
 			logger.debug("locale already found in session");

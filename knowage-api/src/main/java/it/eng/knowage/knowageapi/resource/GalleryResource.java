@@ -1,9 +1,25 @@
+/*
+ * Knowage, Open Source Business Intelligence suite
+ * Copyright (C) 2021 Engineering Ingegneria Informatica S.p.A.
+ *
+ * Knowage is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Knowage is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package it.eng.knowage.knowageapi.resource;
 
 import java.util.List;
+import java.util.Optional;
 
-import javax.naming.Context;
-import javax.naming.InitialContext;
 import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -16,20 +32,12 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.log4j.Logger;
-import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.JWTVerifier;
-import com.auth0.jwt.algorithms.Algorithm;
-import com.auth0.jwt.exceptions.JWTVerificationException;
-import com.auth0.jwt.interfaces.Claim;
-import com.auth0.jwt.interfaces.DecodedJWT;
 
 import it.eng.knowage.knowageapi.error.KnowageRuntimeException;
 import it.eng.knowage.knowageapi.resource.dto.WidgetGalleryDTO;
@@ -43,7 +51,7 @@ import it.eng.spagobi.services.security.SpagoBIUserProfile;
 @Validated
 public class GalleryResource {
 
-	static private Logger logger = Logger.getLogger(GalleryResource.class);
+	private static final Logger LOGGER = Logger.getLogger(GalleryResource.class);
 
 	@Autowired
 	WidgetGalleryAPI widgetGalleryService;
@@ -61,7 +69,7 @@ public class GalleryResource {
 			SpagoBIUserProfile profile = getUserProfile();
 			widgetGalleryDTOs = widgetGalleryService.getWidgetsByTenant(profile);
 		} catch (Exception e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+			throw new KnowageRuntimeException(e);
 		}
 		return widgetGalleryDTOs;
 
@@ -75,10 +83,25 @@ public class GalleryResource {
 		try {
 			SpagoBIUserProfile profile = getUserProfile();
 			widgetGalleryDTO = widgetGalleryService.getWidgetsById(widgetId, profile);
-		} catch (Throwable e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+		} catch (Exception e) {
+			throw new KnowageRuntimeException("Error getting widget with id " + Optional.ofNullable(widgetId).orElse("null"), e);
 		}
 		return widgetGalleryDTO;
+
+	}
+
+	@GET
+	@Path("/image/{widgetId}")
+	@Produces(MediaType.APPLICATION_JSON + "; charset=UTF-8")
+	public String widgetImageByWidgetId(@PathParam("widgetId") String widgetId) {
+		WidgetGalleryDTO widgetGalleryDTO = null;
+		try {
+			SpagoBIUserProfile profile = getUserProfile();
+			widgetGalleryDTO = widgetGalleryService.getWidgetsById(widgetId, profile);
+		} catch (Exception e) {
+			throw new KnowageRuntimeException("Error getting widget with id " + String.valueOf(widgetId), e);
+		}
+		return widgetGalleryDTO.getImage();
 
 	}
 
@@ -90,8 +113,8 @@ public class GalleryResource {
 		try {
 			SpagoBIUserProfile profile = getUserProfile();
 			widgetGalleryDTOs = widgetGalleryService.getWidgetsByTenantType(profile, type);
-		} catch (Throwable e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+		} catch (Exception e) {
+			throw new KnowageRuntimeException("Error getting widget of type " + String.valueOf(type), e);
 		}
 		return widgetGalleryDTOs;
 	}
@@ -106,7 +129,7 @@ public class GalleryResource {
 			newSbiWidgetGallery.setTemplate(template);
 			newSbiWidgetGallery = widgetGalleryService.makeNewWidget(newSbiWidgetGallery, profile, true);
 		} catch (Exception e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+			throw new KnowageRuntimeException("Cannot create widget " + Optional.ofNullable(newSbiWidgetGallery).map(WidgetGalleryDTO::getName).orElse("null"), e);
 		}
 		return newSbiWidgetGallery;
 
@@ -129,7 +152,7 @@ public class GalleryResource {
 				newSbiWidgetGalleryToUpdate = widgetGalleryService.updateWidget(newSbiWidgetGallery, profile);
 			}
 		} catch (Exception e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+			throw new KnowageRuntimeException("Error updating widget with id " + String.valueOf(widgetId), e);
 		}
 
 		return newSbiWidgetGalleryToUpdate;
@@ -156,27 +179,10 @@ public class GalleryResource {
 				throw new KnowageRuntimeException("Cannot delete object with id: " + widgetId);
 			}
 		} catch (Exception e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+			throw new KnowageRuntimeException("Error deleting widget with id " + String.valueOf(widgetId), e);
 		}
 		return response;
 
-	}
-
-	public static String jwtToken2userId(String jwtToken) throws JWTVerificationException {
-		String userId = null;
-		Context ctx;
-		try {
-			ctx = new InitialContext();
-			String key = (String) ctx.lookup("java:/comp/env/hmacKey");
-			Algorithm algorithm = Algorithm.HMAC256(key);
-			JWTVerifier verifier = JWT.require(algorithm).build();
-			DecodedJWT decodedJWT = verifier.verify(jwtToken);
-			Claim userIdClaim = decodedJWT.getClaim("user_id");
-			userId = userIdClaim.asString();
-		} catch (Exception e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
-		}
-		return userId;
 	}
 
 	@POST
@@ -190,8 +196,8 @@ public class GalleryResource {
 			newSbiWidgetGallery.setTemplate(template);
 			newSbiWidgetGallery = widgetGalleryService.importOrUpdateWidget(newSbiWidgetGallery, profile);
 
-		} catch (JSONException e) {
-			throw new KnowageRuntimeException(e.getMessage(), e);
+		} catch (Exception e) {
+			throw new KnowageRuntimeException("Cannot import widget " + Optional.ofNullable(newSbiWidgetGallery).map(WidgetGalleryDTO::getName).orElse("null"), e);
 		}
 
 		return newSbiWidgetGallery;

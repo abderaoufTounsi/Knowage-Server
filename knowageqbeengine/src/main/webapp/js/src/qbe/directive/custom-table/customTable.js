@@ -318,6 +318,12 @@ function qbeCustomTable($scope, $rootScope, $mdDialog, sbiModule_translate, sbiM
 				 */
 				return el.visible;
 			})
+			.filter(function(el) {
+				/*
+				 * Skip columns not in use.
+				 */
+				return el.hasOwnProperty("inUse") && typeof el.inUse != "undefined" ? el.inUse : true;
+			})
 			.reduce(function(accumulator, currentValue, index) {
 				accumulator["column_" + (index + 1)] = currentValue;
 				return accumulator;
@@ -650,7 +656,6 @@ function qbeCustomTable($scope, $rootScope, $mdDialog, sbiModule_translate, sbiM
 
 					}
 
-					$scope.changeDatasetPage($scope.itemsPerPage,$scope.currentPageNumber)
 					$scope.closePanel = function () {
 
 						angular.copy(null,$scope.changeDatasetPage)

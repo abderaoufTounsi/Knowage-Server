@@ -17,6 +17,17 @@ export function downloadPromise(content, fileName, contentType): Promise<any> {
 	})
 }
 
+export function downloadDirectFromResponse(response) {
+	var contentDisposition = response.headers['content-disposition']
+	var fileAndExtension = contentDisposition.match(/(?!([\b attachment;filename= \b])).*(?=)/g)[0]
+	var completeFileName = fileAndExtension.replaceAll('"', '').replaceAll(';', '')
+	downloadDirect(response.data, completeFileName, response.headers['content-type'])
+}
+
+export function downloadDirectFromResponseWithCustomName(response, customFilename) {
+	downloadDirect(response.data, customFilename, response.headers['content-type'])
+}
+
 export function downloadDirect(jsonData, filename, contentType) {
 	let blob = new Blob([jsonData], { type: contentType })
 	if (navigator.msSaveBlob) {
@@ -36,4 +47,16 @@ export function downloadDirect(jsonData, filename, contentType) {
 			document.body.removeChild(link)
 		}
 	}
+}
+
+export function byteToHumanFriendlyFormat(bytes, decimals = 2) {
+	if (bytes === 0) return '0 Bytes'
+
+	const k = 1024
+	const dm = decimals < 0 ? 0 : decimals
+	const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+
+	const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+	return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 }

@@ -44,6 +44,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	function catalogFunctionController($scope,sbiModule_translate,sbiModule_restServices,cockpitModule_catalogFunctionService,$q,$mdDialog,cockpitModule_datasetServices,$mdToast){
 		$scope.translate = sbiModule_translate;
 
+		sbiModule_restServices.restToRootProject();
+		sbiModule_restServices.promiseGet('2.0/backendservices/productprofiler/cockpit/functions', "")
+		.then(function(response){
+			if (response.data) $scope.canUseFunctions = true;
+			else $scope.canUseFunctions = false;
+		}, function(error){
+			$scope.canUseFunctions = false;
+		});
+
 		function buildCrossTabColumns(crosstabDefinition){
 			var columnsArray = [];
 			for (var c in crosstabDefinition.columns) {
@@ -57,6 +66,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			}
 			return columnsArray;
 		}
+
+
+	function buildChartColumns(columns){
+			var columnsArray = [];
+			for (var c in  columns) {
+				if (columns[c].aggregationSelected) {
+					columns[c].name = columns[c].alias+"_"+columns[c].aggregationSelected;
+				}
+				columnsArray.push(columns[c]);				
+			}
+			return columnsArray;
+		}
+
 
 		$scope.removeFunctionOutputColumns = function(){
 			if ($scope.ngModel.content == undefined) { // chart widget
@@ -107,10 +129,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 
 		$scope.addNewCatalogFunction = function(){
+			if(!$scope.canUseFunctions) {
+				$scope.toastifyMsg('warning',$scope.translate.load("sbi.cockpit.widgets.table.catalogFunctions.function.error.notallowedtousefunctions"));
+				return;
+			}
 			var deferred = $q.defer();
 			var promise;
 			if ($scope.currentRow) {
-				$scope.currentFunction = $scope.currentRow.boundFunction
+				$scope.currentFunction = $scope.currentRow.boundFunction;
 			}
 
 			$mdDialog.show({
@@ -129,12 +155,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					additionalInfo: $scope.additionalInfo,
 					measuresListFunc: $scope.measuresListFunc,
 					callbackAddTo: $scope.callbackAddTo,
-					buildCrossTabColumns: buildCrossTabColumns
+					buildCrossTabColumns: buildCrossTabColumns,
+					buildChartColumns: buildChartColumns
 				},
 				fullscreen: true,
 				controller: catalogFunctionDialogController
 			}).then(function() {
 				deferred.promise.then(function(result){
+//					if($scope.callbackUpdateAlias) {
+//						$scope.callbackUpdateAlias({newAlias: result.alias, oldAlias: $scope.currentRow.alias});
+//					}
 					$scope.removeFunctionOutputColumns();
 					if ($scope.ngModel.content == undefined) { // chart widget
 						for (var i=0; i<result.length; i++) {
@@ -160,21 +190,60 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}
 					}
 					$scope.ngModel.selectedFunction = undefined;
+					if($scope.callbackUpdateGrid){
+						$scope.callbackUpdateGrid();
+					}
 				});
 			}, function() {
 			});
 			promise = deferred.promise;
 		}
+
+		$scope.toastifyMsg = function(type,msg){
+			Toastify({
+				text: msg,
+				duration: 10000,
+				close: true,
+				className: 'kn-' + type + 'Toast',
+				stopOnFocus: true
+			}).showToast();
+		}
 	}
 
-	function catalogFunctionDialogController($scope,sbiModule_translate,cockpitModule_template,cockpitModule_catalogFunctionService,sbiModule_restServices,$mdDialog,$q,promise,model,actualItem,callbackUpdateGrid,callbackUpdateAlias,additionalInfo,measuresListFunc,callbackAddTo,buildCrossTabColumns,cockpitModule_datasetServices,cockpitModule_generalOptions,$timeout, cockpitModule_properties){
+	function catalogFunctionDialogController($scope,$sce,sbiModule_translate,cockpitModule_template,cockpitModule_catalogFunctionService,sbiModule_restServices,$mdDialog,$q,promise,model,actualItem,callbackUpdateGrid,callbackUpdateAlias,additionalInfo,measuresListFunc,callbackAddTo,buildCrossTabColumns,buildChartColumns,cockpitModule_datasetServices,cockpitModule_generalOptions,$timeout, cockpitModule_properties){
 		$scope.translate=sbiModule_translate;
 		$scope.model = model;
+		$scope.callbackUpdateGrid = callbackUpdateGrid;
+		$scope.callbackUpdateAlias = callbackUpdateAlias;
+		$scope.callbackAddTo = callbackAddTo;
 		$scope.selectedFunction = actualItem ? angular.copy(actualItem) : {};
 		var style = {'display': 'inline-flex', 'justify-content':'center', 'align-items':'center'};
 		var typesMap = {'STRING': "fa fa-quote-right", 'NUMBER': "fa fa-hashtag", 'DATE': 'fa fa-calendar'};
 		$scope.rEnvironments = cockpitModule_catalogFunctionService.rEnvironments;
 		$scope.pythonEnvironments = cockpitModule_catalogFunctionService.pythonEnvironments;
+
+		$scope.setLibraries=function() {
+			sbiModule_restServices.restToRootProject();
+			var endpoint = $scope.selectedFunction.language == "R" ? "RWidget" : "python";
+			sbiModule_restServices.promiseGet('2.0/backendservices/widgets/'+ endpoint +'/libraries', JSON.parse($scope.selectedFunction.environment).label)
+			.then(function(response){
+				$scope.selectedFunction.libraries = [];
+				var librariesArray = JSON.parse((response.data.result));
+				for (idx in librariesArray) {
+					lib = librariesArray[idx];
+					$scope.selectedFunction.libraries.push({"name": lib.name, "version": lib.version})
+				}
+				$scope.librariesGrid.api.setRowData($scope.selectedFunction.libraries);
+			}, function(error){
+				debugger;
+			});
+		}
+
+		if($scope.selectedFunction && $scope.selectedFunction.environment) $scope.setLibraries();
+
+		$scope.textToHtml=function(text){
+			return $sce.trustAsHtml(text);
+		}
 
 		$scope.functionsGrid = {
 		        enableColResize: false,
@@ -236,7 +305,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		function getDatasetColumns(){
 			var toReturn = [];
 			if ($scope.model.content == undefined) { // chart widget
-				var columns = $scope.model.columnSelectedOfDatasetAggregations;
+				var columns = buildChartColumns($scope.model.columnSelectedOfDatasetAggregations);
 			} else if ($scope.model.content.crosstabDefinition) { // cross tab widget
 				var columns = buildCrossTabColumns($scope.model.content.crosstabDefinition);
 			} else { // other widgets
@@ -317,22 +386,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			$scope.librariesGrid.api.redrawRows({rowNodes: [$scope.librariesGrid.api.getDisplayedRowAtIndex(cell.rowIndex)]});
 		}
 
-		$scope.setLibraries=function() {
-			sbiModule_restServices.restToRootProject();
-			var endpoint = $scope.selectedFunction.language == "Python" ? "python" : "RWidget";
-			sbiModule_restServices.promiseGet('2.0/backendservices/widgets/'+ endpoint +'/libraries', JSON.parse($scope.selectedFunction.environment).label)
-			.then(function(response){
-				$scope.selectedFunction.libraries = [];
-				var librariesArray = JSON.parse((response.data.result));
-				for (idx in librariesArray) {
-					lib = librariesArray[idx];
-					$scope.selectedFunction.libraries.push({"name": lib.name, "version": lib.version})
-				}
-				$scope.librariesGrid.api.setRowData($scope.selectedFunction.libraries);
-			}, function(error){
-			});
-		}
-
 		checkColumnsConfiguration=function(columns){
 			for (var i=0; i<columns.length; i++) {
 				if (!columns[i].dsColumn)
@@ -394,6 +447,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			funcForExecution.id = func.id;
 			funcForExecution.name = func.name;
 			funcForExecution.label = func.label;
+			funcForExecution.description = func.description;
+			funcForExecution.language = func.language;
 			funcForExecution.inputVariables = func.inputVariables;
 			funcForExecution.inputColumns = func.inputColumns;
 			funcForExecution.outputColumns = func.outputColumns;

@@ -61,6 +61,8 @@ import com.jamonapi.Monitor;
 import com.jamonapi.MonitorFactory;
 
 import it.eng.knowage.commons.security.PathTraversalChecker;
+import it.eng.knowage.functionscatalog.utils.CatalogFunctionException;
+import it.eng.qbe.dataset.FederatedDataSet;
 import it.eng.qbe.dataset.QbeDataSet;
 import it.eng.spago.error.EMFInternalError;
 import it.eng.spago.error.EMFUserError;
@@ -485,7 +487,9 @@ public class DataSetResource extends AbstractDataSetResource {
 
 	private void setDriversIntoDsJSONConfig(IDataSet dataSet, SbiDataSet ds, JSONObject jsonSbiDataSet) throws Exception {
 		dataSet = dataSet instanceof VersionedDataSet ? ((VersionedDataSet) dataSet).getWrappedDataset() : dataSet;
-		if (dataSet instanceof QbeDataSet) {
+		if (dataSet instanceof FederatedDataSet) {
+			// Yes, we doesn't need to load the model
+		} else if (dataSet instanceof QbeDataSet) {
 			try {
 				Boolean loadDSwithDrivers = true;
 				ArrayList<HashMap<String, Object>> drivers = null;
@@ -495,7 +499,7 @@ public class DataSetResource extends AbstractDataSetResource {
 					jsonSbiDataSet.put("drivers", drivers);
 				}
 			} catch (Exception e) {
-				LogMF.error(logger, "Error loading dataset {0} with id {1}", new String[] { ds.getName(), ds.getId().getDsId().toString() });
+				LogMF.error(logger, e, "Error loading dataset {0} with id {1}", new String[] { ds.getName(), ds.getId().getDsId().toString() });
 				throw e;
 			}
 		}
@@ -735,6 +739,8 @@ public class DataSetResource extends AbstractDataSetResource {
 			timing.stop();
 			return getDataStore(label, parameters, driversRuntimeMap, selections, likeSelections, maxRowCount, aggregations, summaryRow, offset, fetchSize,
 					isNearRealtime, options, columns, widgetName);
+		} catch (CatalogFunctionException e) {
+			throw e;
 		} catch (Exception e) {
 			logger.error("Error loading dataset data from " + label, e);
 			throw new SpagoBIRestServiceException(buildLocaleFromSession(), e);
@@ -792,11 +798,15 @@ public class DataSetResource extends AbstractDataSetResource {
 				JSONArray jsonCategories = new JSONArray();
 				IDataSet dataSet = getDatasetManagementAPI().getDataSet(label);
 
+				Set<String> qbeHiddenColumns = getQbeDataSetHiddenColumns(dataSet);
+
 				IMetaData metadata = dataSet.getMetadata();
 				for (int i = 0; i < metadata.getFieldCount(); i++) {
 					IFieldMetaData fieldMetaData = metadata.getFieldMeta(i);
-					JSONObject json = new JSONObject();
 					String alias = fieldMetaData.getAlias();
+					if (qbeHiddenColumns.contains(alias))
+						continue;
+					JSONObject json = new JSONObject();
 					json.put("id", alias);
 					json.put("alias", alias);
 					json.put("columnName", alias);
@@ -846,6 +856,25 @@ public class DataSetResource extends AbstractDataSetResource {
 			logger.error("Error while previewing dataset " + label, e);
 			throw new SpagoBIRuntimeException("Error while previewing dataset " + label + ". " + e.getMessage(), e);
 		}
+	}
+
+	private Set<String> getQbeDataSetHiddenColumns(IDataSet dataSet) {
+		Set<String> hiddenColumns = new HashSet<String>();
+		if (dataSet.getDsType().equals("SbiQbeDataSet")) {
+			try {
+				JSONObject dsConfig = new JSONObject(dataSet.getConfiguration());
+				JSONObject qbeQuery = new JSONObject(dsConfig.getString("qbeJSONQuery"));
+				JSONArray fields = qbeQuery.getJSONObject("catalogue").getJSONArray("queries").getJSONObject(0).getJSONArray("fields");
+				for (int i = 0; i < fields.length(); i++) {
+					JSONObject field = fields.getJSONObject(i);
+					if (field.has("visible") && field.getBoolean("visible") == false)
+						hiddenColumns.add(field.getString("alias"));
+				}
+			} catch (Exception e) {
+				logger.error("Error while getting list of hidden QBE columns.", e);
+			}
+		}
+		return hiddenColumns;
 	}
 
 	@POST

@@ -32,7 +32,8 @@ module.exports = function(grunt) {
 	        		 'js/lib/angular/color-picker/tinycolor-min.js',
 	        		 'js/lib/angular/color-picker/tinygradient.min.js',
 	        		 'js/lib/angular/color-picker/angularjs-color-picker.js',
-	        		 'js/lib/xml2js/xml2json.js'
+	        		 'js/lib/xml2js/xml2json.js',
+	        		 'js/lib/angular/angular-base64/angular-base64.min.js'
 	        	 ],
 	        	 'dist/knowage-modules-bundle.js': [
 	        		 'node_modules/moment/min/moment-with-locales.min.js',
@@ -54,7 +55,6 @@ module.exports = function(grunt) {
 	        		 'themes/sbi_default/css/angular-toastr.css',
 	        		 'js/lib/angular/color-picker/angularjs-color-picker.min.css',
 	        		 'js/lib/angular/color-picker/mdColorPickerPersonalStyle.css',
-	        		 'node_modules/ng-wysiwyg/dist/editor.min.css',
 	        		 'node_modules/angular-tree-control/css/tree-control.css'
 	        	 ],
 	        	 'dist/knowage-sources-bundle_<%= pkg.version %>.js' : [
