@@ -9,6 +9,7 @@ axios.interceptors.request.use(
     (config) => {
         config.headers.common['Accept'] = 'application/json; charset=utf-8'
         config.headers.common['Content-Type'] = 'application/json; charset=utf-8'
+        config.headers.common['Access-Control-Allow-Origin'] = '*'
         if (localStorage.getItem('token')) config.headers.common[process.env.VUE_APP_DEFAULT_AUTH_HEADER] = 'Bearer ' + localStorage.getItem('token')
         return config
     },
@@ -26,7 +27,7 @@ axios.interceptors.response.use(
         return res
     },
     function(error) {
-        if (error.response.status) {
+        if (error.response && error.response.status) {
             if (error.response.status === 401) {
                 authHelper.logout()
             }

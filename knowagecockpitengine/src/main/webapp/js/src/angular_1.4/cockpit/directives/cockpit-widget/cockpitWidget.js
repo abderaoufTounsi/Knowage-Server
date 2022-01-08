@@ -488,7 +488,7 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 			$scope.scopeInit(config.element,config.width,config.height, config.data,config.nature,config.associativeSelection);
 			break;
 		case "RESIZE" :
-			if($scope.ngModel.type=="chart" || $scope.ngModel.type=="map" || $scope.ngModel.type=="static-pivot-table") {
+			if($scope.ngModel.type=="chart" || $scope.ngModel.type=="map" || $scope.ngModel.type=="static-pivot-table" || $scope.ngModel.type=="customchart") {
 				$scope.refreshWidget(undefined, 'resize');
 			}
 			break;
@@ -1056,14 +1056,27 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 						}
 					}
 
-					// if destination document is specified don't ask
-					if(crossSettings.crossName != undefined){
-						parent.execExternalCrossNavigation(outputParameter,{},crossSettings.crossName,null,otherOutputParameters);
+					
+					// temporary section needed as a workaround to get vue instance
+					var hasVueParent = false
+					if(window.parent.__VUE__){
+						hasVueParent = window.parent
+					}else if(window.parent.parent.__VUE__){
+						hasVueParent = window.parent.parent
 					}
-					else{
-						parent.execExternalCrossNavigation(outputParameter,{},null,null,otherOutputParameters);
+					
+					if(!parent && hasVueParent){
+						hasVueParent.postMessage({"type":"crossNavigation","outputParameters":outputParameter,"inputParameters":{},"targetCrossNavigation":crossSettings,"docLabel":null, "otherOutputParameters":otherOutputParameters}, '*')
+					}else{
+						// if destination document is specified don't ask
+						if(crossSettings.crossName != undefined){
+							parent.execExternalCrossNavigation(outputParameter,{},crossSettings.crossName,null,otherOutputParameters);
+						}
+						else{
+							parent.execExternalCrossNavigation(outputParameter,{},null,null,otherOutputParameters);
+						}
+						return;
 					}
-					return;
 				}
 			}
 		}
@@ -1659,8 +1672,8 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 		var serie = $scope.ngModel.content.chartTemplate.CHART.VALUES.SERIE;
 		var numOfCateg = cockpitModule_widgetServices.checkNumOfCategory($scope.ngModel.content.chartTemplate.CHART.VALUES.CATEGORY);
 		var minMaxCategoriesSeries = cockpitModule_widgetServices.createCompatibleCharts();
-		
-		
+
+
 		if($scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase() != $scope.ngModel.content.chartTemplate.CHART.type.toLowerCase()) {
 			$scope.chartTypes.push($scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase());
 		}
@@ -1671,8 +1684,8 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 				}
 			}
 		}
-		
-		
+
+
 		if(!tempOriginalChartType){
 			var tempOriginalChartType = $scope.ngModel.content.chartTemplateOriginal.CHART.type.toLowerCase();
 		}
@@ -1755,6 +1768,10 @@ cockpitModule_templateServices.getDatasetUsetByWidgetWithParams();
 
 	$scope.exportToExcel = function(event, ngModel, options) {
 		cockpitModule_exportWidgetService.exportWidgetToExcel('xlsx', angular.copy(ngModel), options);
+	}
+
+	$scope.exportToPdf = function(event, ngModel, options) {
+		cockpitModule_exportWidgetService.exportWidgetToPdf(angular.copy(ngModel), options);
 	}
 
 	$scope.getPerWidgetDatasetIds = function() {
