@@ -551,7 +551,7 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 
 		applyRequestParameters(biObject, jsonCrossParameters, sessionParametersMap, role, locale, parsFromCross);
 
-		ArrayList<HashMap<String, Object>> parametersArrayList = new ArrayList<>();
+		final ArrayList<HashMap<String, Object>> parametersArrayList = new ArrayList<>();
 		DocumentRuntime dum = new DocumentRuntime(this.getUserProfile(), locale);
 		List<DocumentDriverRuntime> parameters = DocumentExecutionUtils.getParameters(biObject, role, req.getLocale(), null, parsFromCross, true, dum);
 
@@ -559,7 +559,7 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 		datasetParametersArrayList = getQbeDrivers(biObject);
 
 		if (!datasetParametersArrayList.isEmpty()) {
-			parametersArrayList = datasetParametersArrayList;
+			parametersArrayList.addAll(datasetParametersArrayList);
 		} else {
 			for (DocumentDriverRuntime objParameter : parameters) {
 				Integer paruseId = objParameter.getParameterUseId();
@@ -662,22 +662,21 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 				boolean showParameterLov = true;
 
 				// Parameters NO TREE
-				if ("lov".equalsIgnoreCase(parameterUse.getValueSelection())
-						&& !objParameter.getSelectionType().equalsIgnoreCase(DocumentExecutionUtils.SELECTION_TYPE_TREE)) {
+				if ("lov".equalsIgnoreCase(parameterUse.getValueSelection())) {
 
-					ArrayList<HashMap<String, Object>> admissibleValues = objParameter.getAdmissibleValues();
-
-					if (!objParameter.getSelectionType().equalsIgnoreCase(DocumentExecutionUtils.SELECTION_TYPE_LOOKUP)) {
-						parameterAsMap.put(PROPERTY_DATA, admissibleValues);
-					} else {
-						parameterAsMap.put(PROPERTY_DATA, new ArrayList<>());
-					}
+					ArrayList<HashMap<String, Object>> admissibleValues = filterNullValues(objParameter.getAdmissibleValues());
 
 					metadata.put("colsMap", colPlaceholder2ColName);
 					metadata.put("descriptionColumn", lovDescriptionColumnName);
 					metadata.put("invisibleColumns", objParameter.getLovInvisibleColumnsNames());
 					metadata.put("valueColumn", lovValueColumnName);
 					metadata.put("visibleColumns", objParameter.getLovVisibleColumnsNames());
+
+					if (!objParameter.getSelectionType().equalsIgnoreCase(DocumentExecutionUtils.SELECTION_TYPE_LOOKUP)) {
+						parameterAsMap.put(PROPERTY_DATA, admissibleValues);
+					} else {
+						parameterAsMap.put(PROPERTY_DATA, new ArrayList<>());
+					}
 
 					// hide the parameter if is mandatory and have one value in lov (no error parameter)
 					if (admissibleValues != null && admissibleValues.size() == 1 && objParameter.isMandatory() && !admissibleValues.get(0).containsKey("error")
@@ -770,28 +769,26 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 					valueList = objParameter.getDefaultValues();
 
 					if (!valueList.isEmpty()) {
-						defValue = valueList.stream()
-							.map(e -> {
+						defValue = valueList.stream().map(e -> {
 
-								BiMap<String, String> inverse = colPlaceholder2ColName.inverse();
-								String valColName = inverse.get(lovValueColumnName);
-								String descColName = inverse.get(lovDescriptionColumnName);
+							BiMap<String, String> inverse = colPlaceholder2ColName.inverse();
+							String valColName = inverse.get(lovValueColumnName);
+							String descColName = inverse.get(lovDescriptionColumnName);
 
-								// TODO : workaround
-								valColName = Optional.ofNullable(valColName).orElse("value");
-								descColName = Optional.ofNullable(descColName).orElse("desc");
+							// TODO : workaround
+							valColName = Optional.ofNullable(valColName).orElse("value");
+							descColName = Optional.ofNullable(descColName).orElse("desc");
 
-								Map<String, Object> ret = new LinkedHashMap<>();
+							Map<String, Object> ret = new LinkedHashMap<>();
 
-								ret.put(valColName, e.getValue());
+							ret.put(valColName, e.getValue());
 
-								if (!valColName.equals(descColName)) {
-									ret.put(descColName, e.getDescription());
-								}
+							if (!valColName.equals(descColName)) {
+								ret.put(descColName, e.getDescription());
+							}
 
-								return ret;
-							})
-							.collect(Collectors.toList());
+							return ret;
+						}).collect(Collectors.toList());
 					}
 
 					if (jsonCrossParameters.isNull(objParameter.getId())
@@ -879,6 +876,50 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 
 		logger.debug("OUT");
 		return Response.ok(resultAsMap).build();
+	}
+
+	private ArrayList<HashMap<String, Object>> filterNullValues(ArrayList<HashMap<String, Object>> admissibleValues) {
+		ArrayList<HashMap<String, Object>> filteredValues = new ArrayList<HashMap<String, Object>>();
+		if (admissibleValues != null && !admissibleValues.isEmpty()) {
+			for (Map<String, Object> v : admissibleValues) {
+				if (isNull(v)) {
+					logger.debug("Skipping null value " + v.get("label"));
+				} else {
+					filteredValues.add((HashMap<String, Object>) v);
+				}
+			}
+		}
+		return filteredValues;
+	}
+
+	private boolean isNull(Map<String, Object> v) {
+
+		boolean result = false;
+
+		String value = String.valueOf(v.get("value"));
+		if (value != null) {
+			result = value.equals("null");
+		} else {
+			value = String.valueOf(v.get("VALUE"));
+			if (value != null) {
+				result = value.equals("null");
+			}
+		}
+
+		if (!result) {
+
+			String description = String.valueOf(v.get("description"));
+			if (description != null) {
+				result = description.equals("null");
+			} else {
+				description = String.valueOf(v.get("DESCRIPTION"));
+				if (description != null) {
+					result = description.equals("null");
+				}
+
+			}
+		}
+		return result;
 	}
 
 	// private List<AbstractDriverRuntime<AbstractDriver>>
@@ -1112,6 +1153,7 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 		}
 		return defaultValues;
 	}
+
 	@POST
 	@Path("/admissibleValuesTree")
 	@Produces(MediaType.APPLICATION_JSON + "; charset=UTF-8")
@@ -1175,10 +1217,7 @@ public class DocumentExecutionResource extends AbstractSpagoBIResource {
 
 		if (result != null && result.size() > 0) {
 			resultAsMap.put("rows", result);
-			resultAsMap.put("errors", new ArrayList<>());
 		} else {
-			resultAsMap.put("rows", new ArrayList<>());
-
 			List errorList = DocumentExecutionUtils.handleNormalExecutionError(this.getUserProfile(), biObject, req,
 					this.getAttributeAsString("SBI_ENVIRONMENT"), role, biObjectParameter.getParameter().getModalityValue().getSelectionType(), null, locale);
 

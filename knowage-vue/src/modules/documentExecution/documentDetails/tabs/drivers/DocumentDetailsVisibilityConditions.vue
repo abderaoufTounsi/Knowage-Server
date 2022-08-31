@@ -1,10 +1,10 @@
 <template>
     <div class="kn-remove-card-padding p-col">
         <Toolbar class="kn-toolbar kn-toolbar--default">
-            <template #left>
+            <template #start>
                 {{ $t('documentExecution.documentDetails.drivers.visibilityTitle') }}
             </template>
-            <template #right>
+            <template #end>
                 <Button :label="$t('managers.businessModelManager.addCondition')" class="p-button-text p-button-rounded p-button-plain kn-white-color" @click="openVisibilityConditionDialog('newCondition')" />
             </template>
         </Toolbar>
@@ -26,7 +26,7 @@
     <Dialog class="remove-padding" :style="driversDescriptor.style.conditionDialog" :visible="showVisibilityConditionDialog" :modal="true" :closable="false">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary kn-width-full">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.drivers.visualizationTitle') }}
                 </template>
             </Toolbar>
@@ -43,7 +43,7 @@
                 <KnValidationMessages class="p-mt-1" :vComp="v$.selectedCondition.viewLabel" :additionalTranslateParams="{ fieldName: $t('common.title') }" />
             </div>
             <div class="p-field p-col-12 p-md-4">
-                <span class="p-float-label ">
+                <span class="p-float-label">
                     <Dropdown
                         id="driver"
                         class="kn-material-input"
@@ -102,6 +102,7 @@ import Listbox from 'primevue/listbox'
 import Dialog from 'primevue/dialog'
 import Dropdown from 'primevue/dropdown'
 import InlineMessage from 'primevue/inlinemessage'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'document-drivers',
@@ -125,6 +126,10 @@ export default defineComponent({
             this.selectedDriver.id ? this.getVisualDependenciesByDriverId() : ''
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.selectedDriver.id ? this.getVisualDependenciesByDriverId() : ''
     },
@@ -140,7 +145,7 @@ export default defineComponent({
         async getVisualDependenciesByDriverId() {
             this.loading = true
             this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies?driverId=${this.selectedDriver.id}`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies?driverId=${this.selectedDriver.id}`)
                 .then((response: AxiosResponse<any>) => {
                     this.visusalDependencyObjects = response.data
                 })
@@ -158,30 +163,30 @@ export default defineComponent({
         async saveCondition() {
             await this.saveRequest()
                 .then(() => {
-                    this.$store.commit('setInfo', { title: this.$t('common.save'), msg: this.$t('documentExecution.documentDetails.drivers.conditionSavedMsg') })
+                    this.store.setInfo({ title: this.$t('common.save'), msg: this.$t('documentExecution.documentDetails.drivers.conditionSavedMsg') })
                     this.showVisibilityConditionDialog = false
                     this.getVisualDependenciesByDriverId()
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', { title: this.$t('common.error.saving'), msg: error })
+                    this.store.setError({ title: this.$t('common.error.saving'), msg: error })
                 })
         },
         saveRequest() {
             if (!this.selectedCondition.id) {
-                return this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies`, this.selectedCondition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
+                return this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies`, this.selectedCondition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
             } else {
-                return this.$http.put(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies`, this.selectedCondition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
+                return this.$http.put(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies`, this.selectedCondition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
             }
         },
         async deleteCondition(conditionToDelete) {
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies/delete`, conditionToDelete, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/visualdependencies/delete`, conditionToDelete, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
                 .then(() => {
-                    this.$store.commit('setInfo', { title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
+                    this.store.setInfo({ title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
                     this.getVisualDependenciesByDriverId()
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', { title: this.$t('common.toast.errorTitle'), msg: error })
+                    this.store.setError({ title: this.$t('common.toast.errorTitle'), msg: error })
                 })
         }
     }
@@ -189,7 +194,7 @@ export default defineComponent({
 </script>
 <style lang="scss" scoped>
 .kn-remove-card-padding .data-condition-list {
-    border: 1px solid $color-borders;
+    border: 1px solid var(--kn-color-borders);
     border-top: none;
 }
 </style>

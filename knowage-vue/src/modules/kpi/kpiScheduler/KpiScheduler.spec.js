@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import { createRouter, createWebHistory } from 'vue-router'
-import axios from 'axios'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Chip from 'primevue/chip'
@@ -10,8 +11,10 @@ import flushPromises from 'flush-promises'
 import Listbox from 'primevue/listbox'
 import KpiScheduler from './KpiScheduler.vue'
 import Menu from 'primevue/menu'
+import PrimeVue from 'primevue/config'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
+import mainStore from '../../../App.store'
 
 const mockedSchedulers = [
     {
@@ -34,22 +37,24 @@ const mockedSchedulers = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedSchedulers }))
-axios.post.mockImplementation(() => Promise.resolve({ data: [] }))
-axios.delete.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedSchedulers
+        })
+    ),
+    post: vi.fn().mockImplementation(() => Promise.resolve({ data: [] })),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const router = createRouter({
@@ -83,7 +88,7 @@ const factory = () => {
             directives: {
                 tooltip() {}
             },
-            plugins: [router],
+            plugins: [router, PrimeVue, createTestingPinia()],
             stubs: {
                 Button,
                 Card,
@@ -96,16 +101,16 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('KPI Scheduler loading', () => {
@@ -116,7 +121,7 @@ describe('KPI Scheduler loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -145,6 +150,7 @@ describe('KPI Scheduler loading', () => {
 describe('KPI Scheduler list', () => {
     it('shows a prompt when user click on a rule delete button to delete it and deletes it', async () => {
         const wrapper = factory()
+        const store = mainStore()
 
         await flushPromises()
 
@@ -157,9 +163,9 @@ describe('KPI Scheduler list', () => {
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
         await wrapper.vm.deleteSchedule(mockedSchedulers[0].id)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/2/deleteKpiScheduler')
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/2/deleteKpiScheduler')
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
     })
     it('shows an hint when no item is selected', async () => {
         router.push('/kpi-scheduler')

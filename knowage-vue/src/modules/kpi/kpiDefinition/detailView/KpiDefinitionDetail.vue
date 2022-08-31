@@ -1,7 +1,7 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--primary p-m-0">
-        <template #left>{{ selectedKpi.name }}</template>
-        <template #right>
+        <template #start>{{ selectedKpi.name }}</template>
+        <template #end>
             <Button :label="$t('kpi.kpiDefinition.aliasToolbarTitle')" :style="tabViewDescriptor.style.aliasButton" class="p-button-text p-button-rounded p-button-plain" @click="toggleAlias" />
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" @click="showSaveDialog = true" :disabled="buttonDisabled" />
             <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeTemplateConfirm" />
@@ -54,7 +54,7 @@
 
         <div v-if="isAliasVisible">
             <Toolbar class="kn-toolbar kn-toolbar--secondary" :style="tabViewDescriptor.style.aliasList">
-                <template #left>{{ $t('kpi.kpiDefinition.aliasToolbarTitle') }}</template>
+                <template #start>{{ $t('kpi.kpiDefinition.aliasToolbarTitle') }}</template>
             </Toolbar>
             <Listbox
                 class="kn-list--column"
@@ -136,6 +136,7 @@ import Listbox from 'primevue/listbox'
 import Dialog from 'primevue/dialog'
 import AutoComplete from 'primevue/autocomplete'
 import Checkbox from 'primevue/checkbox'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     components: { TabView, TabPanel, KnValidationMessages, Listbox, KpiDefinitionThresholdTab, KpiDefinitionFormulaTab, Dialog, AutoComplete, Checkbox, KpiDefinitionCardinalityTab },
@@ -181,6 +182,10 @@ export default defineComponent({
             selectedKpi: createValidations('selectedKpi', tabViewDescriptor.validations.selectedKpi)
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         this.loadPersistentData()
     },
@@ -216,14 +221,14 @@ export default defineComponent({
         },
 
         createGetTabViewDataUrl(dataType: string) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/domains/listByCode/${dataType}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/domains/listByCode/${dataType}`)
         },
         createGetKpiDataUrl(dataType: string) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${dataType}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${dataType}`)
         },
         async loadSelectedKpi() {
             if (this.id) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${this.id}/${this.version}/loadKpi`).then((response: AxiosResponse<any>) => {
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${this.id}/${this.version}/loadKpi`).then((response: AxiosResponse<any>) => {
                     this.selectedKpi = { ...response.data }
                     let definitionFormula = JSON.parse(this.selectedKpi.definition)
                     this.formulaToSave = definitionFormula.formula
@@ -281,13 +286,11 @@ export default defineComponent({
                 icon: 'pi pi-exclamation-triangle',
                 message: this.$t('kpi.kpiDefinition.confirmClone'),
                 header: this.$t(' '),
-                kpiId,
-                kpiVersion,
                 accept: () => this.cloneKpi(kpiId, kpiVersion)
             })
         },
         async cloneKpi(kpiId, kpiVersion) {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/loadKpi`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/loadKpi`).then((response: AxiosResponse<any>) => {
                 response.data.id = undefined
                 response.data.name = this.$t('kpi.kpiDefinition.copyOf') + response.data.name
 
@@ -310,6 +313,9 @@ export default defineComponent({
             this.showSaveDialog = false
             this.touched = false
             this.kpiToSave = { ...this.selectedKpi }
+
+            if (typeof this.kpiToSave.category !== 'object') this.kpiToSave.category = { valueCd: this.kpiToSave.category }
+
             this.correctColors(this.kpiToSave.threshold.thresholdValues)
             if (typeof this.kpiToSave.definition === 'object') {
                 this.kpiToSave.definition.formula = this.formulaToSave
@@ -319,9 +325,9 @@ export default defineComponent({
                 this.kpiToSave.cardinality = JSON.stringify(this.kpiToSave.cardinality)
             }
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/saveKpi', this.kpiToSave)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/saveKpi', this.kpiToSave)
                 .then(() => {
-                    this.$store.commit('setInfo', { title: this.$t('common.toast.success') })
+                    this.store.setInfo({ title: this.$t('common.toast.success') })
                     this.kpiToSave.id === undefined ? this.$emit('kpiCreated', this.kpiToSave.name) : this.$emit('kpiUpdated')
                     this.reloadKpi = true
                     setTimeout(() => {
@@ -329,7 +335,7 @@ export default defineComponent({
                     }, 250)
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.error.generic'),
                         msg: response
                     })

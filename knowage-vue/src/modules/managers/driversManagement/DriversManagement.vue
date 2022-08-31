@@ -2,10 +2,10 @@
     <div class="kn-page-content p-grid p-m-0">
         <div class="p-col-4 p-sm-4 p-md-3 p-p-0">
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.driversManagement.title') }}
                 </template>
-                <template #right>
+                <template #end>
                     <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                 </template>
             </Toolbar>
@@ -44,7 +44,7 @@
         </div>
         <div class="kn-list--column p-col-8 p-sm-8 p-md-9 p-p-0">
             <KnHint :title="'managers.driversManagement.title'" :hint="'managers.driversManagement.hint'" v-if="!formVisible"></KnHint>
-            <DriversManagementDetail :selectedDriver="selectedDriver" @created="handleSave" @close="closeForm" @touched="touched = true" v-else></DriversManagementDetail>
+            <DriversManagementDetail v-else :selectedDriver="selectedDriver" @created="handleSave" @close="closeForm" @touched="touched = true" data-test="drivers-form"></DriversManagementDetail>
         </div>
     </div>
 </template>
@@ -59,6 +59,8 @@ import DriversManagementDetail from './DriversManagementDetail.vue'
 import driversManagementDescriptor from './DriversManagementDescriptor.json'
 import KnHint from '@/components/UI/KnHint.vue'
 import Tooltip from 'primevue/tooltip'
+import mainStore from '../../../App.store'
+
 export default defineComponent({
     name: 'constraint-management',
     components: {
@@ -81,6 +83,10 @@ export default defineComponent({
             selectedDriver: {} as iDriver
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadAllDrivers()
     },
@@ -88,7 +94,7 @@ export default defineComponent({
         async loadAllDrivers() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers')
                 .then((response: AxiosResponse<any>) => (this.drivers = response.data))
                 .finally(() => (this.loading = false))
         },
@@ -143,9 +149,9 @@ export default defineComponent({
         },
         async deleteDriver(id: number) {
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/' + id)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/' + id)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
@@ -153,7 +159,7 @@ export default defineComponent({
                     this.formVisible = false
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('managers.driversManagement.deleteError'),
                         msg: error.message
                     })

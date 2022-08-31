@@ -4,7 +4,7 @@
             <Card>
                 <template #header>
                     <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                        <template #left> {{ $t('managers.usersManagement.detail') }} </template>
+                        <template #start> {{ $t('managers.usersManagement.detail') }} </template>
                     </Toolbar>
                 </template>
                 <template #content>
@@ -21,7 +21,7 @@
                         <div class="p-field">
                             <div class="p-inputgroup">
                                 <span class="p-float-label">
-                                    <InputText id="userId" maxlength="100" type="text" :disabled="!formInsert" v-model.trim="userDetailsForm.userId" @input="onDataChange(vobj.userDetailsForm.userId)" class="p-inputtext p-component kn-material-input" />
+                                    <InputText id="userId" maxlength="100" type="text" :disabled="!formInsert" v-model.trim="userDetailsForm.userId" @change="onDataChange(vobj.userDetailsForm.userId)" class="p-inputtext p-component kn-material-input" />
                                     <label for="userId">{{ $t('managers.usersManagement.form.userId') }} *</label>
                                 </span>
                             </div>
@@ -31,7 +31,7 @@
                         <div class="p-field">
                             <div class="p-inputgroup">
                                 <span class="p-float-label">
-                                    <InputText id="fullName" maxlength="250" type="text" v-model.trim="userDetailsForm.fullName" @input="onDataChange(vobj.userDetailsForm.fullName)" class="p-inputtext p-component kn-material-input" />
+                                    <InputText id="fullName" maxlength="250" type="text" v-model.trim="userDetailsForm.fullName" @change="onDataChange(vobj.userDetailsForm.fullName)" class="p-inputtext p-component kn-material-input" />
                                     <label for="fullName">{{ $t('managers.usersManagement.fullName') }} *</label>
                                 </span>
                             </div>
@@ -41,7 +41,7 @@
                         <div class="p-field">
                             <div class="p-inputgroup">
                                 <span class="p-float-label">
-                                    <InputText id="password" type="password" v-model.trim="userDetailsForm.password" @input="onDataChange(vobj.userDetailsForm.password)" class="p-inputtext p-component kn-material-input" />
+                                    <InputText id="password" type="password" v-model.trim="userDetailsForm.password" @change="onDataChange(vobj.userDetailsForm.password)" class="p-inputtext p-component kn-material-input" />
                                     <label for="password">{{ $t('managers.usersManagement.form.password') }} *</label>
                                 </span>
                             </div>
@@ -51,7 +51,7 @@
                         <div class="p-field">
                             <div class="p-inputgroup">
                                 <span class="p-float-label">
-                                    <InputText id="passwordConfirm" type="password" v-model.trim="userDetailsForm.passwordConfirm" @input="onDataChange(vobj.userDetailsForm.passwordConfirm)" class="p-inputtext p-component kn-material-input" />
+                                    <InputText id="passwordConfirm" type="password" v-model.trim="userDetailsForm.passwordConfirm" @change="onDataChange(vobj.userDetailsForm.passwordConfirm)" class="p-inputtext p-component kn-material-input" />
                                     <label for="passwordConfirm">{{ $t('managers.usersManagement.form.passwordConfirm') }} *</label>
                                 </span>
                             </div>
@@ -69,59 +69,63 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
-import useValidate from '@vuelidate/core'
-import Card from 'primevue/card'
-import InlineMessage from 'primevue/inlinemessage'
-import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
+    import { defineComponent } from 'vue'
+    import useValidate from '@vuelidate/core'
+    import Card from 'primevue/card'
+    import InlineMessage from 'primevue/inlinemessage'
+    import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 
-export default defineComponent({
-    name: 'roles-tab',
-    components: {
-        InlineMessage,
-        Card,
-        KnValidationMessages
-    },
-    emits: ['unlock', 'dataChanged'],
-    props: {
-        formValues: Object,
-        disabledUID: Boolean,
-        vobj: Object,
-        formInsert: {
-            type: Boolean,
-            default: false
-        }
-    },
-    watch: {
-        formValues: {
-            handler: function(values) {
-                this.userDetailsForm = values
+    export default defineComponent({
+        name: 'roles-tab',
+        components: {
+            InlineMessage,
+            Card,
+            KnValidationMessages
+        },
+        emits: ['unlock', 'dataChanged'],
+        props: {
+            formValues: Object,
+            disabledUID: Boolean,
+            vobj: Object,
+            formInsert: {
+                type: Boolean,
+                default: false
             }
         },
-        disabledUID: {
-            handler: function(value) {
-                this.disableUsername = value
+        watch: {
+            formValues: {
+                handler: function(values) {
+                    this.userDetailsForm = values
+                }
+            },
+            disabledUID: {
+                handler: function(value) {
+                    this.disableUsername = value
+                }
+            }
+        },
+        data() {
+            return {
+                v$: useValidate() as any,
+                userDetailsForm: {} as any,
+                defaultRole: null,
+                hiddenForm: true as Boolean,
+                disableUsername: true as Boolean,
+                loading: false as Boolean
+            }
+        },
+        created() {
+            this.userDetailsForm = this.formValues
+            this.disableUsername = this.disabledUID
+        },
+        methods: {
+            unlockUser() {
+                this.$emit('unlock')
+            },
+            onDataChange(v$Comp) {
+                v$Comp.$touch()
+                this.$emit('dataChanged')
             }
         }
-    },
-    data() {
-        return {
-            v$: useValidate() as any,
-            userDetailsForm: {} as any,
-            defaultRole: null,
-            hiddenForm: true as Boolean,
-            disableUsername: true as Boolean,
-            loading: false as Boolean
-        }
-    },
-    methods: {
-        unlockUser() {
-            this.$emit('unlock')
-        },
-        onDataChange(v$Comp) {
-            v$Comp.$touch()
-            this.$emit('dataChanged')
-        }
-    }
-})
+    })
 </script>

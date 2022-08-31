@@ -3,15 +3,15 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.lovsManagement.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showForm" data-test="new-button" />
                     </template>
                 </Toolbar>
                 <ProgressBar mode="indeterminate" class="kn-progress-bar" v-if="loading" data-test="progress-bar" />
-                <KnListBox :options="lovsList" :settings="lovsManagementDescriptor.knListSettings" @delete="deleteLovConfirm($event)"></KnListBox>
+                <KnListBox :options="lovsList" :settings="lovsManagementDescriptor.knListSettings" @delete="deleteLovConfirm($event)" data-test="lovs-list"></KnListBox>
             </div>
 
             <div class="p-col-8 p-sm-8 p-md-9 p-p-0 p-m-0 kn-page">
@@ -28,6 +28,7 @@ import { AxiosResponse } from 'axios'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import KnListBox from '@/components/UI/KnListBox/KnListBox.vue'
 import lovsManagementDescriptor from './LovsManagementDescriptor.json'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'lovs-management',
@@ -40,6 +41,10 @@ export default defineComponent({
             touched: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadLovs()
     },
@@ -48,7 +53,7 @@ export default defineComponent({
             this.touched = false
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/get/all')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/get/all')
                 .then((response: AxiosResponse<any>) => {
                     this.lovsList = response.data
                     this.lovsList.sort((a: iLov, b: iLov) => (a.label.toUpperCase() > b.label.toUpperCase() ? 1 : -1))
@@ -84,9 +89,9 @@ export default defineComponent({
         },
         async deleteLov(lovId: number) {
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/lovs/delete/${lovId}`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/lovs/delete/${lovId}`)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
@@ -94,7 +99,7 @@ export default defineComponent({
                     this.loadLovs()
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: 'Server error',
                         msg: error.message
                     })

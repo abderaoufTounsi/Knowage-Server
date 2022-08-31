@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import { createRouter, createWebHistory } from 'vue-router'
 import axios from 'axios'
 import Button from 'primevue/button'
@@ -78,22 +80,23 @@ const router = createRouter({
     ]
 })
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedNavigations }))
-
-axios.post.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedNavigations
+        })
+    ),
+    post: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const factory = () => {
@@ -102,7 +105,7 @@ const factory = () => {
             directives: {
                 tooltip() {}
             },
-            plugins: [router, PrimeVue],
+            plugins: [router, PrimeVue, createTestingPinia()],
             stubs: {
                 Button,
                 Card,
@@ -114,9 +117,10 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
+
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
@@ -128,7 +132,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Cross-navigation Management loading', () => {
@@ -143,8 +147,8 @@ describe('Cross-navigation Management', () => {
     it('shows a prompt when user click on a list item delete button to delete it', async () => {
         const wrapper = factory()
         await flushPromises()
-        console.log(wrapper.vm.navigations)
-        wrapper.vm.deleteTemplate({ item: { id: 655 } }, 655)
+
+        wrapper.vm.deleteTempateConfirm({ item: { id: 655 } }, 655)
         expect($confirm.require).toHaveBeenCalledTimes(1)
     })
     it('shows and empty detail when clicking on the add button', async () => {

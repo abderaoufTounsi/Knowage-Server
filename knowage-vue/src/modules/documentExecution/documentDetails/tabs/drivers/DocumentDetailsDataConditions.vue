@@ -1,10 +1,10 @@
 <template>
     <div v-if="!loading" class="kn-remove-card-padding p-col">
         <Toolbar class="kn-toolbar kn-toolbar--default">
-            <template #left>
+            <template #start>
                 {{ $t('documentExecution.documentDetails.drivers.conditionsTitle') }}
             </template>
-            <template #right>
+            <template #end>
                 <Button :label="$t('managers.businessModelManager.addCondition')" class="p-button-text p-button-rounded p-button-plain kn-white-color" @click="showForm" />
             </template>
         </Toolbar>
@@ -26,7 +26,7 @@
         <Dialog class="remove-padding" :style="driversDescriptor.style.conditionDialog" :visible="conditionFormVisible" :modal="true" :closable="false">
             <template #header>
                 <Toolbar class="kn-toolbar kn-toolbar--primary kn-width-full">
-                    <template #left>
+                    <template #start>
                         {{ $t('documentExecution.documentDetails.drivers.visualizationTitle') }}
                     </template>
                 </Toolbar>
@@ -38,19 +38,19 @@
 
                 <form class="p-fluid p-formgrid p-grid p-mx-2 p-mt-5">
                     <div class="p-field p-col-12 p-md-4">
-                        <span class="p-float-label ">
+                        <span class="p-float-label">
                             <Dropdown id="driver" class="kn-material-input" v-model="condition.parFatherId" :options="excludeCurrentDriverFromList()" optionLabel="label" optionValue="id" @change="setParFatherUrlName" />
                             <label for="driver" class="kn-material-input-label"> {{ $t('documentExecution.documentDetails.drivers.ad') }} {{ $t('documentExecution.documentDetails.drivers.adDepends') }} </label>
                         </span>
                     </div>
                     <div class="p-field p-col-12 p-md-4">
-                        <span class="p-float-label ">
+                        <span class="p-float-label">
                             <Dropdown id="filterOp" class="kn-material-input" v-model="condition.filterOperation" :options="availableOperators" />
                             <label for="filterOp" class="kn-material-input-label"> {{ $t('managers.businessModelManager.filterOperator') }} </label>
                         </span>
                     </div>
                     <div class="p-field p-col-12 p-md-4">
-                        <span class="p-float-label ">
+                        <span class="p-float-label">
                             <Dropdown id="logicalOp" class="kn-material-input" v-model="condition.logicOperator" :options="connectingOperators" />
                             <label for="logicalOp" class="kn-material-input-label"> {{ $t('managers.businessModelManager.logicOperator') }} </label>
                         </span>
@@ -101,6 +101,7 @@ import Dialog from 'primevue/dialog'
 import Dropdown from 'primevue/dropdown'
 import Checkbox from 'primevue/checkbox'
 import InlineMessage from 'primevue/inlinemessage'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'document-drivers',
@@ -141,6 +142,10 @@ export default defineComponent({
             }
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         this.loadSelectedDriver()
         if (this.selectedDriver) {
@@ -163,7 +168,7 @@ export default defineComponent({
         async loadDataDependencies() {
             this.conditions = []
             if (this.driver && this.driver.id) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies?driverId=${this.selectedDriver.id}`).then((response: AxiosResponse<any>) =>
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies?driverId=${this.selectedDriver.id}`).then((response: AxiosResponse<any>) =>
                     response.data.forEach((condition: any) => {
                         const index = this.conditions.findIndex((cond) => cond.parFatherId === condition.parFatherId && cond.filterOperation == condition.filterOperation && cond.logicOperator == condition.logicOperator)
                         condition.modalities = []
@@ -178,10 +183,10 @@ export default defineComponent({
             }
         },
         async loadModes() {
-            this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.selectedDriver.parID}/modes`).then((response: AxiosResponse<any>) => (this.modes = response.data))
+            this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.selectedDriver.parID}/modes`).then((response: AxiosResponse<any>) => (this.modes = response.data))
         },
         async loadLovs() {
-            this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.selectedDriver.parID}/lovs`).then((response: AxiosResponse<any>) => (this.lovs = response.data))
+            this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.selectedDriver.parID}/lovs`).then((response: AxiosResponse<any>) => (this.lovs = response.data))
         },
         getLovs(lovId: number) {
             const index = this.lovs.findIndex((lov) => lov.id === lovId)
@@ -277,12 +282,12 @@ export default defineComponent({
                         conditionForPost.prog++
                         delete conditionForPost.parFather
                         delete conditionForPost.modalities
-                        await this.sendRequest(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies`, conditionForPost).then((response: AxiosResponse<any>) => {
+                        await this.sendRequest(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies`, conditionForPost).then((response: AxiosResponse<any>) => {
                             if (response.data.errors) {
                                 this.errorMessage = response.data.errors[0].message
                                 this.displayWarning = true
                             } else {
-                                this.$store.commit('setInfo', {
+                                this.store.setInfo({
                                     title: this.$t('common.toast.success'),
                                     msg: this.$t('documentExecution.documentDetails.drivers.conditionSavedMsg')
                                 })
@@ -321,8 +326,8 @@ export default defineComponent({
         async deleteCondition(condition: any) {
             delete condition.parFather
             delete condition.modalities
-            await this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies/delete`, condition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } }).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/datadependencies/delete`, condition, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } }).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })
@@ -347,7 +352,7 @@ export default defineComponent({
 </script>
 <style lang="scss" scoped>
 .kn-remove-card-padding .data-condition-list {
-    border: 1px solid $color-borders;
+    border: 1px solid var(--kn-color-borders);
     border-top: none;
 }
 </style>

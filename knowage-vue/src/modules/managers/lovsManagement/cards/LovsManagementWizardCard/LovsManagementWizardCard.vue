@@ -2,10 +2,10 @@
     <Card class="p-m-2">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ toolbarTitle }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button class="kn-button-sm p-button-text" :label="$t('managers.lovsManagement.preview')" :disabled="previewDisabled" @click="checkForDependencies(true)" />
                     <Button class="kn-button-sm p-button-text" :label="$t('managers.lovsManagement.test')" :disabled="previewDisabled" @click="onTestButtonClick" />
                     <Button v-if="lovType !== 'DATASET'" icon="fa fa-info-circle" class="p-button-text p-button-rounded p-button-plain" aria-label="Info" @click="infoDialogVisible = true" />
@@ -23,9 +23,9 @@
     </Card>
     <LovsManagementInfoDialog v-show="infoDialogVisible" :visible="infoDialogVisible" :infoTitle="infoTitle" :lovType="lov.itypeCd" @close="infoDialogVisible = false"></LovsManagementInfoDialog>
     <LovsManagementProfileAttributesList v-show="profileAttributesDialogVisible" :visible="profileAttributesDialogVisible" :profileAttributes="profileAttributes" @selected="setCodeInput($event)" @close="profileAttributesDialogVisible = false"></LovsManagementProfileAttributesList>
-    <LovsManagementParamsDialog v-show="paramsDialogVisible" :visible="paramsDialogVisible" :dependenciesList="dependenciesList" @preview="onPreview" @close="onParamsDialogClose"></LovsManagementParamsDialog>
+    <LovsManagementParamsDialog v-show="paramsDialogVisible" :visible="paramsDialogVisible" :dependenciesList="dependenciesList" :mode="paramsDialogMode" @preview="onPreview" @close="onParamsDialogClose" @test="onTest"></LovsManagementParamsDialog>
     <LovsManagementPreviewDialog v-show="previewDialogVisible" :visible="previewDialogVisible" :dataForPreview="dataForPreview" :pagination="pagination" @close="onPreviewClose" @pageChanged="previewLov($event, false, true)"></LovsManagementPreviewDialog>
-    <LovsManagementTestDialog v-show="testDialogVisible" :visible="testDialogVisible" :selectedLov="lov" :testModel="treeListTypeModel" :testLovModel="testLovModel" :testLovTreeModel="testLovTreeModel" @close="testDialogVisible = false" @save="onTestSave($event)"></LovsManagementTestDialog>
+    <LovsManagementTestDialog v-show="testDialogVisible" :visible="testDialogVisible" :selectedLov="lov" :testModel="treeListTypeModel" :testLovModel="testLovModel" :testLovTreeModel="testLovTreeModel" @close="onTestDialogClose()" @save="onTestSave($event)"></LovsManagementTestDialog>
 </template>
 
 <script lang="ts">
@@ -46,6 +46,7 @@ import LovsManagementProfileAttributesList from './LovsManagementProfileAttribut
 import LovsManagementTestDialog from './LovsManagementTestDialog/LovsManagementTestDialog.vue'
 import LovsManagementParamsDialog from './LovsManagementParamsDialog/LovsManagementParamsDialog.vue'
 import LovsManagementDataset from './LovsManagementDataset/LovsManagementDataset.vue'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'lovs-management-wizard-card',
@@ -104,7 +105,8 @@ export default defineComponent({
             sendSave: false,
             dependenciesReady: false,
             touchedForTest: false,
-            x2js: new X2JS()
+            x2js: new X2JS(),
+            paramsDialogMode: 'preview'
         }
     },
     watch: {
@@ -117,7 +119,6 @@ export default defineComponent({
         },
         async save() {
             this.sendSave = true
-
             if (!this.touchedForTest) {
                 this.buildTestTable()
                 this.formatForTest()
@@ -133,6 +134,10 @@ export default defineComponent({
         lovType(): string {
             return this.selectedLov.itypeCd
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     async created() {
         this.loadLov()
@@ -240,22 +245,19 @@ export default defineComponent({
         async checkForDependencies(showPreview: boolean) {
             this.formatForTest()
             let listOfEmptyDependencies = [] as any[]
-
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/checkdependecies', { provider: this.x2js.js2xml(this.lov.lovProviderJSON) })
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/checkdependecies', { provider: this.x2js.js2xml(this.lov.lovProviderJSON) })
                 .then((response: AxiosResponse<any>) => {
                     listOfEmptyDependencies = response.data
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.errorTitle'),
                         msg: response
                     })
                 })
                 .finally(() => (this.touchedForTest = false))
-
             if (listOfEmptyDependencies.length > 0 && !this.dependenciesReady) {
-                console.log('LIST OF EMPTY FIRST IF: ', listOfEmptyDependencies)
                 this.dependenciesList = []
                 for (let i = 0; i < listOfEmptyDependencies.length; i++) {
                     this.dependenciesList.push({
@@ -263,13 +265,12 @@ export default defineComponent({
                         type: listOfEmptyDependencies[i].type
                     })
                 }
+                this.paramsDialogMode = showPreview ? 'preview' : 'test'
                 this.paramsDialogVisible = true
             } else {
-                console.log('LIST OF EMPTY SECOND IF: ', listOfEmptyDependencies)
                 await this.previewLov(this.pagination, false, showPreview)
                 this.buildTestTable()
             }
-            console.log('LIST OF DEPENDENCIES: ', this.dependenciesList)
         },
         async previewLov(value: any, hasDependencies: boolean, showPreview: boolean) {
             this.pagination = value
@@ -281,16 +282,14 @@ export default defineComponent({
                 },
                 pagination: this.pagination
             } as any
-
             if (hasDependencies || this.dependenciesReady) {
                 postData.dependencies = this.dependenciesList
             }
-
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/preview', postData)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/preview', postData)
                 .then((response: AxiosResponse<any>) => {
                     if (response.status === 204) {
-                        this.$store.commit('setError', {
+                        this.store.setError({
                             title: this.$t('common.toast.errorTitle'),
                             msg: this.$t('managers.lovsManagement.syntaxError')
                         })
@@ -305,7 +304,7 @@ export default defineComponent({
                     }
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.errorTitle'),
                         msg: response
                     })
@@ -314,15 +313,12 @@ export default defineComponent({
         formatForTest() {
             const propName = this.lov.itypeCd
             const prop = lovProviderEnum[propName]
-
             if (!this.lov.lovProviderJSON[prop].LOVTYPE) {
                 this.lov.lovProviderJSON[prop].LOVTYPE = 'simple'
             }
-
             if (!this.lov.id) {
                 this.setLovProviderJsonValues(prop)
             }
-
             switch (prop) {
                 case lovProviderEnum.QUERY:
                     this.lov.lovProviderJSON[prop].CONNECTION = this.selectedQuery?.datasource
@@ -359,7 +355,6 @@ export default defineComponent({
             this.lov.lovProviderJSON[prop] = {
                 LOVTYPE: 'simple'
             }
-
             switch (prop) {
                 case lovProviderEnum.QUERY:
                 case lovProviderEnum.DATASET:
@@ -395,24 +390,20 @@ export default defineComponent({
             if (this.lov) {
                 const propName = this.lov.itypeCd
                 const prop = lovProviderEnum[propName]
-
                 if (!this.lov.lovProviderJSON[prop].LOVTYPE) {
                     this.lov.lovProviderJSON[prop].LOVTYPE = 'simple'
                 }
-
-                this.treeListTypeModel = this.lov.lovProviderJSON[prop]
+                if (!this.treeListTypeModel.LOVTYPE) this.treeListTypeModel = this.lov.lovProviderJSON[prop]
                 this.setColumnValues()
-
                 if (this.treeListTypeModel && this.treeListTypeModel.LOVTYPE != 'simple' && this.treeListTypeModel.LOVTYPE != '') {
                     this.setTreeLovModel()
                 }
             }
-
             this.testLovModel = Array.isArray(this.tableModelForTest) ? this.tableModelForTest : []
             this.setFormatedVisibleValues()
         },
         setColumnValues() {
-            if (this.lov.id) {
+            if (this.lov.id || this.treeListTypeModel.LOVTYPE !== 'simple') {
                 this.formatedVisibleValues = this.treeListTypeModel['VISIBLE-COLUMNS']?.length > 0 ? this.treeListTypeModel['VISIBLE-COLUMNS'].split(',') : []
                 this.formatedInvisibleValues = []
                 if (!this.treeListTypeModel.LOVTYPE || this.treeListTypeModel.LOVTYPE == 'simple') {
@@ -445,7 +436,6 @@ export default defineComponent({
         },
         async handleSubmit(save: boolean) {
             this.formatForSave()
-
             if (this.testValid && save) {
                 await this.saveLov()
             }
@@ -455,16 +445,13 @@ export default defineComponent({
             let propName = this.lov.itypeCd
             let prop = lovProviderEnum[propName]
             let tempObj = this.lov.lovProviderJSON[prop]
-
             if (!this.treeListTypeModel || this.treeListTypeModel.LOVTYPE == 'simple') {
                 this.formatSimpleTestTree(tempObj)
             } else {
                 this.formatAdvancedTestTree(tempObj)
             }
             tempObj.LOVTYPE = this.treeListTypeModel.LOVTYPE
-
             this.validateLov(tempObj)
-
             result[prop] = tempObj
             this.lov.lovProvider = this.x2js.js2xml(result)
             this.lov.itypeId = this.setLovInputTypeId(this.lov.itypeCd) as string
@@ -473,7 +460,6 @@ export default defineComponent({
             tempObj['DESCRIPTION-COLUMN'] = this.treeListTypeModel['DESCRIPTION-COLUMN']
             tempObj['VALUE-COLUMN'] = this.treeListTypeModel['VALUE-COLUMN']
             tempObj['VISIBLE-COLUMNS'] = this.treeListTypeModel['VISIBLE-COLUMNS']
-
             for (let i = 0; i < this.testLovModel.length; i++) {
                 if (this.treeListTypeModel['VISIBLE-COLUMNS'].indexOf(this.testLovModel[i].name) === -1) {
                     this.formatedInvisibleValues.push(this.testLovModel[i].name)
@@ -500,7 +486,6 @@ export default defineComponent({
                 }
             }
             tempObj['INVISIBLE-COLUMNS'] = this.formatedInvisibleValues.join()
-
             tempObj['VISIBLE-COLUMNS'] = this.treeListTypeModel['VISIBLE-COLUMNS']
         },
         setLovInputTypeId(inputType: string) {
@@ -519,13 +504,13 @@ export default defineComponent({
         },
         validateLov(tempObj: any) {
             if (tempObj.LOVTYPE == 'simple' && (!tempObj['VALUE-COLUMN'] || !tempObj['DESCRIPTION-COLUMN'])) {
-                this.$store.commit('setError', {
+                this.store.setError({
                     title: this.$t('common.toast.errorTitle'),
                     msg: this.$t('managers.lovsManagement.emptyField')
                 })
                 this.testValid = false
             } else if (tempObj.LOVTYPE == 'tree' && (!tempObj['VALUE-COLUMNS'] || !tempObj['DESCRIPTION-COLUMNS'])) {
-                this.$store.commit('setError', {
+                this.store.setError({
                     title: this.$t('common.toast.errorTitle'),
                     msg: this.$t('managers.lovsManagement.treeNotDefined')
                 })
@@ -535,22 +520,20 @@ export default defineComponent({
             }
         },
         async saveLov() {
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/save'
-
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/save'
             if (this.lov.id) {
                 this.operation = 'update'
-                url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/'
+                url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/'
             }
-
             await this.sendRequest(url)
                 .then((response: AxiosResponse<any>) => {
                     if (response.status == 409) {
-                        this.$store.commit('setError', {
+                        this.store.setError({
                             title: this.$t('common.toast.errorTitle'),
                             msg: this.$t('managers.lovsManagement.sameLabelError')
                         })
                     } else {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.toast.' + this.operation + 'Title'),
                             msg: this.$t('common.toast.success')
                         })
@@ -561,9 +544,9 @@ export default defineComponent({
                     }
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.' + this.operation + 'Title'),
-                        msg: response
+                        msg: typeof response === 'string' ? response : ''
                     })
                 })
         },
@@ -585,8 +568,17 @@ export default defineComponent({
                 this.treeListTypeModel['VISIBLE-COLUMNS'] += i === this.testLovModel.length - 1 ? '' : ','
             }
 
+            this.treeListTypeModel['VALUE-COLUMNS'] = ''
+            this.treeListTypeModel['DESCRIPTION-COLUMNS'] = ''
+            for (let i = 0; i < this.testLovTreeModel.length; i++) {
+                this.treeListTypeModel['VALUE-COLUMNS'] += this.testLovTreeModel[i].value
+                this.treeListTypeModel['VALUE-COLUMNS'] += i === this.testLovTreeModel.length - 1 ? '' : ','
+                this.treeListTypeModel['DESCRIPTION-COLUMNS'] += this.testLovTreeModel[i].description
+                this.treeListTypeModel['DESCRIPTION-COLUMNS'] += i === this.testLovTreeModel.length - 1 ? '' : ','
+            }
             this.handleSubmit(this.sendSave)
             this.testDialogVisible = false
+            this.dependenciesReady = false
         },
         onTestButtonClick() {
             this.sendSave = false
@@ -615,6 +607,15 @@ export default defineComponent({
         onParamsDialogClose() {
             this.paramsDialogVisible = false
             this.dependenciesList = []
+            this.dependenciesReady = false
+        },
+        async onTest() {
+            this.dependenciesReady = true
+            await this.previewLov(this.pagination, false, false)
+            this.buildTestTable()
+        },
+        onTestDialogClose() {
+            this.testDialogVisible = false
             this.dependenciesReady = false
         }
     }

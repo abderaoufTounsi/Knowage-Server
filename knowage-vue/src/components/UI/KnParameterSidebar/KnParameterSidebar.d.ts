@@ -12,7 +12,7 @@ export interface iParameter {
     driverUseLabel: string,
     label: string,
     driverDefaultValue: { value: string | number, desc: string }[],
-    parameterValue: { value: string | number, description: string }[],
+    parameterValue: { value: string | number | Date, description: string }[],
     type: string,
     driverLabel: string,
     mandatory: boolean,
@@ -30,6 +30,8 @@ export interface iParameter {
     dependsOnParameters?: iParameter[]
     dataDependentParameters?: iParameter[]
     dataDependsOnParameters?: iParameter[],
+    lovDependsOnParameters?: iParameter[],
+    lovDependentParameters?: iParameter[]
 }
 
 
@@ -61,7 +63,8 @@ export interface iDocument {
     stateCodeStr: string
     tenant: string
     typeCode: string
-    visible: boolean
+    visible: boolean,
+    type?: string
 }
 
 export interface iAdmissibleValues {

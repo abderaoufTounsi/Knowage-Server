@@ -1,9 +1,9 @@
 <template>
     <div class="p-grid p-m-0">
         <Toolbar class="kn-toolbar kn-toolbar--primary p-col-12">
-            <template #left>{{ $t('documentExecution.main.scheduledExecutions') }} </template>
+            <template #start>{{ $t('documentExecution.main.scheduledExecutions') }} </template>
 
-            <template #right>
+            <template #end>
                 <Button id="document-execution-schedulations-close-button" class="kn-button kn-button--primary" @click="closeTable"> {{ $t('common.close') }}</Button>
             </template>
         </Toolbar>
@@ -63,6 +63,7 @@ import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import documentExecutionSchedulationsTableDescriptor from './DocumentExecutionSchedulationsTableDescriptor.json'
 import DocumentExecutionSnapshotDialog from './DocumentExecutionSnapshotDialog.vue'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'document-execution-schedulations-table',
@@ -84,8 +85,12 @@ export default defineComponent({
             this.loadSchedulations()
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
-        this.user = (this.$store.state as any).user
+        this.user = (this.store.$state as any).user
         this.loadSchedulations()
     },
     methods: {
@@ -96,7 +101,7 @@ export default defineComponent({
             return formatDate(date, format)
         },
         downloadSnapshot(schedulation: any) {
-            this.url = process.env.VUE_APP_HOST_URL + `/knowage/servlet/AdapterHTTP?NEW_SESSION=TRUE&user_id=${this.user?.userUniqueIdentifier}&ACTION_NAME=GET_SNAPSHOT_CONTENT&SNAPSHOT_ID=${schedulation.id}&LIGHT_NAVIGATOR_DISABLED=TRUE&OBJECT_ID=${schedulation.biobjId}`
+            this.url = import.meta.env.VITE_HOST_URL + `/knowage/servlet/AdapterHTTP?NEW_SESSION=TRUE&user_id=${this.user?.userUniqueIdentifier}&ACTION_NAME=GET_SNAPSHOT_CONTENT&SNAPSHOT_ID=${schedulation.id}&LIGHT_NAVIGATOR_DISABLED=TRUE&OBJECT_ID=${schedulation.biobjId}`
             this.snapshotDialogVisible = true
         },
         deleteSchedulationConfirm(schedulation: iSchedulation) {

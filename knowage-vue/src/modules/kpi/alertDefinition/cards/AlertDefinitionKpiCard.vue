@@ -8,31 +8,31 @@
                 </span>
             </div>
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     <span>{{ $t('kpi.alert.actionList') }}</span>
                 </template>
 
-                <template #right>
+                <template #end>
                     <Button :label="$t('kpi.alert.addAction')" class="p-button-text p-button-rounded p-button-plain" :disabled="disableActionButton" @click="$emit('showDialog')" data-test="add-action-button" />
                 </template>
             </Toolbar>
             <div class="p-grid p-mt-2">
                 <div class="p-m-2 p-shadow-2 action-box" v-for="(action, index) in alert.jsonOptions?.actions" :key="index">
                     <Toolbar class="kn-toolbar kn-toolbar--primary p-col-12">
-                        <template #left>
+                        <template #start>
                             <span>{{ action.data?.name }}</span>
                         </template>
 
-                        <template #right>
+                        <template #end>
                             <Button class="p-button-link p-button-sm" :style="alertDescriptor.styles.menuButton" icon="fa fa-ellipsis-v" @click="toggleMenu($event, { action, index })" aria-haspopup="true" aria-controls="overlay_menu" data-test="menu-button" />
                             <Menu ref="menu" :model="items" :popup="true" data-test="menu" />
                         </template>
                     </Toolbar>
                     <div class="p-d-flex p-flex-column severity-container p-m-2" v-if="action">
                         <div class="p-d-inline-flex p-m-2" v-for="(threshVal, index) in action.thresholdData" :key="index">
-                            <div class="color-box" :style="{ 'background-color': threshVal.color }"></div>
-                            <span flex>{{ threshVal.label }}</span>
-                            <span class="severity-box" style="text" v-if="threshVal.severityCd != undefined">({{ threshVal.severityCd }})</span>
+                            <div class="color-box" :style="{ 'background-color': threshVal?.color }"></div>
+                            <span flex>{{ threshVal?.label }}</span>
+                            <span class="severity-box" style="text" v-if="threshVal?.severityCd != undefined">({{ threshVal.severityCd }})</span>
                         </div>
                     </div>
                 </div>
@@ -57,7 +57,7 @@ export default defineComponent({
         if (this.alert.jsonOptions) {
             await this.loadKpi(this.alert.jsonOptions.kpiId, this.alert.jsonOptions.kpiVersion)
             this.alert.jsonOptions.actions = this.alert.jsonOptions.actions.map((action) => {
-                const option = { ...action, data: this.actionList.find((ac) => action.idAction == ac.id) }
+                const option = { ...action, data: this.actionList?.find((ac) => action.idAction == ac.id) }
                 option['thresholdData'] = option.thresholdValues.map((thresholdId) => {
                     return this.kpi.threshold.thresholdValues.find((threshold) => threshold.id == thresholdId)
                 })
@@ -121,7 +121,7 @@ export default defineComponent({
         },
         async loadKpi(kpiId, kpiVersion) {
             if (kpiId != undefined) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/loadKpi`).then((response: AxiosResponse<any>) => {
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/loadKpi`).then((response: AxiosResponse<any>) => {
                     this.oldKpi = { ...response.data }
                     this.kpi = { ...response.data }
                     this.$emit('kpiLoaded', this.kpi)

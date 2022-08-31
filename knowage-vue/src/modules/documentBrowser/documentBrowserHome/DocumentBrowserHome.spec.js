@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import axios from 'axios'
+import { vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import InputText from 'primevue/inputtext'
@@ -51,15 +52,11 @@ const mockedBreadcrumb = {
     }
 }
 
-jest.mock('axios')
+vi.mock('axios')
 
-const $http = { get: axios.get.mockImplementation(() => Promise.resolve({ data: [] })) }
+const $http = { get: vi.fn().mockImplementation(() => Promise.resolve({ data: [] })) }
 
-const $store = {
-    state: {
-        user: {}
-    }
-}
+const $route = { name: '', params: [] }
 
 const factory = () => {
     return mount(DocumentBrowserHome, {
@@ -68,7 +65,17 @@ const factory = () => {
             directives: {
                 tooltip() {}
             },
-            plugins: [],
+            plugins: [
+                createTestingPinia({
+                    initialState: {
+                        store: {
+                            user: {
+                                fucntionalities: ['DocumentManagement', 'CreateCockpitFunctionality']
+                            }
+                        }
+                    }
+                })
+            ],
             stubs: {
                 Button,
                 Card,
@@ -77,12 +84,13 @@ const factory = () => {
                 ProgressBar,
                 DocumentBrowserTree: true,
                 DocumentBrowserDetail: true,
+                Menu: true,
                 Toolbar
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $http
+                $http,
+                $route
             }
         }
     })

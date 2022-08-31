@@ -27,33 +27,6 @@
                         }"
                     />
                 </div>
-
-                <div class="p-field" :style="tabViewDescriptor.pField.style">
-                    <span class="p-float-label">
-                        <Dropdown
-                            id="MULTITENANT_THEME"
-                            class="kn-material-input"
-                            :options="themes"
-                            optionLabel="VALUE_CHECK"
-                            optionValue="VALUE_CHECK"
-                            v-model="v$.tenant.MULTITENANT_THEME.$model"
-                            :class="{
-                                'p-invalid': v$.tenant.MULTITENANT_THEME.$invalid && v$.tenant.MULTITENANT_THEME.$dirty
-                            }"
-                            @before-show="v$.tenant.MULTITENANT_THEME.$touch()"
-                            @change="onFieldChange('MULTITENANT_THEME', $event.value)"
-                        >
-                        </Dropdown>
-                        <label for="MULTITENANT_THEME" class="kn-material-input-label"> {{ $t('managers.tenantManagement.detail.theme') }} * </label>
-                    </span>
-                    <KnValidationMessages
-                        :vComp="v$.tenant.MULTITENANT_THEME"
-                        :additionalTranslateParams="{
-                            fieldName: $t('managers.tenantManagement.detail.theme')
-                        }"
-                    />
-                </div>
-
                 <div class="p-col-3 kn-height-full">
                     <input id="organizationImage" type="file" @change="uploadFile" accept="image/png, image/jpeg" />
                     <label for="organizationImage" v-tooltip.bottom="$t('common.upload')">
@@ -73,19 +46,18 @@
 import { defineComponent } from 'vue'
 import { createValidations } from '@/helpers/commons/validationHelper'
 import Card from 'primevue/card'
-import Dropdown from 'primevue/dropdown'
 import useValidate from '@vuelidate/core'
 import tabViewDescriptor from '../TenantManagementTabViewDescriptor.json'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import tenantDetailValidationDescriptor from './TenantDetailValidationDescriptor.json'
 import { iMultitenant } from '../../TenantManagement'
 import { AxiosResponse } from 'axios'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'detail-tab',
     components: {
         Card,
-        Dropdown,
         KnValidationMessages
     },
     props: {
@@ -93,7 +65,7 @@ export default defineComponent({
             type: Object,
             required: false
         },
-        listOfThemes: [] as any
+        listOfThemes: Array
     },
     computed: {
         disableField() {
@@ -116,6 +88,10 @@ export default defineComponent({
             tenant: createValidations('tenant', tenantDetailValidationDescriptor.validations.tenant)
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         if (this.selectedTenant && Object.keys(this.selectedTenant).length > 0) {
             this.tenant = { ...this.selectedTenant } as iMultitenant
@@ -123,18 +99,18 @@ export default defineComponent({
             this.tenant = {} as iMultitenant
             this.tenant.MULTITENANT_THEME = 'sbi_default'
         }
-        this.themes = [...this.listOfThemes] as any
+        if (this.listOfThemes) this.themes = [...this.listOfThemes] as any
     },
     watch: {
         async selectedTenant() {
             this.v$.$reset()
             this.tenant = { ...this.selectedTenant } as iMultitenant
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `multitenant/image?TENANT=${this.tenant.MULTITENANT_NAME}`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `multitenant/image?TENANT=${this.tenant.MULTITENANT_NAME}`).then((response: AxiosResponse<any>) => {
                 this.tenant.MULTITENANT_IMAGE = response.data
             })
         },
         listOfThemes() {
-            this.themes = [...this.listOfThemes] as any
+            this.themes = [...(this.listOfThemes as any[])]
         }
     },
     methods: {
@@ -142,65 +118,64 @@ export default defineComponent({
             this.$emit('fieldChanged', { fieldName, value })
         },
         uploadFile(event): void {
-                const reader = new FileReader()
-                reader.addEventListener(
-                    'load',
-                    () => {
-                        this.tenant.MULTITENANT_IMAGE = reader.result || ''
-                        this.onFieldChange('MULTITENANT_IMAGE', this.tenant.MULTITENANT_IMAGE)
-                    },
-                    false
-                )
-                if (event.srcElement.files[0] && event.srcElement.files[0].size < process.env.VUE_APP_MAX_UPLOAD_IMAGE_SIZE) {
-                    reader.readAsDataURL(event.srcElement.files[0])
-                    this.v$.$touch()
-                } else this.$store.commit('setError', { title: this.$t('common.error.uploading'), msg: this.$t('common.error.exceededSize', { size: '(200KB)' }) })
-            },
+            const reader = new FileReader()
+            reader.addEventListener(
+                'load',
+                () => {
+                    this.tenant.MULTITENANT_IMAGE = reader.result || ''
+                    this.onFieldChange('MULTITENANT_IMAGE', this.tenant.MULTITENANT_IMAGE)
+                },
+                false
+            )
+            if (event.srcElement.files[0] && event.srcElement.files[0].size < import.meta.env.VITE_MAX_UPLOAD_IMAGE_SIZE) {
+                reader.readAsDataURL(event.srcElement.files[0])
+                this.v$.$touch()
+            } else this.store.setError({ title: this.$t('common.error.uploading'), msg: this.$t('common.error.exceededSize', { size: '(200KB)' }) })
+        }
     }
 })
 </script>
 
 <style lang="scss" scoped>
-
-        #organizationImage {
-            display: none;
+#organizationImage {
+    display: none;
+}
+label[for='organizationImage'] {
+    float: right;
+    transition: background-color 0.3s linear;
+    border-radius: 50%;
+    width: 2.25rem;
+    line-height: 1rem;
+    top: -5px;
+    height: 2.25rem;
+    padding: 0.571rem;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    &:hover {
+        background-color: var(--kn-color-secondary);
+    }
+}
+.imageUploader {
+    .p-fileupload {
+        display: inline-block;
+        float: right;
+        .p-button {
+            background-color: transparent;
+            color: black;
         }
-        label[for='organizationImage'] {
-            float: right;
-            transition: background-color 0.3s linear;
-            border-radius: 50%;
-            width: 2.25rem;
-            line-height: 1rem;
-            top: -5px;
-            height: 2.25rem;
-            padding: 0.571rem;
-            position: relative;
-            cursor: pointer;
-            user-select: none;
-            &:hover {
-                background-color: $color-secondary;
-            }
-        }
-        .imageUploader {
-            .p-fileupload {
-                display: inline-block;
-                float: right;
-                .p-button {
-                    background-color: transparent;
-                    color: black;
-                }
-            }
-        }
-        .imageContainer {
-            height: 100%;
-            .icon {
-                color: $color-secondary;
-            }
-            img {
-                height: auto;
-                max-height: 80px;
-                max-width: 80px;
-                border-radius: 50%;
-            }
-        }
+    }
+}
+.imageContainer {
+    height: 100%;
+    .icon {
+        color: var(--kn-color-secondary);
+    }
+    img {
+        height: auto;
+        max-height: 80px;
+        max-width: 80px;
+        border-radius: 50%;
+    }
+}
 </style>

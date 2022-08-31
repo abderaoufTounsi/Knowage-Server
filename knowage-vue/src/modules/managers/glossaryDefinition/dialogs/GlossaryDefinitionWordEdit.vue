@@ -1,5 +1,5 @@
 <template>
-    <Dialog :header="$tc('managers.glossary.common.word',1)" :breakpoints="glossaryDefinitionDialogDescriptor.dialog.breakpoints" :style="glossaryDefinitionDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false" class="p-fluid kn-dialog--toolbar--primary">
+    <Dialog :header="$tc('managers.glossary.common.word', 1)" :breakpoints="glossaryDefinitionDialogDescriptor.dialog.breakpoints" :style="glossaryDefinitionDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false" class="p-fluid kn-dialog--toolbar--primary">
         <div class="p-mt-3">
             <form class="p-fluid p-formgrid p-grid">
                 <div class="p-field p-col-4 p-mb-3">
@@ -15,9 +15,9 @@
                             }"
                             @blur="v$.word.WORD.$touch()"
                         />
-                        <label for="word" class="kn-material-input-label">{{ $tc('managers.glossary.common.word',1) }} * </label>
+                        <label for="word" class="kn-material-input-label">{{ $t('managers.glossary.common.word', 1) }} * </label>
                     </span>
-                    <KnValidationMessages class="p-mt-1" :vComp="v$.word.WORD" :additionalTranslateParams="{ fieldName: $tc('managers.glossary.common.word',1) }"></KnValidationMessages>
+                    <KnValidationMessages class="p-mt-1" :vComp="v$.word.WORD" :additionalTranslateParams="{ fieldName: $tc('managers.glossary.common.word', 1) }"></KnValidationMessages>
                 </div>
                 <div class="p-field p-col-4">
                     <span class="p-float-label">
@@ -84,6 +84,8 @@ import glossaryDefinitionDescriptor from '../GlossaryDefinitionDescriptor.json'
 import glossaryDefinitionDialogValidationDescriptor from './GlossaryDefinitionDialogValidationDescriptor.json'
 import useValidate from '@vuelidate/core'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
+import mainStore from '../../../../App.store'
+
 export default defineComponent({
     name: 'edit-word',
     components: {
@@ -169,6 +171,10 @@ export default defineComponent({
             })
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     mounted() {
         if (this.propWord) {
             this.word = { ...this.propWord } as iWord
@@ -200,19 +206,19 @@ export default defineComponent({
             }
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/glossary/business/addWord', this.word)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/glossary/business/addWord', this.word)
                 .then((response: AxiosResponse<any>) => {
                     this.$emit('saved')
                     if (this.word.PARENT) {
                         this.saveContent(response.data.id)
                     }
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t(this.glossaryDefinitionDialogDescriptor.operation[this.operation].toastTitle),
                         msg: this.$t(this.glossaryDefinitionDialogDescriptor.operation.success)
                     })
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('managers.constraintManagment.saveError'),
                         msg: error.message
                     })
@@ -222,26 +228,26 @@ export default defineComponent({
             this.$emit('close')
         },
         async loadWords(word: string) {
-            this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/listWords?WORD=` + word).then((response: AxiosResponse<any>) => (this.filteredWords = response.data))
+            this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/listWords?WORD=` + word).then((response: AxiosResponse<any>) => (this.filteredWords = response.data))
         },
         searchWord(event) {
             this.loadWords(event.query)
         },
         async saveContent(wordId: number) {
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/glossary/business/addContents', { GLOSSARY_ID: this.selectedGlossaryId, PARENT_ID: this.word.PARENT.CONTENT_ID, WORD_ID: wordId })
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/glossary/business/addContents', { GLOSSARY_ID: this.selectedGlossaryId, PARENT_ID: this.word.PARENT.CONTENT_ID, WORD_ID: wordId })
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.Status !== 'NON OK') {
                         this.$emit('reloadTree')
                     } else {
-                        this.$store.commit('setError', {
+                        this.store.setError({
                             title: this.$t('common.error.generic'),
                             msg: this.$t(this.glossaryDefinitionDescriptor.translation[response.data.Message])
                         })
                     }
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.error.generic'),
                         msg: response
                     })

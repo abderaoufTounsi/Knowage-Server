@@ -17,6 +17,8 @@
  */
 package it.eng.spagobi.api;
 
+import static java.util.stream.Collectors.toList;
+
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -39,6 +41,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.LogMF;
@@ -69,6 +72,7 @@ import it.eng.spagobi.commons.bo.UserProfile;
 import it.eng.spagobi.commons.constants.SpagoBIConstants;
 import it.eng.spagobi.commons.dao.DAOConfig;
 import it.eng.spagobi.commons.dao.DAOFactory;
+import it.eng.spagobi.commons.dao.ICategoryDAO;
 import it.eng.spagobi.commons.dao.IConfigDAO;
 import it.eng.spagobi.commons.dao.IDomainDAO;
 import it.eng.spagobi.commons.dao.IRoleDAO;
@@ -88,6 +92,7 @@ import it.eng.spagobi.tools.dataset.DatasetManagementAPI;
 import it.eng.spagobi.tools.dataset.bo.CkanDataSet;
 import it.eng.spagobi.tools.dataset.bo.FileDataSet;
 import it.eng.spagobi.tools.dataset.bo.IDataSet;
+import it.eng.spagobi.tools.dataset.bo.PreparedDataSet;
 import it.eng.spagobi.tools.dataset.bo.VersionedDataSet;
 import it.eng.spagobi.tools.dataset.common.behaviour.UserProfileUtils;
 import it.eng.spagobi.tools.dataset.common.dataproxy.CkanDataProxy;
@@ -367,6 +372,30 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 			}
 		}
 
+	}
+
+	@POST
+	@Path("/update")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	@Produces(MediaType.APPLICATION_JSON + "; charset=UTF-8")
+	@UserConstraint(functionalities = { SpagoBIConstants.SELF_SERVICE_DATASET_MANAGEMENT })
+	public Response updateDataSet(@Valid @BeanParam SelfServiceDataSetDTO selfServiceDataSetDTO) {
+		try {
+			IEngUserProfile profile = UserProfileManager.getProfile();
+			IDataSetDAO dao = DAOFactory.getDataSetDAO();
+			dao.setUserProfile(profile);
+			String label = selfServiceDataSetDTO.getLabel();
+			String newName = selfServiceDataSetDTO.getName();
+			String newDescription = selfServiceDataSetDTO.getDescription();
+			IDataSet ds = dao.loadDataSetByLabel(label);
+			ds.setName(newName);
+			ds.setDescription(newDescription);
+			dao.modifyDataSet(ds);
+		} catch (Exception e) {
+			logger.error("Cannot update dataset info", e);
+			throw new SpagoBIRuntimeException("Cannot update dataset info", e);
+		}
+		return Response.ok().build();
 	}
 
 	@POST
@@ -1357,6 +1386,8 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 			} else {
 				toReturn = this.getCkanDataSet(selfServiceDataSetDTO, savingDataset);
 			}
+		} else if (type.equals(DataSetConstants.PREPARED_DATASET)) {
+			toReturn = new PreparedDataSet();
 		} else {
 			if (checkMaxResults) {
 				toReturn = this.getFileDataSet(selfServiceDataSetDTO, savingDataset, maxResults);
@@ -1416,6 +1447,13 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 		}
 		logger.debug("Category code is :  " + categoryCode);
 		toReturn.setCategoryId(categoryCode);
+
+		if (type.equals(DataSetConstants.PREPARED_DATASET)) {
+
+			if (selfServiceDataSetDTO.getConfig() != null)
+				toReturn.setConfiguration(selfServiceDataSetDTO.getConfig());
+
+		}
 
 		return toReturn;
 	}
@@ -1755,7 +1793,11 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 			List<Domain> categories = null;
 
 			try {
-				categories = DAOFactory.getDomainDAO().loadListDomainsByType(DataSetConstants.CATEGORY_DOMAIN_TYPE);
+				ICategoryDAO categoryDao = DAOFactory.getCategoryDAO();
+				categories = categoryDao.getCategoriesForDataset()
+					.stream()
+					.map(Domain::fromCategory)
+					.collect(toList());
 			} catch (Throwable t) {
 				throw new SpagoBIRuntimeException("An unexpected error occured while loading categories types from database", t);
 			}
@@ -2126,8 +2168,14 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 		List<Integer> categories = new ArrayList<>();
 		try {
 			// NO CATEGORY IN THE DOMAINS
-			IDomainDAO domaindao = DAOFactory.getDomainDAO();
-			List<Domain> dialects = domaindao.loadListDomainsByType("CATEGORY_TYPE");
+			IDomainDAO domainDao = DAOFactory.getDomainDAO();
+			ICategoryDAO categoryDao = DAOFactory.getCategoryDAO();
+
+			// TODO : Makes sense?
+			List<Domain> dialects = categoryDao.getCategoriesForDataset()
+					.stream()
+					.map(Domain::fromCategory)
+					.collect(toList());
 			if (dialects == null || dialects.size() == 0) {
 				return null;
 			}
@@ -2141,7 +2189,10 @@ public class SelfServiceDataSetCRUD extends AbstractSpagoBIResource {
 
 				List<RoleMetaModelCategory> aRoleCategories = roledao.getMetaModelCategoriesForRole(role.getId());
 				List<RoleMetaModelCategory> resp = new ArrayList<>();
-				List<Domain> array = DAOFactory.getDomainDAO().loadListDomainsByType("CATEGORY_TYPE");
+				List<Domain> array = categoryDao.getCategoriesForDataset()
+						.stream()
+						.map(Domain::fromCategory)
+						.collect(toList());
 				for (RoleMetaModelCategory r : aRoleCategories) {
 					for (Domain dom : array) {
 						if (r.getCategoryId().equals(dom.getValueId())) {

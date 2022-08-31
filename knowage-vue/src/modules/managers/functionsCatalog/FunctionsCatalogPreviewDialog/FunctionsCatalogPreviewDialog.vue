@@ -2,7 +2,7 @@
     <Dialog class="p-fluid kn-dialog--toolbar--primary" :contentStyle="functionsCatalogPreviewDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-p-0 p-m-0 p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('managers.functionsCatalog.previewTitle') }}
                 </template>
             </Toolbar>
@@ -131,7 +131,7 @@ export default defineComponent({
             const postBody = { aggregations: this.buildPreviewAggregations(), parameters: this.buildPreviewParameters(), selections: {}, indexes: [] }
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasets/${this.selectedDataset?.label}/data`, postBody, { headers: { 'X-Disable-Errors': 'true' } })
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/${this.selectedDataset?.label}/data`, postBody, { headers: { 'X-Disable-Errors': 'true' } })
                 .then((response: AxiosResponse<any>) => {
                     this.setPreviewColumns(response.data)
                     this.previewRows = response.data.rows

@@ -2,10 +2,10 @@
     <Card>
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ title }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button class="kn-button p-button-text" @click="$emit('close')">{{ $t('common.close') }}</Button>
                 </template>
             </Toolbar>
@@ -54,7 +54,7 @@
                 </DataTable>
                 <div class="kn-flex" v-if="selectedItem && selectedItem.id && selectedItem.itemType !== 'document'">
                     <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                        <template #left>
+                        <template #start>
                             {{ $t('managers.glossary.glossaryUsage.column') }}
                         </template>
                     </Toolbar>
@@ -76,6 +76,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import glossaryUsageLinkCardDescriptor from './GlossaryUsageLinkCardDescriptor.json'
 import GlossaryUsageLinkTree from './GlossaryUsageLinkTree.vue'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     name: 'glossary-usage-link-card',
@@ -112,6 +113,10 @@ export default defineComponent({
             },
             deep: true
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.loadAssociatedWords()
@@ -155,7 +160,7 @@ export default defineComponent({
         async addAssociatedWord(linkItem: any, word: iWord, type: string, url: string, postData: any, itemType: string) {
             this.loading = true
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + url, postData)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + url, postData)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.Status !== 'NON OK') {
                         type === 'tree'
@@ -171,12 +176,12 @@ export default defineComponent({
                                   itemType: itemType
                               })
                             : this.associatedWords[linkItem.id].push(word)
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.toast.createTitle'),
                             msg: this.$t('common.toast.success')
                         })
                     } else {
-                        this.$store.commit('setError', {
+                        this.store.setError({
                             title: this.$t('common.error.generic'),
                             msg: response.data.Message === 'sbi.glossary.word.new.name.duplicate' ? this.$t('managers.glossary.glossaryUsage.duplicateWord') : response.data.Message
                         })
@@ -237,16 +242,16 @@ export default defineComponent({
         },
         async deleteWord(linkItem: any, wordId: number, type: string, url: string, method: string) {
             this.loading = true
-            await this.$http[method](process.env.VUE_APP_RESTFUL_SERVICES_PATH + url)
+            await this.$http[method](import.meta.env.VITE_RESTFUL_SERVICES_PATH + url)
                 .then(() => {
                     type === 'tree' ? this.removeWordFromTreeWords(wordId, linkItem.parent) : this.removeWordFromAssociatedWords(wordId, linkItem.id)
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: response
                     })

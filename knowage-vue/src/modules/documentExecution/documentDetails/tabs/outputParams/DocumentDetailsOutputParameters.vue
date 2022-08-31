@@ -2,10 +2,10 @@
     <div class="p-grid p-m-0 kn-flex">
         <div class="p-col-4 p-sm-4 p-md-3 p-p-0 p-d-flex p-flex-column kn-flex">
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.outputParams.title') }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button :label="$t('common.add')" class="p-button-text p-button-rounded p-button-plain kn-white-color" @click="addParam" />
                 </template>
             </Toolbar>
@@ -17,13 +17,13 @@
         </div>
         <div class="p-col-8 p-sm-8 p-md-9 p-p-0 p-m-0" :style="mainDescriptor.style.driverDetailsContainer">
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.outputParams.paramDetails') }}
                 </template>
             </Toolbar>
             <div id="driver-details-container" class="p-m-2 kn-flex kn-relative">
                 <div v-if="Object.keys(selectedParam).length === 0">
-                    <InlineMessage severity="info"> {{ $t('documentExecution.documentDetails.outputParams.noParamSelected') }}</InlineMessage>
+                    <InlineMessage severity="info" class="kn-width-full"> {{ $t('documentExecution.documentDetails.outputParams.noParamSelected') }}</InlineMessage>
                 </div>
                 <Card v-else>
                     <template #content>
@@ -134,15 +134,15 @@ export default defineComponent({
         async deleteParam(paramToDelete) {
             if (paramToDelete.id) {
                 await this.$http
-                    .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/outputparameters/${paramToDelete.id}`, { headers: { 'X-Disable-Errors': 'true' } })
+                    .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/outputparameters/${paramToDelete.id}`, { headers: { 'X-Disable-Errors': 'true' } })
                     .then(() => {
                         let deletedParam = this.document.outputParameters.findIndex((param) => param.id === paramToDelete.id)
                         this.document.outputParameters.splice(deletedParam, 1)
-                        this.$store.commit('setInfo', { title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
+                        this.store.setInfo({ title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
                         this.selectedParam = {} as iOutputParam
                     })
                     .catch((error) => {
-                        this.$store.commit('setError', { title: this.$t('common.toast.errorTitle'), msg: error.message })
+                        this.store.setError({ title: this.$t('common.toast.errorTitle'), msg: error.message })
                     })
             } else {
                 let deletedParam = this.document.outputParameters.findIndex((param) => param.tempId === paramToDelete.tempId)

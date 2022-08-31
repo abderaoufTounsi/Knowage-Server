@@ -1,9 +1,9 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary">
-        <template #left>
+        <template #start>
             {{ menuNode.name }}
         </template>
-        <template #right>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" @click="save" :disabled="formValid" />
             <Button class="p-button-text p-button-rounded p-button-plain" icon="pi pi-times" @click="closeForm" />
         </template>
@@ -31,7 +31,7 @@
                                 <span class="p-float-label">
                                     <InputText id="descr" type="text" v-model.trim="v$.menuNode.descr.$model" @blur="onDataChange(v$.menuNode.descr)" class="p-inputtext p-component kn-material-input" aria-describedby="descr-help" />
                                     <Button v-if="isIconSelectorShown(menuNode) && (menuNode.icon != null || menuNode.custIcon != null)" icon="pi pi-times" @click="clearSelectedIcon" />
-                                    <Button v-if="isCustomIconShown(menuNode)"><img style="max-height: 26px; max-width: 26px;" :src="selectedIcon"/></Button>
+                                    <Button v-if="isCustomIconShown(menuNode)"><img style="max-height: 26px; max-width: 26px" :src="selectedIcon" /></Button>
                                     <Button v-if="isFaIconShown(menuNode)"><i :class="selectedIcon"></i></Button>
                                     <Button v-if="isIconSelectorShown(menuNode)" class="p-button" @click="openFontAwesomeSelectionModal()">{{ $t('managers.menuManagement.chooseIcon').toUpperCase() }}</Button>
                                     <label for="descr">{{ $t('managers.menuManagement.description') }} *</label>
@@ -68,10 +68,10 @@
                                         <Dropdown
                                             id="staticPage"
                                             v-model="v$.menuNode.staticPage.$model"
-                                            :options="staticPageOptions"
+                                            :options="staticPagesList"
                                             @change="onStaticPageSelect(v$.menuNode.staticPage)"
                                             optionLabel="name"
-                                            optionValue="value"
+                                            optionValue="name"
                                             class="p-dropdown p-component p-inputwrapper p-inputwrapper-filled kn-material-input"
                                         />
                                         <label for="staticPage">{{ $t('managers.menuManagement.form.staticPage') }} *</label>
@@ -155,7 +155,7 @@
             </Card>
         </div>
         <div class="p-col-12">
-            <RolesCard :hidden="hideForm" :rolesList="roles" :selected="selectedMenuNode.roles" @changed="setSelectedRoles($event)"></RolesCard>
+            <RolesCard :hidden="hideForm" :rolesList="roles" :parentNodeRoles="parentNodeRoles" :selected="selectedMenuNode.roles" @changed="setSelectedRoles($event)"></RolesCard>
         </div>
     </div>
 </template>
@@ -173,26 +173,16 @@ import RelatedDocumentList from '../RelatedDocumentsList/MenuManagementRelatedDo
 import RolesCard from '../RolesCard/MenuManagementRolesCard.vue'
 import DocumentBrowserTree from '../DocumentBrowserTree/MenuManagementDocumentBrowserTree.vue'
 import FontAwesomePicker from '../IconPicker/IconPicker.vue'
-
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import MenuConfigurationDescriptor from '../MenuManagementDescriptor.json'
 import MenuConfigurationValidationDescriptor from './MenuManagementValidationDescriptor.json'
 import MenuManagementElementDetailDescriptor from './MenuManagementElementDetailDescriptor.json'
+import mainStore from '../../../../App.store'
+
 export default defineComponent({
     name: 'profile-attributes-detail',
     components: { Dropdown, DocumentBrowserTree, RelatedDocumentList, KnValidationMessages, Dialog, FontAwesomePicker, RolesCard },
-    props: {
-        roles: {
-            type: Array
-        },
-        selectedMenuNode: {
-            type: Object,
-            required: true
-        },
-        selectedRoles: {
-            type: Array
-        }
-    },
+    props: { roles: { type: Array }, selectedMenuNode: { type: Object, required: true }, selectedRoles: { type: Array }, staticPagesList: { type: Array }, menuNodes: { type: Array }, parentNodeRoles: { type: Array } },
     computed: {
         formValid(): any {
             return this.v$.$invalid
@@ -200,22 +190,25 @@ export default defineComponent({
     },
     watch: {
         selectedMenuNode: {
-            handler: function(node) {
+            handler: function (node) {
                 this.v$.$reset()
                 this.loadNode(node)
             }
         },
         selectedRoles: {
-            handler: function(roles) {
+            handler: function (roles) {
                 this.menuNode.roles = roles
             }
+        },
+        menuNodes() {
+            this.loadNodes()
         }
     },
     emits: ['refreshRecordSet', 'closesForm', 'dataChanged'],
     data() {
         return {
             v$: useValidate() as any,
-            apiUrl: process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/',
+            apiUrl: import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/',
             menuNode: {} as iMenuNode,
             loading: false as Boolean,
             hideForm: false as Boolean,
@@ -234,9 +227,9 @@ export default defineComponent({
             selectedFunctionality: {},
             menuNodeContent: MenuConfigurationDescriptor.menuNodeContent,
             workspaceOptions: MenuConfigurationDescriptor.workspaceOptions,
-            staticPageOptions: MenuConfigurationDescriptor.staticPageOptions,
             menuNodeContentFunctionalies: MenuConfigurationDescriptor.menuNodeContentFunctionalies,
-            menuManagementElementDetailDescriptor: MenuManagementElementDetailDescriptor.importantfields
+            menuManagementElementDetailDescriptor: MenuManagementElementDetailDescriptor.importantfields,
+            nodes: [] as iMenuNode[]
         }
     },
     validations() {
@@ -244,12 +237,20 @@ export default defineComponent({
             menuNode: createValidations('menuNode', MenuConfigurationValidationDescriptor.validations.menuNode)
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
+        this.loadNodes()
         if (this.selectedMenuNode) {
             this.loadNode(this.selectedMenuNode)
         }
     },
     methods: {
+        loadNodes() {
+            this.nodes = this.menuNodes as iMenuNode[]
+        },
         resetForm() {
             Object.keys(this.menuNode).forEach((k) => delete this.menuNode[k])
         },
@@ -345,7 +346,6 @@ export default defineComponent({
             this.chooseIconModalShown = false
         },
         setBase64Image(base64image) {
-            console.log(base64image)
             this.menuNode.icon = null
             this.menuNode.custIcon = {
                 id: null,
@@ -385,22 +385,44 @@ export default defineComponent({
             this.closeRelatedDocumentModal()
         },
         async save() {
+            if (this.checkIfNodeExists()) {
+                this.store.setError({ title: this.$t('managers.menuManagement.info.errorTitle'), msg: this.$t('managers.menuManagement.info.duplicateErrorMessage') })
+                return
+            }
+
             let response: AxiosResponse<any>
 
             if (this.menuNode.menuId != null) {
-                response = await this.$http.put(this.apiUrl + 'menu/' + this.menuNode.menuId, this.getMenuDataForSave(), MenuConfigurationDescriptor.headers)
+                response = await this.$http.put(this.apiUrl + 'menu/' + this.menuNode.menuId, this.getMenuDataForSave())
             } else {
-                response = await this.$http.post(this.apiUrl + 'menu/', this.getMenuDataForSave(), MenuConfigurationDescriptor.headers)
+                response = await this.$http.post(this.apiUrl + 'menu/', this.getMenuDataForSave())
             }
+
             if (response.status == 200) {
                 if (response.data.errors) {
-                    this.$store.commit('setError', { title: this.$t('managers.menuManagement.info.errorTitle'), msg: this.$t('managers.menuManagement.info.errorMessage') })
+                    this.store.setError({ title: this.$t('managers.menuManagement.info.errorTitle'), msg: this.$t('managers.menuManagement.info.errorMessage') })
                 } else {
-                    this.$store.commit('setInfo', { title: this.$t('managers.menuManagement.info.saveTitle'), msg: this.$t('managers.menuManagement.info.saveMessage') })
+                    this.store.setInfo({ title: this.$t('managers.menuManagement.info.saveTitle'), msg: this.$t('managers.menuManagement.info.saveMessage') })
                 }
             }
             this.$emit('refreshRecordSet')
             this.resetForm()
+        },
+        checkIfNodeExists() {
+            let exists = false
+            const menuItemForSave = this.getMenuDataForSave()
+
+            if (!menuItemForSave.parentId) menuItemForSave.parentId = null
+
+            for (let i = 0; i < this.nodes.length; i++) {
+                const tempNode = this.nodes[i] as iMenuNode
+                if (tempNode.menuId != menuItemForSave.menuId && tempNode.parentId === menuItemForSave.parentId && tempNode.name === menuItemForSave.name) {
+                    exists = true
+                    break
+                }
+            }
+
+            return exists
         },
         closeForm() {
             this.$emit('closesForm')
@@ -432,7 +454,7 @@ export default defineComponent({
             } else if (this.menuNode.objId != null) {
                 this.menuNode.menuNodeContent = 1
                 this.toggleDocument()
-            } else if (this.menuNode.staticPage != null) {
+            } else if (this.menuNode.staticPage != null && this.menuNode.staticPage != '') {
                 this.menuNode.menuNodeContent = 3
                 this.toggleStaticPage()
             } else {
@@ -449,6 +471,9 @@ export default defineComponent({
             fieldsList.forEach((field) => !fieldToSave.fields.includes(field) && (menuNodeForSave[field] = null))
 
             delete menuNodeForSave.menuNodeContent
+
+            if (!menuNodeForSave.parentId) menuNodeForSave.parentId = null
+
             return menuNodeForSave
         },
         async getDocumentNameByID(id: any) {

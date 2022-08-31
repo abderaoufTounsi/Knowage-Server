@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
@@ -56,13 +58,11 @@ const mockedDomains = [
         VALUE_CD: 'MINLENGTH'
     }
 ]
-const $store = {
-    commit: jest.fn()
-}
 
 const factory = () => {
     return mount(ConstraintsManagementDetail, {
         global: {
+            plugins: [createTestingPinia()],
             props: {
                 selectedConstraint: {},
                 domains: mockedDomains
@@ -75,8 +75,7 @@ const factory = () => {
                 Toolbar
             },
             mocks: {
-                $t: (msg) => msg,
-                $store
+                $t: (msg) => msg
             }
         }
     })
@@ -90,13 +89,13 @@ describe('Constraints Management Detail', () => {
     })
     it('changes the specific input to number if ranges, decimal, min lenght or max length check type is selected', async () => {
         const wrapper = factory()
-        await wrapper.setProps({ selectedConstraint: { valueTypeId: 45 } })
+        await wrapper.setProps({ selectedConstraint: { valueTypeCd: 'MAXLENGTH' } })
         expect(wrapper.vm.numberType).toBe(true)
-        await wrapper.setProps({ selectedConstraint: { valueTypeId: 46 } })
+        await wrapper.setProps({ selectedConstraint: { valueTypeCd: 'RANGE' } })
         expect(wrapper.vm.numberType).toBe(true)
-        await wrapper.setProps({ selectedConstraint: { valueTypeId: 47 } })
+        await wrapper.setProps({ selectedConstraint: { valueTypeCd: 'DECIMALS' } })
         expect(wrapper.vm.numberType).toBe(true)
-        await wrapper.setProps({ selectedConstraint: { valueTypeId: 48 } })
+        await wrapper.setProps({ selectedConstraint: { valueTypeCd: 'MINLENGTH' } })
         expect(wrapper.vm.numberType).toBe(true)
     })
     it('disabled the input fields if the constraint is predefined', async () => {

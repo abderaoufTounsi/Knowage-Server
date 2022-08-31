@@ -1,15 +1,18 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import flushPromises from 'flush-promises'
 import InputText from 'primevue/inputtext'
 import KnHint from '@/components/UI/KnHint.vue'
+import KnFabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import MeasureDefinition from './MeasureDefinition.vue'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
+import mainStore from '../../../App.store'
 
 const mockedMeasures = [
     {
@@ -47,27 +50,30 @@ const mockedMeasures = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedMeasures }))
-axios.delete.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedMeasures
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn(),
-    replace: jest.fn()
+    push: vi.fn(),
+    replace: vi.fn()
 }
 
 const factory = () => {
     return mount(MeasureDefinition, {
         global: {
+            plugins: [createTestingPinia()],
             directives: {
                 tooltip() {}
             },
@@ -78,21 +84,22 @@ const factory = () => {
                 InputText,
                 Listbox,
                 KnHint,
+                KnFabButton,
                 ProgressBar,
                 Toolbar
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Measure Definition loading', () => {
@@ -103,7 +110,7 @@ describe('Measure Definition loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows an hint component when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
+        $http.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
         const wrapper = factory()
 
         await flushPromises()
@@ -116,6 +123,7 @@ describe('Measure Definition loading', () => {
 describe('Measure Definition', () => {
     it('shows a prompt when user click on a rule delete button to delete it and deletes it', async () => {
         const wrapper = factory()
+        const store = mainStore()
 
         await flushPromises()
 
@@ -126,12 +134,14 @@ describe('Measure Definition', () => {
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
         await wrapper.vm.deleteMeasure(mockedMeasures[0])
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/1/1/deleteRule')
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/1/1/deleteRule')
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
     })
     it('calls the correct route when clicking on the add button', async () => {
         const wrapper = factory()
+
+        await flushPromises()
 
         await wrapper.find('[data-test="new-button"]').trigger('click')
 

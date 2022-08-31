@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.mondrianSchemasManagement.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                     </template>
                 </Toolbar>
@@ -54,6 +54,7 @@ import mondrianDescriptor from './MondrianSchemasManagementDescriptor.json'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import KnHint from '@/components/UI/KnHint.vue'
 import Listbox from 'primevue/listbox'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'mondrian-schemas-management',
@@ -78,6 +79,10 @@ export default defineComponent({
             mondrianDescriptor: mondrianDescriptor
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadAllSchemas()
     },
@@ -85,7 +90,7 @@ export default defineComponent({
         async loadAllSchemas() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource')
                 .then((response: AxiosResponse<any>) => {
                     this.schemas = response.data
                 })
@@ -117,8 +122,8 @@ export default defineComponent({
             })
         },
         async deleteSchema(schemaId: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource/' + schemaId).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource/' + schemaId).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

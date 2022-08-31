@@ -1,5 +1,5 @@
 <template>
-    <Card class="p-mt-3">
+    <Card class="p-m-2">
         <template #content>
             <div class="p-field">
                 <span class="p-float-label">
@@ -25,11 +25,14 @@
                     }"
                 />
             </div>
-            <Toolbar class="kn-toolbar kn-toolbar--secondary ">
-                <template #left>
-                    <Button v-if="!expandQueryCard" icon="fas fa-chevron-right" class="p-button-text p-button-rounded p-button-plain" style="color:white" @click="expandQueryCard = true" />
-                    <Button v-else icon="fas fa-chevron-down" class="p-button-text p-button-rounded p-button-plain" style="color:white" @click="expandQueryCard = false" />
+            <Toolbar class="kn-toolbar kn-toolbar--secondary">
+                <template #start>
+                    <Button v-if="!expandQueryCard" icon="fas fa-chevron-right" class="p-button-text p-button-rounded p-button-plain" style="color: white" @click="expandQueryCard = true" />
+                    <Button v-else icon="fas fa-chevron-down" class="p-button-text p-button-rounded p-button-plain" style="color: white" @click="expandQueryCard = false" />
                     {{ $t('managers.datasetManagement.editQuery') }}
+                </template>
+                <template #end>
+                    <Button icon="fas fa-info-circle" class="p-button-text p-button-rounded p-button-plain p-col-1" @click="helpDialogVisible = true" />
                 </template>
             </Toolbar>
             <Card v-show="expandQueryCard">
@@ -39,9 +42,9 @@
             </Card>
 
             <Toolbar class="kn-toolbar kn-toolbar--secondary p-mt-2">
-                <template #left>
-                    <Button v-if="!expandScriptCard" icon="fas fa-chevron-right" class="p-button-text p-button-rounded p-button-plain" style="color:white" @click="expandScriptCard = true" />
-                    <Button v-else icon="fas fa-chevron-down" class="p-button-text p-button-rounded p-button-plain" style="color:white" @click="expandScriptCard = false" />
+                <template #start>
+                    <Button v-if="!expandScriptCard" icon="fas fa-chevron-right" class="p-button-text p-button-rounded p-button-plain" style="color: white" @click="expandScriptCard = true" />
+                    <Button v-else icon="fas fa-chevron-down" class="p-button-text p-button-rounded p-button-plain" style="color: white" @click="expandScriptCard = false" />
                     {{ $t('managers.datasetManagement.editScript') }}
                 </template>
             </Toolbar>
@@ -56,21 +59,24 @@
             </Card>
         </template>
     </Card>
+
+    <HelpDialog :visible="helpDialogVisible" @close="helpDialogVisible = false" />
 </template>
 
 <script lang="ts">
 import { defineComponent } from 'vue'
 import { createValidations, ICustomValidatorMap } from '@/helpers/commons/validationHelper'
-import { VCodeMirror } from 'vue3-code-mirror'
+import VCodeMirror from 'codemirror-editor-vue3'
 import useValidate from '@vuelidate/core'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import queryDescriptor from './DatasetManagementQueryDataset.json'
 import Dropdown from 'primevue/dropdown'
 import Card from 'primevue/card'
+import HelpDialog from './DatasetManagementQueryHelpDialog.vue'
 
 export default defineComponent({
-    components: { Card, Dropdown, KnValidationMessages, VCodeMirror },
-    props: { selectedDataset: { type: Object as any }, dataSources: { type: Array as any }, scriptTypes: { type: Array as any } },
+    components: { Card, Dropdown, KnValidationMessages, VCodeMirror, HelpDialog },
+    props: { selectedDataset: { type: Object as any }, dataSources: { type: Array as any }, scriptTypes: { type: Array as any }, activeTab: { type: Number as any } },
     emits: ['touched'],
     data() {
         return {
@@ -80,7 +86,8 @@ export default defineComponent({
             codeMirrorScript: {} as any,
             v$: useValidate() as any,
             expandQueryCard: true,
-            expandScriptCard: false,
+            expandScriptCard: true,
+            helpDialogVisible: false,
             codemirrorOptions: {
                 mode: 'text/x-sql',
                 lineWrapping: true,
@@ -103,14 +110,30 @@ export default defineComponent({
         }
     },
     created() {
-        this.loadDataset()
-        this.setupCodeMirror()
-        this.loadScriptMode()
+        const interval = setInterval(() => {
+            if (!this.$refs.codeMirror) return
+            this.codeMirror = (this.$refs.codeMirror as any).cminstance as any
+            if (!this.$refs.codeMirrorScript) return
+            this.codeMirrorScript = (this.$refs.codeMirrorScript as any).cminstance as any
+
+            this.loadDataset()
+            this.loadScriptMode()
+
+            clearInterval(interval)
+        }, 200)
     },
     watch: {
         selectedDataset() {
             this.loadDataset()
             this.loadScriptMode()
+        },
+        activeTab() {
+            if (this.activeTab === 1 && this.codeMirror && this.codeMirrorScript) {
+                setTimeout(() => {
+                    this.codeMirror.refresh()
+                    this.codeMirrorScript.refresh()
+                }, 0)
+            }
         }
     },
     validations() {
@@ -122,14 +145,6 @@ export default defineComponent({
         return validationObject
     },
     methods: {
-        setupCodeMirror() {
-            const interval = setInterval(() => {
-                if (!this.$refs.codeMirror || !this.$refs.codeMirrorScript) return
-                this.codeMirror = (this.$refs.codeMirror as any).editor as any
-                this.codeMirrorScript = (this.$refs.codeMirrorScript as any).editor as any
-                clearInterval(interval)
-            }, 200)
-        },
         loadDataset() {
             this.dataset = this.selectedDataset
             this.dataset.query ? '' : (this.dataset.query = '')
@@ -138,14 +153,12 @@ export default defineComponent({
         loadScriptMode() {
             if (this.dataset.queryScriptLanguage) {
                 this.scriptOptions.mode = this.dataset.queryScriptLanguage === 'ECMAScript' ? 'text/javascript' : 'text/x-groovy'
+                this.codeMirrorScript.setOption('mode', this.dataset.queryScriptLanguage === 'ECMAScript' ? 'text/javascript' : 'text/x-groovy')
             }
         },
         onLanguageChanged(value: string) {
-            const mode = value === 'ECMAScript' ? 'text/javascript' : 'text/x-groovy'
-            setTimeout(() => {
-                this.setupCodeMirror()
-                this.codeMirrorScript.setOption('mode', mode)
-            }, 250)
+            const scriptMode = value === 'ECMAScript' ? 'text/javascript' : 'text/x-groovy'
+            this.codeMirrorScript.setOption('mode', scriptMode)
             this.$emit('touched')
         }
     }

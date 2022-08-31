@@ -2,10 +2,10 @@
     <Card>
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ title }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button v-if="canSeeLinkTable" class="kn-button p-button-text" @click="$emit('linkClicked', type)">{{ $t('managers.glossary.glossaryUsage.link') }}</Button>
                 </template>
             </Toolbar>
@@ -58,13 +58,15 @@ import Card from 'primevue/card'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import glossaryUsageNavigationCardDescriptor from './GlossaryUsageNavigationCardDescriptor.json'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     name: 'glossary-usage-navigation-card',
     components: { Card, Column, DataTable },
     props: {
         items: { type: Object },
-        type: { type: String }
+        type: { type: String },
+        glossaryChanged: { type: Boolean }
     },
     emits: ['infoClicked', 'linkClicked', 'selected'],
     data() {
@@ -73,6 +75,11 @@ export default defineComponent({
             filters: { global: [filterDefault] } as Object,
             selectedItems: [],
             user: {} as any
+        }
+    },
+    watch: {
+        glossaryChanged() {
+            this.selectedItems = []
         }
     },
     computed: {
@@ -98,8 +105,12 @@ export default defineComponent({
             return index !== -1
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
-        this.user = (this.$store.state as any).user
+        this.user = (this.store.$state as any).user
     },
     methods: {
         onItemsSelected() {
@@ -123,7 +134,7 @@ export default defineComponent({
     border-color: #c2c2c2;
     border-radius: 2px;
     background-color: #eaf0f6;
-    color: $color-primary;
+    color: var(--kn-color-primary);
     p {
         margin: 0.3rem;
     }

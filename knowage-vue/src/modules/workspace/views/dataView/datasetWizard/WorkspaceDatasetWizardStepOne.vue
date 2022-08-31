@@ -15,23 +15,23 @@
 
             <div v-if="dataset.fileType && dataset.fileType == 'CSV'" class="p-fluid p-formgrid p-grid p-mt-3">
                 <span class="p-field p-float-label p-col">
-                    <Dropdown id="csvDelimiter" class="kn-material-input" :options="dataViewDescriptor.csvDelimiterCharacterTypes" optionLabel="name" optionValue="value" v-model="dataset.csvDelimiter" />
+                    <Dropdown id="csvDelimiter" class="kn-material-input workspace-wizard-step-one-input" :options="dataViewDescriptor.csvDelimiterCharacterTypes" optionLabel="name" optionValue="value" v-model="dataset.csvDelimiter" />
                     <label for="scope" class="kn-material-input-label"> {{ $t('managers.datasetManagement.ckanCsvDelimiter') }} </label>
                 </span>
                 <span class="p-field p-float-label p-col">
-                    <Dropdown id="csvQuote" class="kn-material-input" :options="dataViewDescriptor.csvQuoteCharacterTypes" optionLabel="name" optionValue="value" v-model="dataset.csvQuote" />
+                    <Dropdown id="csvQuote" class="kn-material-input workspace-wizard-step-one-input" :options="dataViewDescriptor.csvQuoteCharacterTypes" optionLabel="name" optionValue="value" v-model="dataset.csvQuote" />
                     <label for="scope" class="kn-material-input-label"> {{ $t('managers.datasetManagement.ckanCsvQuote') }} </label>
                 </span>
                 <span class="p-field p-float-label p-col">
-                    <Dropdown id="csvEncoding" class="kn-material-input" :options="dataViewDescriptor.csvEncodingTypes" optionLabel="name" optionValue="value" v-model="dataset.csvEncoding" />
+                    <Dropdown id="csvEncoding" class="kn-material-input workspace-wizard-step-one-input" :options="dataViewDescriptor.csvEncodingTypes" optionLabel="name" optionValue="value" v-model="dataset.csvEncoding" />
                     <label for="scope" class="kn-material-input-label"> {{ $t('managers.datasetManagement.ckanCsvEncoding') }} </label>
                 </span>
                 <span class="p-field p-float-label p-col">
-                    <Dropdown id="dateFormat" class="kn-material-input" :options="dataViewDescriptor.dateFormatTypes" optionLabel="name" optionValue="value" v-model="dataset.dateFormat" />
+                    <Dropdown id="dateFormat" class="kn-material-input workspace-wizard-step-one-input" :options="dataViewDescriptor.dateFormatTypes" optionLabel="name" optionValue="value" v-model="dataset.dateFormat" />
                     <label for="scope" class="kn-material-input-label"> {{ $t('managers.datasetManagement.ckanDateFormat') }} </label>
                 </span>
                 <span class="p-field p-float-label p-col">
-                    <Dropdown id="timestampFormat" class="kn-material-input" :options="dataViewDescriptor.timestampFormatTypes" optionLabel="name" optionValue="value" v-model="dataset.timestampFormat" />
+                    <Dropdown id="timestampFormat" class="kn-material-input workspace-wizard-step-one-input" :options="dataViewDescriptor.timestampFormatTypes" optionLabel="name" optionValue="value" v-model="dataset.timestampFormat" />
                     <label for="scope" class="kn-material-input-label"> {{ $t('managers.datasetManagement.timestampFormat') }} </label>
                 </span>
             </div>
@@ -68,6 +68,7 @@ import dataViewDescriptor from './WorkspaceDatasetWizardDescriptor.json'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
 import KnInputFile from '@/components/UI/KnInputFile.vue'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     components: { Card, KnInputFile, Dropdown },
@@ -85,6 +86,10 @@ export default defineComponent({
             columns: [] as any,
             rows: [] as any
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.dataset = this.selectedDataset
@@ -104,7 +109,7 @@ export default defineComponent({
             this.uploading = true
             let uploadedFile = event.target.files[0]
             if (uploadedFile.name.includes(this.dataset.fileName)) {
-                this.$store.commit('setError', { title: 'Same File', msg: 'Cannot upload same file, is this warning ok?' })
+                this.store.setError({ title: this.$t('common.toast.errorTitle'), msg: this.$t('common.error.sameFileName') })
                 this.triggerUpload = false
             } else {
                 this.startUpload(uploadedFile)
@@ -116,13 +121,13 @@ export default defineComponent({
             var formData = new FormData()
             formData.append('file', uploadedFile)
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `/selfservicedatasetupload/fileupload`, formData, {
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `/selfservicedatasetupload/fileupload`, formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryFYwjkDOpT85ZFN3L'
                     }
                 })
                 .then((response: AxiosResponse<any>) => {
-                    this.$store.commit('setInfo', { title: this.$t('common.uploading'), msg: this.$t('importExport.import.successfullyCompleted') })
+                    this.store.setInfo({ title: this.$t('common.uploading'), msg: this.$t('importExport.import.successfullyCompleted') })
                     this.dataset.fileType = response.data.fileType
                     this.dataset.fileName = response.data.fileName
                     this.$emit('fileUploaded')
@@ -136,7 +141,7 @@ export default defineComponent({
         async downloadDatasetFile() {
             var encodedLabel = encodeURI(this.dataset.label)
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasets/download/file?dsLabel=${encodedLabel}&type=${this.dataset.fileType}`, {
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/download/file?dsLabel=${encodedLabel}&type=${this.dataset.fileType}`, {
                     headers: {
                         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
                         'X-Disable-Errors': 'true'
@@ -145,16 +150,16 @@ export default defineComponent({
                 .then(
                     (response: AxiosResponse<any>) => {
                         if (response.data.errors) {
-                            this.$store.commit('setError', { title: this.$t('common.error.downloading'), msg: this.$t('common.error.errorCreatingPackage') })
+                            this.store.setError({ title: this.$t('common.error.downloading'), msg: this.$t('common.error.errorCreatingPackage') })
                         } else {
-                            this.$store.commit('setInfo', { title: this.$t('common.toast.success') })
+                            this.store.setInfo({ title: this.$t('common.toast.success') })
                             if (response.headers) {
                                 downloadDirect(response.data, this.createCompleteFileName(response), response.headers['content-type'])
                             }
                         }
                     },
                     (error) =>
-                        this.$store.commit('setError', {
+                        this.store.setError({
                             title: this.$t('common.error.downloading'),
                             msg: this.$t(error)
                         })
@@ -188,3 +193,9 @@ export default defineComponent({
     }
 })
 </script>
+
+<style lang="scss">
+.workspace-wizard-step-one-input {
+    min-width: 100px;
+}
+</style>

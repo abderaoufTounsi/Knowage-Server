@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import Card from 'primevue/card'
@@ -13,17 +14,28 @@ import TabPanel from 'primevue/tabpanel'
 import TabView from 'primevue/tabview'
 import Toolbar from 'primevue/toolbar'
 
-const $store = {
-    commit: jest.fn()
+vi.mock('axios')
+
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: []
+        })
+    )
+}
+
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    replace: jest.fn()
+    push: vi.fn()
 }
 
 const factory = () => {
     return mount(MondrianSchemasManagementTabView, {
         global: {
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Column,
@@ -34,12 +46,16 @@ const factory = () => {
                 ProgressBar,
                 TabPanel,
                 TabView,
-                Toolbar
+                Toolbar,
+                MondrianSchemasDetailTab: true,
+                MondrianSchemasWorkflowTab: true
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $router
+
+                $confirm,
+                $router,
+                $http
             }
         }
     })
@@ -51,9 +67,6 @@ describe('Mondrian Schema Management Tab View', () => {
 
         await flushPromises()
         await wrapper.find('.p-tabview-nav li:nth-child(1)').trigger('click')
-
-        console.log(wrapper.find('.p-tabview-nav li:nth-child(1)').html())
-        console.log(wrapper.find('.p-tabview-nav li:nth-child(2)').html())
 
         expect(wrapper.find('.p-tabview-nav li:nth-child(1)').html()).toContain('aria-selected="true"')
         expect(wrapper.find('.p-tabview-nav li:nth-child(2)').html()).toContain('aria-selected="false"')

@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
@@ -64,7 +65,7 @@ const factory = () => {
             currentRule: mockedRule,
             placeholders: [],
             columns: mockedColumns,
-            rows: mockedRows
+            propRows: mockedRows
         },
         global: {
             stubs: {
@@ -83,7 +84,7 @@ const factory = () => {
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Preview Dialog', () => {

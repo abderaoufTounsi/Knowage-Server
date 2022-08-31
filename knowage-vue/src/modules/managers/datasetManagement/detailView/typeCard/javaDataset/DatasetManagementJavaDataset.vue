@@ -1,5 +1,5 @@
 <template>
-    <Card class="p-mt-3">
+    <Card class="p-m-2">
         <template #content>
             <div class="p-field">
                 <span class="p-float-label">
@@ -30,6 +30,7 @@ import useValidate from '@vuelidate/core'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import javaDatasetDescriptor from './DatasetManagementJavaDatasetDescriptor.json'
 import Card from 'primevue/card'
+import mainStore from '../../../../../../App.store'
 
 export default defineComponent({
     components: { Card, KnValidationMessages },
@@ -41,6 +42,10 @@ export default defineComponent({
             javaDatasetDescriptor,
             v$: useValidate() as any
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.dataset = this.selectedDataset
@@ -60,7 +65,7 @@ export default defineComponent({
     },
     methods: {
         changeTypeWarning() {
-            this.$store.commit('setInfo', { title: this.$t('documentExecution.registry.warning'), msg: this.$t('managers.datasetManagement.changeTypeMsg') })
+            this.store.setInfo({ title: this.$t('documentExecution.registry.warning'), msg: this.$t('managers.datasetManagement.changeTypeMsg') })
         }
     }
 })

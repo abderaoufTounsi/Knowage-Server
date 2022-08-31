@@ -1,7 +1,7 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-m-0">
-        <template #left> {{ selectedFolder.name }} </template>
-        <template #right>
+        <template #start> {{ selectedFolder.name }} </template>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="buttonDisabled" @click="handleSubmit" data-test="submit-button" />
             <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeTemplate" />
         </template>
@@ -70,7 +70,7 @@
         <Card class="p-m-3">
             <template #header>
                 <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.menuManagement.roles') }}
                     </template>
                 </Toolbar>
@@ -124,6 +124,7 @@ import Card from 'primevue/card'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Checkbox from 'primevue/checkbox'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     emits: ['touched', 'close', 'inserted'],
@@ -162,6 +163,10 @@ export default defineComponent({
         return {
             selectedFolder: createValidations('selectedFolder', validationDescriptor.validations.selectedFolder)
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     async created() {
         this.loading = true
@@ -216,7 +221,7 @@ export default defineComponent({
         },
         async loadParentFolder() {
             if (this.parentId) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/functionalities/getParent/${this.parentId}`).then((response: AxiosResponse<any>) => (this.parentFolder = response.data))
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/functionalities/getParent/${this.parentId}`).then((response: AxiosResponse<any>) => (this.parentFolder = response.data))
             }
         },
         roleIsChecked(role: any, roles: [], roleField: string) {
@@ -269,7 +274,7 @@ export default defineComponent({
             functionality.createRoles = []
         },
         async createOrUpdate(functionalityToSend) {
-            return this.selectedFolder.id ? this.$http.put(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/functionalities/${functionalityToSend.id}`, functionalityToSend) : this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/functionalities/', functionalityToSend)
+            return this.selectedFolder.id ? this.$http.put(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/functionalities/${functionalityToSend.id}`, functionalityToSend) : this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/functionalities/', functionalityToSend)
         },
         async handleSubmit() {
             if (this.v$.$invalid) {
@@ -279,10 +284,10 @@ export default defineComponent({
             this.prepareFunctionalityToSend(functionalityToSend)
             await this.createOrUpdate(functionalityToSend).then((response: AxiosResponse<any>) => {
                 if (response.data.errors) {
-                    this.$store.commit('setError', { title: 'Error', msg: response.data.error })
+                    this.store.setError({ title: 'Error', msg: response.data.error })
                 } else {
-                    this.$store.commit('setInfo', { title: this.$t('common.toast.success') })
                     this.$emit('inserted', response.data.id)
+                    this.store.setInfo({ title: this.$t('common.toast.success') })
                 }
             })
             this.dirty = false

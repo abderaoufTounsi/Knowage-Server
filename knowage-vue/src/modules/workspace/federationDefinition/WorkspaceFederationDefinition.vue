@@ -1,7 +1,7 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--primary" :style="mainDescriptor.style.maxWidth">
-        <template #left> {{ $t('workspace.federationDefinition.title') }}</template>
-        <template #right>
+        <template #start> {{ $t('workspace.federationDefinition.title') }}</template>
+        <template #end>
             <Button class="kn-button p-button-text p-button-rounded" @click="closeFederationDefinition"> {{ $t('common.close') }}</Button></template
         >
     </Toolbar>
@@ -39,6 +39,7 @@ import WorkspaceFederationDatasetList from './WorkspaceFederationDatasetList.vue
 import WorkspaceFederationDefinitionAssociationsEditor from './WorkspaceFederationDefinitionAssociationsEditor.vue'
 import WorkspaceFederationDefinitionAssociationsList from './WorkspaceFederationDefinitionAssociationsList.vue'
 import { AxiosResponse } from 'axios'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'workspace-federation-definition',
@@ -71,8 +72,12 @@ export default defineComponent({
             await this.loadPage()
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
-        this.user = (this.$store.state as any).user
+        this.user = (this.store.$state as any).user
         await this.loadPage()
     },
     methods: {
@@ -89,11 +94,11 @@ export default defineComponent({
             this.loading = false
         },
         async loadFederatedDataset() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `federateddataset/${this.id}/`).then((response: AxiosResponse<any>) => (this.federatedDataset = { ...response.data, relationships: JSON.parse(response.data.relationships) }))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `federateddataset/${this.id}/`).then((response: AxiosResponse<any>) => (this.federatedDataset = { ...response.data, relationships: JSON.parse(response.data.relationships) }))
         },
         async loadDatasets() {
             this.datasets = []
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasets/?includeDerived=no`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/?includeDerived=no`).then((response: AxiosResponse<any>) => {
                 response.data.forEach((el: any) => {
                     if (el.pars.length === 0) {
                         this.formatDatasetMetaFields(el)
@@ -284,12 +289,12 @@ export default defineComponent({
             return formattedRelationships
         },
         async saveFederationDataset(federatedDataset: IFederatedDataset) {
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'federateddataset/post'
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'federateddataset/post'
             const tempDataset = { ...federatedDataset }
 
             if (tempDataset.federation_id) {
                 this.operation = 'update'
-                url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + `federateddataset/${federatedDataset.federation_id}`
+                url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + `federateddataset/${federatedDataset.federation_id}`
                 delete tempDataset.federation_id
             }
 
@@ -298,7 +303,7 @@ export default defineComponent({
 
             await this.sendRequest(url, tempDataset)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.' + this.operation + 'Title'),
                         msg: this.$t('common.toast.success')
                     })

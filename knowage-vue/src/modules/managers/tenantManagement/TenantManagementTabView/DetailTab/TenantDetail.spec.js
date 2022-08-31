@@ -1,8 +1,9 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import axios from 'axios'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
-// import flushPromises from 'flush-promises'
 import InputText from 'primevue/inputtext'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import TenantDetail from './TenantDetail.vue'
@@ -18,13 +19,20 @@ const mockedTenantEnabled = {
     MULTITENANT_THEME: 'spagobi_bi'
 }
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: [] }))
+const $http = {
+    get: vi.fn().mockImplementation(() => Promise.resolve({ data: [] }))
+}
 
 const factory = () => {
     return mount(TenantDetail, {
+        props: { listOfThemes: [] },
         global: {
+            plugins: [createTestingPinia()],
+            directives: {
+                tooltip() {}
+            },
             stubs: {
                 Card,
                 Dropdown,
@@ -32,7 +40,8 @@ const factory = () => {
                 InputText
             },
             mocks: {
-                $t: (msg) => msg
+                $t: (msg) => msg,
+                $http
             }
         }
     })

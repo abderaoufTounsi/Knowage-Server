@@ -1,12 +1,12 @@
 <template>
-    <div class="kn-page">
+    <div class="kn-page kn-width-full-with-menu">
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.profileAttributesManagement.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <KnFabButton icon="fas fa-plus" @click="showForm()" data-test="open-form-button"></KnFabButton>
                     </template>
                 </Toolbar>
@@ -31,6 +31,7 @@ import ProfileAttributesManagementDescriptor from './ProfileAttributesManagement
 import ProfileAttributesDetail from './ProfileAttributesDetail.vue'
 import AttributesListBox from './AttributesListBox.vue'
 import { iAttribute } from './ProfileAttributesManagement'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'profile-attributes',
@@ -42,7 +43,7 @@ export default defineComponent({
     },
     data() {
         return {
-            apiUrl: process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/',
+            apiUrl: import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/',
             attributes: [] as iAttribute[],
             attribute: {} as iAttribute,
             tempAttribute: {} as iAttribute,
@@ -52,6 +53,10 @@ export default defineComponent({
             hideForm: true as Boolean,
             dirty: false as Boolean
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     async created() {
         await this.loadAllAttributes()
@@ -122,12 +127,12 @@ export default defineComponent({
                         .delete(this.apiUrl + 'attributes/' + id, { headers: { 'X-Disable-Errors': 'true' } })
                         .then((response: AxiosResponse<any>) => {
                             if (response.data.errors) {
-                                this.$store.commit('setError', {
+                                this.store.setError({
                                     title: this.$t('managers.profileAttributesManagement.info.deleteTitle'),
                                     msg: this.$t('managers.profileAttributesManagement.error.profileAttributeDeletion')
                                 })
                             } else {
-                                this.$store.commit('setInfo', {
+                                this.store.setInfo({
                                     title: this.$t('managers.profileAttributesManagement.info.deleteTitle'),
                                     msg: this.$t('managers.profileAttributesManagement.info.deleteMessage')
                                 })
@@ -135,13 +140,13 @@ export default defineComponent({
                             }
                         })
                         .catch(() => {
-                            this.$store.commit('setError', {
+                            this.store.setError({
                                 title: this.$t('managers.profileAttributesManagement.info.deleteTitle'),
                                 msg: this.$t('managers.profileAttributesManagement.error.profileAttributeDeletion')
                             })
                         })
                         .catch((error) => {
-                            this.$store.commit('setError', {
+                            this.store.setError({
                                 title: this.$t('managers.profileAttributesManagement.info.deleteTitle'),
                                 msg: error.message
                             })

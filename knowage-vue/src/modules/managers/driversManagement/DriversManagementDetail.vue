@@ -1,14 +1,14 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-p-0 p-m-0">
-        <template #left>{{ title }} </template>
-        <template #right>
+        <template #start>{{ title }} </template>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="buttonDisabled" @click="handleSubmit" />
             <Button class="p-button-text p-button-rounded p-button-plain" icon="pi pi-times" @click="closeTemplate" />
         </template>
     </Toolbar>
     <div class="p-grid p-m-0 p-p-2 p-fluid p-d-flex p-flex-column kn-height-full kn-overflow-y" data-test="drivers-form">
         <DriversDetailCard class="p-mt-2" :selectedDriver="driver" :types="filteredTypes" @touched="setDirty"></DriversDetailCard>
-        <UseMode class=" kn-flex-grow p-mt-2" :propModes="modes" :roles="roles" :constraints="constraints" :layers="layers" :lovs="lovs" :selectionTypes="filteredSelectionTypes" :isDate="isDateType" :showMapDriver="showMapDriver"></UseMode>
+        <UseMode class="kn-flex-grow p-mt-2" :propModes="modes" :roles="roles" :constraints="constraints" :layers="layers" :lovs="lovs" :selectionTypes="filteredSelectionTypes" :isDate="isDateType" :showMapDriver="showMapDriver"></UseMode>
     </div>
 </template>
 <script lang="ts">
@@ -18,7 +18,8 @@ import DriversDetailCard from './DriversDetailCard.vue'
 import UseMode from './useModes/DriversManagementUseMode.vue'
 import { AxiosResponse } from 'axios'
 import driversManagemenDetailtDescriptor from './DriversManagementDetailDescriptor.json'
-
+import mainStore from '../../../App.store'
+	
 export default defineComponent({
     name: 'metadata-management-detail',
     components: { DriversDetailCard, UseMode },
@@ -30,7 +31,7 @@ export default defineComponent({
     },
     computed: {
         buttonDisabled(): any {
-            return !this.driver.label || !this.driver.name || !this.driver.typeId || this.invalidUseModes > 0 || this.noRoleSelected > 0
+            return !this.driver.label || !this.driver.name || !this.driver.type || this.invalidUseModes > 0 || this.noRoleSelected > 0
         },
         invalidUseModes(): any {
             return this.modes.filter((mode: any) => mode.numberOfErrors > 0).length
@@ -74,38 +75,42 @@ export default defineComponent({
             this.getModes()
         }
     },
+      setup() {
+        const store = mainStore()
+        return { store }
+    },
     mounted() {
         if (this.driver) {
             this.driver = { ...this.selectedDriver } as any
             this.getModes()
         }
-        this.showMapDriver = (this.$store.state as any).user.functionalities.indexOf('MapDriverManagement') > -1
+        this.showMapDriver = (this.store.$state as any).user.functionalities.indexOf('MapDriverManagement') > -1
         this.loadAll()
     },
 
     methods: {
         async getTypes() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'domains/listValueDescriptionByType?DOMAIN_TYPE=PAR_TYPE').then((response: AxiosResponse<any>) => (this.types = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'domains/listValueDescriptionByType?DOMAIN_TYPE=PAR_TYPE').then((response: AxiosResponse<any>) => (this.types = response.data))
         },
         async getModes() {
             if (this.driver.id) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/' + this.driver.id + '/modes/').then((response: AxiosResponse<any>) => (this.modes = response.data))
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/' + this.driver.id + '/modes/').then((response: AxiosResponse<any>) => (this.modes = response.data))
             } else this.modes = []
         },
         async getRoles() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/roles').then((response: AxiosResponse<any>) => (this.roles = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/roles').then((response: AxiosResponse<any>) => (this.roles = response.data))
         },
         async getConstraints() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/checks').then((response: AxiosResponse<any>) => (this.constraints = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/checks').then((response: AxiosResponse<any>) => (this.constraints = response.data))
         },
         async getselectionTypes() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'domains/listValueDescriptionByType?DOMAIN_TYPE=SELECTION_TYPE').then((response: AxiosResponse<any>) => (this.selectionTypes = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'domains/listValueDescriptionByType?DOMAIN_TYPE=SELECTION_TYPE').then((response: AxiosResponse<any>) => (this.selectionTypes = response.data))
         },
         async getLayers() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDriversee/layers').then((response: AxiosResponse<any>) => (this.layers = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDriversee/layers').then((response: AxiosResponse<any>) => (this.layers = response.data))
         },
         async getLovs() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/get/all').then((response: AxiosResponse<any>) => (this.lovs = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/get/all').then((response: AxiosResponse<any>) => (this.lovs = response.data))
         },
         loadAll() {
             this.getTypes()
@@ -118,9 +123,10 @@ export default defineComponent({
         formatDriver() {
             this.driver.length = 0
             let selectedType = this.types.filter((val) => {
-                return val.VALUE_ID === this.driver.typeId
+                return val.VALUE_CD === this.driver.type
             })
             this.driver.type = selectedType[0].VALUE_CD
+            this.driver.typeId = selectedType[0].VALUE_ID
         },
         formatUseMode() {
             let tmp = this.modes.filter((mode) => mode.edited)
@@ -151,7 +157,7 @@ export default defineComponent({
             this.formatDriver()
             this.formatUseMode()
 
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/'
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/'
             if (this.driver.id) {
                 this.operation = 'update'
                 url += this.driver.id
@@ -159,25 +165,23 @@ export default defineComponent({
                 this.operation = 'insert'
             }
 
+            let driverSavedMessage = ''
+            const driverSavingErrors = [] as string[]
             await this.sendRequest(url)
                 .then((response: AxiosResponse<any>) => {
                     if (this.operation === 'insert') {
                         this.driver = response.data
                     }
                     this.$emit('created', this.driver)
-                    this.$store.commit('setInfo', {
-                        title: this.$t(this.driversManagemenDetailtDescriptor.operation[this.operation].toastTitle),
-                        msg: this.$t(this.driversManagemenDetailtDescriptor.operation.success)
-                    })
+                    driverSavedMessage = 'OK'
                 })
-                .catch((error) => {
-                    this.$store.commit('setError', {
-                        title: this.$t('managers.constraintManagment.saveError'),
-                        msg: error.message
-                    })
+                .catch((error: any) => {
+                    driverSavedMessage = error.message
                 })
-            this.modesToSave.forEach(async (mode) => {
-                let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/modes/'
+
+            for (let i = 0; i < this.modesToSave.length; i++) {
+                const mode = this.modesToSave[i]
+                let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/analyticalDrivers/modes/'
                 mode.id = this.driver.id
                 if (mode.useID != -1) {
                     this.useModeOperation = 'update'
@@ -186,22 +190,40 @@ export default defineComponent({
                     delete mode.useID
                     this.useModeOperation = 'insert'
                 }
-                await this.sendUseModeRequest(url, mode)
+                await this.sendUseModeRequest(url, mode).catch((error: any) => driverSavingErrors.push(error?.message))
                 this.getModes()
-            })
+            }
+
+            if (driverSavedMessage === 'OK' && driverSavingErrors.length === 0) {
+                this.store.setInfo({
+                    title: this.$t(this.driversManagemenDetailtDescriptor.operation[this.operation].toastTitle),
+                    msg: this.$t(this.driversManagemenDetailtDescriptor.operation.success)
+                })
+            } else if (driverSavingErrors.length > 0) {
+                const message = driverSavedMessage === 'OK' ? this.$t('managers.driversManagement.partialSuccessMessage') + '\n\n' : ''
+                this.store.setError({
+                    title: this.$t('common.toast.errorTitle'),
+                    msg: message.concat(driverSavingErrors.join('\n\n'))
+                })
+            } else {
+                this.store.setError({
+                    title: this.$t('common.toast.errorTitle'),
+                    msg: driverSavedMessage
+                })
+            }
         },
         sendRequest(url: string) {
             if (this.operation === 'insert') {
-                return this.$http.post(url, this.driver)
+                return this.$http.post(url, this.driver, { headers: { 'X-Disable-Errors': 'true' } })
             } else {
-                return this.$http.put(url, this.driver)
+                return this.$http.put(url, this.driver, { headers: { 'X-Disable-Errors': 'true' } })
             }
         },
         sendUseModeRequest(url: string, useMode: any) {
             if (this.useModeOperation === 'insert') {
-                return this.$http.post(url, useMode)
+                return this.$http.post(url, useMode, { headers: { 'X-Disable-Errors': 'true' } })
             } else {
-                return this.$http.put(url, useMode)
+                return this.$http.put(url, useMode, { headers: { 'X-Disable-Errors': 'true' } })
             }
         },
         setDirty(): void {

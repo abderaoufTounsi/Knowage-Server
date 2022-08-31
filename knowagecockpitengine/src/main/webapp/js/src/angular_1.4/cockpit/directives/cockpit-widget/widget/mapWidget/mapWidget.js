@@ -765,7 +765,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 				 */
 				evt.map.forEachFeatureAtPixel(evt.pixel,
 					function(feature, layer) {
-						if (!featureFounded) {
+						
+						if (!layer.get("originalLayer").isStatic && !featureFounded) {
 							$scope.selectedLayer = layer;
 							$scope.selectedFeature = (Array.isArray(feature.get('features')) && feature.get('features').length == 1) ? feature.get('features')[0] : feature;
 							$scope.props = $scope.selectedFeature.getProperties();
@@ -774,6 +775,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}
 				});
 			}
+
+			$scope.map.on("moveend", function(e) {
+				$scope.ngModel.content.currentView.center = e.target.getView().getCenter();
+			});
+
+			$scope.map.on("zoomend", function(e) {
+				$scope.ngModel.content.currentView.zoom = e.target.getView().getZoom();
+			});
 
 			$scope.map.on('singleclick', function(evt) {
 
@@ -1144,7 +1153,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 	    	var layerID = $scope.ngModel.id + "|" + config.name;
 	    	var elem = null;
 
-			if (measure == null) {
+			if (measure != null) {
 				elem = cockpitModule_mapServices.getColumnConfigByProp(configColumns, 'aliasToShow', measure);
 			} else {
 				var activeIndicator = cockpitModule_mapThematizerServices.getActiveIndicator();

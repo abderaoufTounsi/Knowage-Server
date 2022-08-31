@@ -780,7 +780,7 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 		DataConnection dataConnection = null;
 		SQLCommand sqlCommand = null;
 		DataResult dataResult = null;
-		try(Connection conn = getConnection(profile, dataSource)) {
+		try (Connection conn = getConnection(profile, dataSource)) {
 			dataConnection = getDataConnection(conn);
 			sqlCommand = dataConnection.createSelectCommand(statement, false);
 			dataResult = sqlCommand.execute();
@@ -799,6 +799,21 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 					}
 				}
 			}
+			result.delAttribute(DataRow.ROW_TAG);
+
+			((List<SourceBean>) rows).stream().filter((rowBean) -> {
+
+				return colNames.stream().filter((col) -> rowBean.getAttribute(col) != null && !String.valueOf(rowBean.getAttribute(col)).trim().equals("")
+						&& !rowBean.getAttribute(col).equals("null")).count() == colNames.size();
+
+			}).forEach(x -> {
+				try {
+					result.setAttribute(x);
+				} catch (SourceBeanException e) {
+					throw new SpagoBIRuntimeException("Error while retrieving data from lov", e);
+				}
+			});
+
 			resStr = result.toXML(false);
 			resStr = resStr.trim();
 			if (resStr.startsWith("<?")) {
@@ -1177,6 +1192,7 @@ public class QueryDetail extends AbstractLOV implements ILovDetail {
 		sbds.setHibDialectClass(doDialect.getValueCd());
 		sbds.setReadOnly(ds.checkIsReadOnly());
 		sbds.setWriteDefault(ds.checkIsWriteDefault());
+		sbds.setUseForDataprep(ds.checkUseForDataprep());
 		return sbds;
 	}
 

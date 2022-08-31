@@ -1,27 +1,29 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import axios from 'axios'
 import Button from 'primevue/button'
 import ConfigurationManagementDialog from './ConfigurationManagementDialog.vue'
 import flushPromises from 'flush-promises'
 import InputText from 'primevue/inputtext'
+import PrimeVue from 'primevue/config'
+import mainStore from '../../../App.store'
 
-jest.mock('axios', () => ({
-    post: jest.fn(() => Promise.resolve()),
-    put: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
 
-const $store = {
-    commit: jest.fn()
+const $http = {
+    post: vi.fn().mockImplementation(() => Promise.resolve()),
+    put: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
 const factory = () => {
     return mount(ConfigurationManagementDialog, {
         global: {
-            plugins: [],
+            plugins: [PrimeVue, createTestingPinia()],
             stubs: { Button, InputText },
             mocks: {
                 $t: (msg) => msg,
-                $store
+                $http
             }
         }
     })
@@ -35,6 +37,9 @@ describe('Domains Management Dialog', () => {
     })
     it('close button returns to list without saving data', () => {})
     it('when save button is clicked data is passed', async () => {
+        const formWrapper = factory()
+        const store = mainStore()
+
         const mockedConfiguration = {
             label: 'changepwdmodule.number',
             name: 'Number',
@@ -42,21 +47,20 @@ describe('Domains Management Dialog', () => {
             category: 'SECURITY',
             active: false
         }
-        const formWrapper = factory()
         formWrapper.vm.configuration = mockedConfiguration
         formWrapper.vm.v$.$invalid = false
         formWrapper.vm.handleSubmit()
         await flushPromises()
-        expect(axios.post).toHaveBeenCalledTimes(1)
-        expect(axios.post).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs', mockedConfiguration)
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.post).toHaveBeenCalledTimes(1)
+        expect($http.post).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs', mockedConfiguration)
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
 
         mockedConfiguration.id = 1
         formWrapper.vm.configuration = mockedConfiguration
         formWrapper.vm.handleSubmit()
         await flushPromises()
-        expect(axios.put).toHaveBeenCalledTimes(1)
-        expect(axios.put).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs/1', mockedConfiguration)
-        expect($store.commit).toHaveBeenCalledTimes(2)
+        expect($http.put).toHaveBeenCalledTimes(1)
+        expect($http.put).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs/1', mockedConfiguration)
+        expect(store.setInfo).toHaveBeenCalledTimes(2)
     })
 })

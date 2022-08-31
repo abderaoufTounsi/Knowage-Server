@@ -1,4 +1,7 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
+import flushPromises from 'flush-promises'
 import AlertDetail from './AlertDefinitionDetail.vue'
 import axios from 'axios'
 import Toolbar from 'primevue/toolbar'
@@ -6,6 +9,7 @@ import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
 import Menu from 'primevue/menu'
+import Message from 'primevue/message'
 import InputText from 'primevue/inputtext'
 
 const mockedAlert = {
@@ -51,20 +55,22 @@ const mockedActionList = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation((url) => {
-    switch (url) {
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/alert/listAction`:
-            return Promise.resolve({ actionList: mockedActionList })
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `'1.0/alert/25/load'`:
-            return Promise.resolve({ selectedAlert: mockedAlert })
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `'2.0/documents/listDocument?includeType=ETL'`:
-            return Promise.resolve({ etlDocumentList: [] })
-        default:
-            return Promise.resolve({ data: [] })
-    }
-})
+const $http = {
+    get: vi.fn().mockImplementation((url) => {
+        switch (url) {
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/alert/listAction`:
+                return Promise.resolve({ data: mockedActionList })
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `'1.0/alert/25/load'`:
+                return Promise.resolve({ data: mockedAlert })
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `'2.0/documents/listDocument?includeType=ETL'`:
+                return Promise.resolve({ data: [] })
+            default:
+                return Promise.resolve({ data: [] })
+        }
+    })
+}
 
 const factory = () => {
     return mount(AlertDetail, {
@@ -72,30 +78,40 @@ const factory = () => {
             id: '33'
         },
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Card,
                 Toolbar,
                 Dropdown,
                 Menu,
+                Message,
+                NameCard: true,
+                KpiCard: true,
+                EventsCard: true,
+                KnCron: true,
+                AddActionDialog: true,
                 InputText
             },
             mocks: {
-                $t: (msg) => msg
+                $t: (msg) => msg,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 describe('Alert Definition Detail', () => {
-    it('disables the save button if one required input is empty', () => {
+    it('disables the save button if one required input is empty', async () => {
         const formWrapper = factory()
+
+        await flushPromises()
         expect(formWrapper.vm.selectedAlert.name).toStrictEqual(undefined)
         expect(formWrapper.vm.selectedAlert.alertListener).toStrictEqual(undefined)
+
         expect(formWrapper.vm.buttonDisabled).toBe(true)
     })
 })

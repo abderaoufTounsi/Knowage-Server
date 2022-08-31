@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Column from 'primevue/column'
@@ -7,6 +8,7 @@ import DataTable from 'primevue/datatable'
 import DatasetTableCard from './DatasetTableCard.vue'
 import flushPromises from 'flush-promises'
 import Toolbar from 'primevue/toolbar'
+import mainStore from '../../../../../App.store'
 
 const mockedDatasetMetadata = [
     {
@@ -23,17 +25,15 @@ const mockedDatasetMetadata = [
     }
 ]
 
-jest.mock('axios', () => ({
-    put: jest.fn(() => Promise.resolve()),
-    delete: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
 
-const $store = {
-    commit: jest.fn()
+const $http = {
+    put: vi.fn().mockImplementation(() => Promise.resolve()),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
 const $confirm = {
-    require: jest.fn()
+    require: vi.fn()
 }
 
 const factory = (datasetMetadataList) => {
@@ -42,19 +42,20 @@ const factory = (datasetMetadataList) => {
             datasetMetadataList
         },
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: { Button, Card, Column, DataTable, Toolbar },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $confirm
+
+                $confirm,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Cache Management Dataset Table', () => {
@@ -73,6 +74,7 @@ describe('Cache Management Dataset Table', () => {
     })
     it('removes all present metadata and emits event when clean all button is pressed', async () => {
         const wrapper = factory(mockedDatasetMetadata)
+        const store = mainStore()
 
         expect(wrapper.vm.datasets.length).toBe(2)
 
@@ -81,13 +83,14 @@ describe('Cache Management Dataset Table', () => {
 
         await wrapper.vm.cleanAll()
 
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/cacheee')
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/cacheee')
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
         expect(wrapper.emitted()).toHaveProperty('deleted')
     })
     it('removes metadata and emits event when delete button is pressed', async () => {
         const wrapper = factory(mockedDatasetMetadata)
+        const store = mainStore()
         expect(wrapper.vm.datasets.length).toBe(2)
 
         await wrapper.find('[data-test="delete-button"]').trigger('click')
@@ -95,9 +98,9 @@ describe('Cache Management Dataset Table', () => {
 
         await wrapper.vm.deleteDataset(mockedDatasetMetadata[0].signature)
 
-        expect(axios.put).toHaveBeenCalledTimes(1)
-        expect(axios.put).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/cacheee/deleteItems', { namesArray: ['0b78ecae01d62da1c1604f75086478f9332e1491c677d4353f8c27cee3800c79'] })
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.put).toHaveBeenCalledTimes(1)
+        expect($http.put).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/cacheee/deleteItems', { namesArray: ['0b78ecae01d62da1c1604f75086478f9332e1491c677d4353f8c27cee3800c79'] })
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
         expect(wrapper.emitted()).toHaveProperty('deleted')
     })
 })

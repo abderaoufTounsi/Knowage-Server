@@ -2,7 +2,7 @@
     <Dialog class="p-fluid kn-dialog--toolbar--primary" :contentStyle="schedulerTimingOutputDetailDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-p-0 p-m-0 p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('managers.scheduler.timingAndOutput') }}
                 </template>
             </Toolbar>
@@ -46,6 +46,7 @@ import SchedulerTimingOutputOutputTab from './tabs/SchedulerTimingOutputOutputTa
 import SchedulerTimingOutputWarningDialog from './SchedulerTimingOutputWarningDialog.vue'
 import TabView from 'primevue/tabview'
 import TabPanel from 'primevue/tabpanel'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'scheduler-timing-output-detail-dialog',
@@ -95,6 +96,10 @@ export default defineComponent({
             await this.loadJobInfo()
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         this.loadTrigger()
         await this.loadDatasets()
@@ -105,11 +110,11 @@ export default defineComponent({
             this.trigger = this.propTrigger ? { ...this.propTrigger } : {}
         },
         async loadDatasets() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasets/?asPagedList=true`).then((response: AxiosResponse<any>) => (this.datasets = response.data.item))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/?asPagedList=true`).then((response: AxiosResponse<any>) => (this.datasets = response.data.item))
         },
         async loadJobInfo() {
             if (this.trigger.jobName) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/getJob?jobName=${this.trigger.jobName}&jobGroup=${this.trigger.jobGroup}&triggerName=${this.trigger.triggerName}&triggerGroup=${this.trigger.triggerGroup}`).then((response: AxiosResponse<any>) => {
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/getJob?jobName=${this.trigger.jobName}&jobGroup=${this.trigger.jobGroup}&triggerName=${this.trigger.triggerName}&triggerGroup=${this.trigger.triggerGroup}`).then((response: AxiosResponse<any>) => {
                     this.jobInfo = response.data.job
                     this.functionalities = response.data.functionality
                 })
@@ -133,12 +138,12 @@ export default defineComponent({
             const formattedTrigger = this.formatTrigger()
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/saveTrigger`, formattedTrigger, { headers: { 'X-Disable-Errors': 'true' } })
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/saveTrigger`, formattedTrigger, { headers: { 'X-Disable-Errors': 'true' } })
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.Errors) {
                         this.setWarningMessage(response.data.Errors[0] ?? 'default error')
                     } else {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.toast.' + this.operation + 'Title'),
                             msg: this.$t('common.toast.success')
                         })

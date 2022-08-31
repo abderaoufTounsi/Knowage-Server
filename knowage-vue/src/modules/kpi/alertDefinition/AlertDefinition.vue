@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('kpi.alert.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <KnFabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button"></KnFabButton>
                     </template>
                 </Toolbar>
@@ -51,6 +51,7 @@ import KnFabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import { AxiosResponse } from 'axios'
 import alertDescriptor from './AlertDefinitionDescriptor.json'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'alert',
@@ -63,6 +64,10 @@ export default defineComponent({
             touched: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadAllAlerts()
     },
@@ -70,7 +75,7 @@ export default defineComponent({
         async loadAllAlerts() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/listAlert')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/listAlert')
                 .then(
                     (response: AxiosResponse<any>) =>
                         (this.alertList = response.data.map((alert: any) => {
@@ -96,8 +101,8 @@ export default defineComponent({
             })
         },
         async deleteAlert(id: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/' + id + '/delete').then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/' + id + '/delete').then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })
@@ -108,7 +113,7 @@ export default defineComponent({
         async handleStatus(alert) {
             if (alert.status !== 'EXPIRED') {
                 var data = 'scheduler/' + (alert.status == 'SUSPENDED' ? 'resumeTrigger' : 'pauseTrigger') + '?jobGroup=ALERT_JOB_GROUP&triggerGroup=ALERT_JOB_GROUP&jobName=' + alert.id + '&triggerName=' + alert.id
-                await this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + data)
+                await this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + data)
                 this.loadAllAlerts()
             }
         },

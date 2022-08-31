@@ -2,10 +2,10 @@
     <div class="p-grid p-m-0 kn-flex">
         <div class="p-col-4 p-sm-4 p-md-3 p-p-0 p-d-flex p-flex-column kn-flex">
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.drivers.title') }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button :label="$t('common.add')" class="p-button-text p-button-rounded p-button-plain kn-white-color" @click="addNewDriver" />
                 </template>
             </Toolbar>
@@ -28,15 +28,15 @@
         </div>
         <div class="p-col-8 p-sm-8 p-md-9 p-p-0 p-m-0" :style="mainDescriptor.style.driverDetailsContainer">
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.drivers.detailsTitle') }}
                 </template>
             </Toolbar>
-            <div id="driver-details-container" class="kn-flex kn-relative">
+            <div v-if="!loading" id="driver-details-container" class="kn-flex kn-relative">
                 <div :style="mainDescriptor.style.absoluteScroll">
                     <div class="p-m-2">
                         <div v-if="Object.keys(selectedDriver).length === 0">
-                            <InlineMessage severity="info">{{ $t('documentExecution.documentDetails.drivers.noDriverSelected') }}</InlineMessage>
+                            <InlineMessage severity="info" class="kn-width-full">{{ $t('documentExecution.documentDetails.drivers.noDriverSelected') }}</InlineMessage>
                         </div>
                         <Card v-else>
                             <template #content>
@@ -73,7 +73,7 @@
                                                 :filter="true"
                                                 :filterPlaceholder="$t('documentExecution.documentDetails.drivers.dropdownSearchHint')"
                                                 @blur="v$.selectedDriver.parameter.$touch()"
-                                                @change="markSelectedDriverForChange, setParId($event.value.id)"
+                                                @change="changeDriverValue"
                                             >
                                                 <template #value="slotProps">
                                                     <div class="p-dropdown-driver-value" v-if="slotProps.value">
@@ -160,6 +160,7 @@ import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import InputSwitch from 'primevue/inputswitch'
 import Dropdown from 'primevue/dropdown'
 import InlineMessage from 'primevue/inlinemessage'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'document-drivers',
@@ -184,9 +185,20 @@ export default defineComponent({
             loading: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.getDocumentDrivers()
         this.document = this.selectedDocument
+    },
+    watch: {
+        selectedDocument() {
+            this.getDocumentDrivers()
+            this.document = this.selectedDocument
+            this.selectedDriver = {} as iDriver
+        }
     },
     validations() {
         const customValidators: ICustomValidatorMap = {
@@ -209,7 +221,7 @@ export default defineComponent({
             this.loading = true
             if (this.selectedDocument?.id) {
                 this.$http
-                    .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument?.id}/drivers`)
+                    .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument?.id}/drivers`)
                     .then((response: AxiosResponse<any>) => (this.document.drivers = response.data))
                     .finally(() => (this.loading = false))
             }
@@ -224,6 +236,11 @@ export default defineComponent({
         markSelectedDriverForChange() {
             this.selectedDriver.isChanged = true
             this.selectedDriver.numberOfErrors = this.v$.$errors.length
+        },
+        changeDriverValue(event) {
+            this.selectedDriver.isChanged = true
+            this.selectedDriver.numberOfErrors = this.v$.$errors.length
+            this.setParId(event.value.id)
         },
         setParameterInfo(driver) {
             if (this.availableAnalyticalDrivers) {
@@ -262,12 +279,12 @@ export default defineComponent({
         async movePriority(driver, direction) {
             direction == 'up' ? (driver.priority -= 1) : (driver.priority += 1)
             await this.$http
-                .put(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/drivers/${driver.id}`, driver, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
+                .put(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.selectedDocument.id}/drivers/${driver.id}`, driver, { headers: { Accept: 'application/json, text/plain, */*', 'X-Disable-Errors': 'true' } })
                 .then(() => {
-                    this.$store.commit('setInfo', { title: 'Succes', msg: 'Driver priority changed' })
+                    this.store.setInfo({ title: 'Succes', msg: 'Driver priority changed' })
                     this.getDocumentDrivers()
                 })
-                .catch(() => this.$store.commit('setError', { title: this.$t('common.toast.errorTitle'), msg: this.$t('documentExecution.documentDetails.drivers.priorityError') }))
+                .catch(() => this.store.setError({ title: this.$t('common.toast.errorTitle'), msg: this.$t('documentExecution.documentDetails.drivers.priorityError') }))
         },
         deleteDriverConfirm(event) {
             this.$confirm.require({
@@ -280,15 +297,15 @@ export default defineComponent({
         async deleteDriver(driverToDelete) {
             if (driverToDelete.id) {
                 await this.$http
-                    .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.document.id}/drivers/${driverToDelete.id}`, { headers: { 'X-Disable-Errors': 'true' } })
+                    .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentdetails/${this.document.id}/drivers/${driverToDelete.id}`, { headers: { 'X-Disable-Errors': 'true' } })
                     .then(() => {
                         let deletedDriver = this.document.drivers.findIndex((param) => param.id === driverToDelete.id)
                         this.document.drivers.splice(deletedDriver, 1)
-                        this.$store.commit('setInfo', { title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
+                        this.store.setInfo({ title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
                         this.selectedDriver = {} as iDriver
                     })
                     .catch((error) => {
-                        this.$store.commit('setError', { title: this.$t('common.toast.errorTitle'), msg: error.message })
+                        this.store.setError({ title: this.$t('common.toast.errorTitle'), msg: error.message })
                     })
             } else {
                 let deletedDriver = this.document.drivers.findIndex((param) => param.priority === driverToDelete.priority)

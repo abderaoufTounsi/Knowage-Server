@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import MondrianSchemasWorkflowTab from './MondrianSchemasWorkflowTab.vue'
 import Toolbar from 'primevue/toolbar'
@@ -32,15 +34,11 @@ const mockedUsers = [
 ]
 
 const $confirm = {
-    require: jest.fn()
-}
-
-const $store = {
-    commit: jest.fn()
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const factory = (usersList) => {
@@ -49,13 +47,14 @@ const factory = (usersList) => {
             usersList
         },
         global: {
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Toolbar
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
+
                 $confirm,
                 $router
             }
@@ -64,7 +63,7 @@ const factory = (usersList) => {
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Mondrian Schema Workflow Tab', () => {
@@ -89,11 +88,9 @@ describe('Mondrian Schema Workflow Tab', () => {
         const wrapper = factory(mockedUsers)
         await wrapper.setData(mockedUsers)
 
-        console.log(wrapper.find('[data-test="userList2-item"]').html())
         const rightList = wrapper.find('[data-test="userList2-item"]')
         await rightList.trigger('click')
 
-        console.log(wrapper.find('[data-test="userList2-item"]').html())
         expect(wrapper.vm.availableUsersList[0].length).toBe(3)
         expect(wrapper.vm.availableUsersList[1].length).toBe(1)
     })

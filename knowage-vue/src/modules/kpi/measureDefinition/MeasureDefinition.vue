@@ -1,10 +1,10 @@
 <template>
     <div class="kn-page">
         <Toolbar class="kn-toolbar kn-toolbar--primary">
-            <template #left>
+            <template #start>
                 {{ $t('kpi.measureDefinition.title') }}
             </template>
-            <template #right>
+            <template #end>
                 <KnFabButton icon="fas fa-plus" @click="showForm(null, false)" data-test="new-button" />
             </template>
         </Toolbar>
@@ -61,6 +61,7 @@ import DataTable from 'primevue/datatable'
 import KnFabButton from '@/components/UI/KnFabButton.vue'
 import KnHint from '@/components/UI/KnHint.vue'
 import measureDefinitionDescriptor from './MeasureDefinitionDescriptor.json'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'measure-definition',
@@ -78,6 +79,10 @@ export default defineComponent({
             loading: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadPage()
     },
@@ -89,7 +94,7 @@ export default defineComponent({
         },
         async loadMeasures() {
             this.measuresList = []
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/listMeasure').then((response: AxiosResponse<any>) =>
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/listMeasure').then((response: AxiosResponse<any>) =>
                 response.data.forEach((measure) => {
                     if (measure.category) {
                         measure.categoryName = measure.translatedValueName
@@ -118,9 +123,9 @@ export default defineComponent({
         },
         async deleteMeasure(measure: iMeasure) {
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${measure.ruleId}/${measure.ruleVersion}/deleteRule`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${measure.ruleId}/${measure.ruleVersion}/deleteRule`)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })

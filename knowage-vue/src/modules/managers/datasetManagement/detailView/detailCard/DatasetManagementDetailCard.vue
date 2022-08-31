@@ -1,5 +1,5 @@
 <template>
-    <Card>
+    <Card class="p-m-2">
         <template #content>
             <form class="p-fluid p-formgrid p-grid">
                 <div class="p-field p-mt-1 p-col-6">
@@ -101,13 +101,13 @@
             </form>
         </template>
     </Card>
-    <Card class="p-mt-3">
+    <Card class="p-m-2">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.datasetManagement.oldVersions') }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button icon="fas fa-eraser" class="p-button-text p-button-rounded p-button-plain" :disabled="noDatasetVersions" @click="deleteConfirm('deleteAll')" />
                 </template>
             </Toolbar>
@@ -121,14 +121,14 @@
                 <Column field="userIn" :header="$t('managers.datasetManagement.creationUser')" :sortable="true" />
                 <Column field="type" :header="$t('importExport.gallery.column.type')" :sortable="true" />
                 <Column field="dateIn" :header="$t('managers.mondrianSchemasManagement.headers.creationDate')" dataType="date" :sortable="true">
-                    <template #body="{data}">
+                    <template #body="{ data }">
                         {{ formatDate(data.dateIn) }}
                     </template>
                 </Column>
                 <Column @rowClick="false">
                     <template #body="slotProps">
-                        <Button icon="fas fa-retweet" class="p-button-link" @click="restoreVersionConfirm(slotProps.data)" />
-                        <Button icon="pi pi-trash" class="p-button-link" @click="deleteConfirm('deleteOne', slotProps.data)" />
+                        <Button v-if="slotProps.data.versNum !== 0" icon="fas fa-retweet" class="p-button-link" @click="restoreVersionConfirm(slotProps.data)" />
+                        <Button v-if="slotProps.data.versNum !== 0" icon="pi pi-trash" class="p-button-link" @click="deleteConfirm('deleteOne', slotProps.data)" />
                     </template>
                 </Column>
             </DataTable>
@@ -148,6 +148,8 @@ import Dropdown from 'primevue/dropdown'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import AutoComplete from 'primevue/autocomplete'
+import { formatDateWithLocale } from '@/helpers/commons/localeHelper'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     components: { Card, Dropdown, KnValidationMessages, DataTable, Column, AutoComplete },
@@ -179,6 +181,10 @@ export default defineComponent({
             selectedTagsNames: [] as any,
             filteredTagsNames: null as any
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.dataset = this.selectedDataset
@@ -212,21 +218,21 @@ export default defineComponent({
         },
         async deleteSelectedVersion(event) {
             return this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/datasets/${event.dsId}/version/${event.versNum}`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/datasets/${event.dsId}/version/${event.versNum}`)
                 .then(() => {
-                    this.$store.commit('setInfo', { title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
+                    this.store.setInfo({ title: this.$t('common.toast.deleteTitle'), msg: this.$t('common.toast.deleteSuccess') })
                     this.$emit('reloadVersions')
                 })
-                .catch((error) => this.$store.commit('setError', { title: this.$t('common.error.generic'), msg: error.message }))
+                .catch((error) => this.store.setError({ title: this.$t('common.error.generic'), msg: error.message }))
         },
         async deleteAllVersions() {
             return this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/datasets/${this.selectedDataset.id}/allversions/`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/datasets/${this.selectedDataset.id}/allversions/`)
                 .then(() => {
-                    this.$store.commit('setInfo', { title: this.$t('common.toast.deleteTitle'), msg: this.$t('managers.datasetManagement.deleteAllVersionsSuccess') })
+                    this.store.setInfo({ title: this.$t('common.toast.deleteTitle'), msg: this.$t('managers.datasetManagement.deleteAllVersionsSuccess') })
                     this.$emit('reloadVersions')
                 })
-                .catch((error) => this.$store.commit('setError', { title: this.$t('common.error.generic'), msg: error.message }))
+                .catch((error) => this.store.setError({ title: this.$t('common.error.generic'), msg: error.message }))
         },
         //#endregion ================================================================================================
 
@@ -241,7 +247,7 @@ export default defineComponent({
         },
         async restoreVersion(dsToRestore) {
             this.$emit('loadingOlderVersion')
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/datasets/${this.dataset.id}/restore?versionId=${dsToRestore.versNum}`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/datasets/${this.dataset.id}/restore?versionId=${dsToRestore.versNum}`).then((response: AxiosResponse<any>) => {
                 this.dataset.dsTypeCd.toLowerCase() == 'file' ? this.refactorFileDatasetConfig(response.data[0]) : ''
                 this.$emit('olderVersionLoaded', response.data[0])
             })
@@ -324,8 +330,7 @@ export default defineComponent({
         //#endregion ================================================================================================
 
         formatDate(date) {
-            let fDate = new Date(date)
-            return fDate.toLocaleString()
+            return formatDateWithLocale(date, { dateStyle: 'short', timeStyle: 'short' })
         },
         updateIdFromCd(optionsArray, fieldToUpdate, updatedField) {
             const selectedField = optionsArray.find((option) => option.VALUE_CD === updatedField)

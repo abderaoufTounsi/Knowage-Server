@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import DriversManagement from './DriversManagement.vue'
@@ -9,6 +9,7 @@ import KnHint from '@/components/UI/KnHint.vue'
 import Listbox from 'primevue/listbox'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
+import { vi } from 'vitest'
 
 const mockedDrivers = [
     {
@@ -76,32 +77,36 @@ const mockedDrivers = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedDrivers }))
-axios.delete.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedDrivers
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn(),
-    replace: jest.fn()
+    push: vi.fn(),
+    replace: vi.fn()
 }
 
 const factory = () => {
     return mount(DriversManagement, {
         global: {
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Card,
                 FabButton,
                 Listbox,
+                DriversManagementDetail: true,
                 KnHint,
                 ProgressBar,
                 Toolbar,
@@ -109,10 +114,9 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
-                $router
-                // $route
+                $router,
+                $http
             }
         }
     })
@@ -125,7 +129,7 @@ describe('Drivers Management loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows an hint component when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -158,6 +162,7 @@ describe('Drivers Management', () => {
     })
     it('shows the detail when clicking on a item', async () => {
         const wrapper = factory()
+        await flushPromises()
         const openButton = wrapper.find('[data-test="list-item"]')
 
         await openButton.trigger('click')

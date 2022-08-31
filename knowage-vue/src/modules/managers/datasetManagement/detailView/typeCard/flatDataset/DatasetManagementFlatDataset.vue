@@ -1,5 +1,5 @@
 <template>
-    <Card class="p-mt-3">
+    <Card class="p-m-2">
         <template #content>
             <form class="p-fluid p-formgrid p-grid">
                 <div class="p-field p-col-6">
@@ -54,6 +54,7 @@ import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import flatTypeDescriptor from './DatasetManagementFlatDataset.json'
 import Dropdown from 'primevue/dropdown'
 import Card from 'primevue/card'
+import mainStore from '../../../../../../App.store'
 
 export default defineComponent({
     components: { Card, Dropdown, KnValidationMessages },
@@ -65,6 +66,10 @@ export default defineComponent({
             dataset: {} as any,
             v$: useValidate() as any
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.dataset = this.selectedDataset
@@ -84,7 +89,7 @@ export default defineComponent({
     },
     methods: {
         changeTypeWarning() {
-            this.$store.commit('setInfo', { title: this.$t('documentExecution.registry.warning'), msg: this.$t('managers.datasetManagement.changeTypeMsg') })
+            this.store.setInfo({ title: this.$t('documentExecution.registry.warning'), msg: this.$t('managers.datasetManagement.changeTypeMsg') })
         }
     }
 })

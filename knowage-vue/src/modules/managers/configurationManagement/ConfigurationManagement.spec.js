@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import axios from 'axios'
 import Button from 'primevue/button'
 import flushPromises from 'flush-promises'
@@ -6,6 +8,7 @@ import ConfigurationManagement from './ConfigurationManagement.vue'
 import InputText from 'primevue/inputtext'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
+import PrimeVue from 'primevue/config'
 
 const mockedConfigurations = [
     {
@@ -31,40 +34,38 @@ const mockedConfigurations = [
     }
 ]
 
-jest.mock('axios', () => ({
-    get: jest.fn(() =>
+vi.mock('axios')
+
+const $http = {
+    get: vi.fn().mockImplementation(() =>
         Promise.resolve({
             data: mockedConfigurations
         })
     ),
-    delete: jest.fn(() => Promise.resolve()),
-    post: jest.fn(() => Promise.resolve())
-}))
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
+}
 
 const $confirm = {
-    require: jest.fn()
-}
-const $store = {
-    commit: jest.fn()
+    require: vi.fn()
 }
 
 const factory = () => {
     return mount(ConfigurationManagement, {
         attachToDocument: true,
         global: {
-            plugins: [],
+            plugins: [PrimeVue, createTestingPinia()],
             stubs: { Button, InputText, ProgressBar, Toolbar },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $confirm
+                $confirm,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Configuration Management loading', () => {
@@ -78,7 +79,7 @@ describe('Configuration Management loading', () => {
         // not in this component
     })
     it('shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -99,8 +100,8 @@ describe('Configuration Management', () => {
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
         await wrapper.vm.deleteConfiguration(1)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs/' + 1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs/' + 1)
     })
     it("opens empty dialog when the '+' button is clicked", async () => {
         const wrapper = factory()

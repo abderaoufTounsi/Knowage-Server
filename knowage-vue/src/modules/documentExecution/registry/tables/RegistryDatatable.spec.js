@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
-import Calendar from 'primevue/calendar'
 import Card from 'primevue/card'
 import Checkbox from 'primevue/checkbox'
 import Column from 'primevue/column'
@@ -9,6 +10,7 @@ import KnFabButton from '@/components/UI/KnFabButton.vue'
 import Dropdown from 'primevue/dropdown'
 import InputText from 'primevue/inputtext'
 import RegistryDatatable from './RegistryDatatable.vue'
+import Toolbar from 'primevue/toolbar'
 
 const mockedColumns = [
     {
@@ -143,8 +145,7 @@ const mockedColumns = [
             name: 'column_9',
             header: 'first_opened_date',
             dataIndex: 'column_9',
-            type: 'date',
-            subtype: 'timestamp',
+            type: 'timestamp',
             dateFormat: 'd/m/Y H:i:s.uuu',
             dateFormatJava: 'dd/MM/yyyy HH:mm:ss.SSS',
             multiValue: false,
@@ -202,7 +203,7 @@ const mockedRows = [
         florist: true,
         coffee_bar: false,
         video_store: false,
-        first_opened_date: '',
+        first_opened_date: '12-25-1995',
         store_sqft: 35345,
         sales_city: 'Colma'
     },
@@ -216,7 +217,7 @@ const mockedRows = [
         florist: true,
         coffee_bar: true,
         video_store: false,
-        first_opened_date: '',
+        first_opened_date: '12-25-1995',
         store_sqft: 241241,
         sales_city: 'Altadena'
     },
@@ -230,7 +231,7 @@ const mockedRows = [
         florist: false,
         coffee_bar: true,
         video_store: false,
-        first_opened_date: '',
+        first_opened_date: '12-25-1995',
         store_sqft: 20319,
         sales_city: 'Guadalajara'
     },
@@ -244,7 +245,7 @@ const mockedRows = [
         florist: true,
         coffee_bar: false,
         video_store: false,
-        first_opened_date: '2021-08-09 15:57:40.0',
+        first_opened_date: '12-25-1995',
         store_sqft: 30251,
         sales_city: 'Acapulco'
     },
@@ -258,7 +259,7 @@ const mockedRows = [
         florist: true,
         coffee_bar: true,
         video_store: true,
-        first_opened_date: '',
+        first_opened_date: '12-25-1995',
         store_sqft: 30584,
         sales_city: 'Hidalgo'
     }
@@ -295,17 +296,18 @@ const factory = (rows) => {
             id: '1'
         },
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
-                Calendar,
+                Calendar: true,
                 Card,
                 Checkbox,
                 Column,
                 DataTable,
                 KnFabButton,
                 Dropdown,
-                InputText
+                InputText,
+                Toolbar
             },
             mocks: {
                 $t: (msg) => msg
@@ -388,9 +390,6 @@ describe('Registry loading', () => {
         const wrapper = factory(mockedRows)
 
         expect(wrapper.vm.columns[8].field).toBe('first_opened_date')
-        expect(wrapper.vm.columns[8].columnInfo.type).toBe('date')
-
-        await wrapper.find('[data-test="first_opened_date-body"]').trigger('click')
-        expect(wrapper.find('[data-test="first_opened_date-editor"]').html()).toContain('p-calendar')
+        expect(wrapper.vm.columns[8].columnInfo.type).toBe('timestamp')
     })
 })

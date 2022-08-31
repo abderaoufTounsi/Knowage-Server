@@ -2,7 +2,7 @@
     <Dialog class="p-fluid kn-dialog--toolbar--primary" :contentStyle="workspaceDataCloneDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-p-0 p-m-0 p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('workspace.myData.clonedDatasetWizard') }}
                 </template>
             </Toolbar>
@@ -10,7 +10,7 @@
 
         <form v-if="dataset">
             <div class="p-m-4">
-                <span class="p-float-label ">
+                <span class="p-float-label">
                     <InputText
                         id="label"
                         class="kn-material-input"
@@ -35,7 +35,7 @@
             </div>
 
             <div class="p-m-4">
-                <span class="p-float-label ">
+                <span class="p-float-label">
                     <InputText
                         id="name"
                         class="kn-material-input"
@@ -86,6 +86,7 @@ import Dialog from 'primevue/dialog'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import workspaceDataCloneDialogDescriptor from './WorkspaceDataCloneDialogDescriptor.json'
 import useValidate from '@vuelidate/core'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'workspace-repository-move-dialog',
@@ -123,6 +124,10 @@ export default defineComponent({
             return this.v$.$invalid
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadDataset()
     },
@@ -130,7 +135,7 @@ export default defineComponent({
         loadDataset() {
             if (this.propDataset) {
                 this.dataset = { ...this.propDataset, id: '', dsVersions: [], usedByNDocs: 0, name: 'CLONE_' + this.propDataset.name, label: 'CLONE_' + this.propDataset.label, description: this.propDataset.description ? 'CLONED ' + this.propDataset.description : '', scopeCd: 'USER' }
-                this.dataset.owner = (this.$store.state as any).user.userId
+                this.dataset.owner = (this.store.$state as any).user.userId
                 if (this.dataset.catTypeId) {
                     delete this.dataset.catTypeId
                 }

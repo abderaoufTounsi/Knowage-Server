@@ -1,21 +1,17 @@
-import { createStore } from 'vuex'
-import overlayStore from './overlay/Overlay.store'
+import { defineStore } from 'pinia'
 
-// Create a new store instance.
-const store = createStore({
-    modules: {
-        overlayStore
-    },
+const store = defineStore('store', {
     state() {
         return {
+            configurations: {},
             user: {},
             error: {},
             info: {},
             warning: {},
-            downloads: { count: { total: 0, unRead: 0 } },
-            locale: {},
+            downloads: { count: { total: 0, alreadyDownloaded: 0 } },
+            locale: 'en_US',
             news: { count: { total: 0, unRead: 0 } },
-            loading: false,
+            loading: 0,
             homePage: {},
             internationalization: [],
             isEnterprise: false,
@@ -24,17 +20,19 @@ const store = createStore({
                 licenses: {},
                 cpuNumber: -1
             },
-            documentExecution: {}
+            documentExecution: {},
+            theme: {},
+            defaultTheme: {}
         }
     },
     actions: {
-        initializeUser(context, user) {
-            context.commit('setUser', user)
-            context.commit('setEnterprise', user.enterprise)
+        initializeUser(user) {
+            this.setUser(user)
+            this.setEnterprise(user.enterprise)
         },
 
-        updateLicense(context, el) {
-            let licenses = context.state.licenses
+        updateLicense(el) {
+            let licenses = this.state.licenses
 
             let hostNameLicenses = licenses.licenses[el.hostName]
 
@@ -46,51 +44,61 @@ const store = createStore({
 
             hostNameLicenses.push(el.license)
 
-            context.commit('setLicenses', licenses)
-        }
-    },
-    mutations: {
-        setUser(state, user) {
-            state.user = user
+            this.setLicenses(licenses)
         },
-        setError(state, error) {
-            state.error = error
+        setConfigurations(configs) {
+            this.configurations = configs
         },
-        setInfo(state, info) {
-            state.info = info
+        setUser(user) {
+            this.user = user
         },
-        setLoading(state, loading) {
-            state.loading = loading
+        setError(error) {
+            this.error = error
         },
-        setWarning(state, warning) {
-            state.warning = warning
+        setInfo(info) {
+            this.info = info
         },
-        setLocale(state, locale) {
-            state.locale = locale
+        setLoading(loading) {
+            if (loading) this.loading++
+            else this.loading--
+
+            if (this.loading < 0) this.loading = 0
         },
-        setDownloads(state, hasDownload) {
-            state.downloads = hasDownload
+        setWarning(warning) {
+            this.warning = warning
         },
-        updateAlreadyDownloadedFiles(state) {
-            if (state.downloads.count.total > state.downloads.count.alreadyDownloaded) state.downloads.count.alreadyDownloaded++
+        setLocale(locale) {
+            this.locale = locale
         },
-        setNews(state, hasNews) {
-            state.news = hasNews
+        setDownloads(hasDownload) {
+            this.downloads = hasDownload
         },
-        setHomePage(state, homePage) {
-            state.homePage = homePage
+        updateAlreadyDownloadedFiles() {
+            if (this.downloads.count.total > this.downloads.count.alreadyDownloaded) this.downloads.count.alreadyDownloaded++
         },
-        setInternationalization(state, internationalization) {
-            state.internationalization = internationalization
+        setNews(hasNews) {
+            this.news = hasNews
         },
-        setLicenses(state, licenses) {
-            state.licenses = licenses
+        setHomePage(homePage) {
+            this.homePage = homePage
         },
-        setEnterprise(state, enterprise) {
-            state.isEnterprise = enterprise
+        setInternationalization(internationalization) {
+            this.internationalization = internationalization
         },
-        setDocumentExecutionEmbed(state) {
-            state.documentExecution.embed = true
+        setLicenses(licenses) {
+            this.licenses = licenses
+        },
+        setEnterprise(enterprise) {
+            this.isEnterprise = enterprise
+        },
+        setDocumentExecutionEmbed() {
+            this.documentExecution.embed = true
+        },
+        setTheme(theme) {
+            this.theme = theme
+        },
+        setDefaultTheme(defaultTheme) {
+            this.defaultTheme = defaultTheme
         }
     }
 })

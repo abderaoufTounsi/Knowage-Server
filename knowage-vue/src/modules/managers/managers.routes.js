@@ -26,6 +26,15 @@ import functionsCatalogRoutes from '@/modules/managers/functionsCatalog/Function
 import schedulerRoutes from '@/modules/managers/scheduler/Scheduler.routes.js'
 import schedulationAgendaRoutes from '@/modules/managers/schedulationAgendaManagement/SchedulationAgenda.routes.js'
 import datasetManagementRoutes from '@/modules/managers/datasetManagement/DatasetManagement.routes.js'
+import themeManagementRoutes from '@/modules/managers/themeManagement/ThemeManagement.routes.js'
+import behaviouralModelLineage from '@/modules/managers/behaviouralModelLineage/BehaviouralModelLineage.routes.js'
+import layersManagementRoutes from '@/modules/managers/layersManagement/LayersManagement.routes.js'
+import timespanRoutes from '@/modules/managers/timespan/Timespan.routes.js'
+import calendarManagementRoutes from '@/modules/managers/calendarManagement/CalendarManagement.routes.js'
+import hierarchyManagementRoutes from '@/modules/managers/hierarchyManagement/HierarchyManagement.routes.js'
+import scorecardsRoutes from '@/modules/managers/scorecards/Scorecards.routes.js'
+import eventsManagementRoutes from '@/modules/managers/eventsManagement/EventsManagement.routes.js'
+import dashboardRoutes from '@/modules/documentExecution/dashboard/Dashboard.routes.js'
 
 const baseRoutes = []
 
@@ -58,5 +67,14 @@ const routes = baseRoutes
     .concat(schedulerRoutes)
     .concat(schedulationAgendaRoutes)
     .concat(datasetManagementRoutes)
+    .concat(themeManagementRoutes)
+    .concat(behaviouralModelLineage)
+    .concat(layersManagementRoutes)
+    .concat(timespanRoutes)
+    .concat(calendarManagementRoutes)
+    .concat(hierarchyManagementRoutes)
+    .concat(scorecardsRoutes)
+    .concat(eventsManagementRoutes)
+    .concat(dashboardRoutes)
 
 export default routes

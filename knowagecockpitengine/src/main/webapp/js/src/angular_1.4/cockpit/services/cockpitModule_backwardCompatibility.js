@@ -178,6 +178,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							model.content.chartTemplate.CHART.AXES_LIST.AXIS[k].LABELS.rotationEnabled = true;
 						}
 					}
+					if(model.content.chartTemplate.CHART.TOOLTIP && !model.content.chartTemplate.CHART.TOOLTIP.backgroundColor) {
+							model.content.chartTemplate.CHART.TOOLTIP.backgroundColor= "#D6D6D6"
+					}
 				 }
 				}
 				if(model.type=='map') {
@@ -343,6 +346,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 			if(!self.compareVersion("7.4.8",version)){
 				if(model.type=='map'){
 					if (!model.style.legend) model.style.legend = {};
+				}
+			}
+			
+			if(!self.compareVersion("8.1.0",version)){
+				if(model.type=='table'){
+					for(var k in model.content.columnSelectedOfDataset){
+						if(model.content.columnSelectedOfDataset[k].ranges && model.content.columnSelectedOfDataset[k].ranges.length > 0){
+							model.content.columnSelectedOfDataset[k].ranges = model.content.columnSelectedOfDataset[k].ranges.map((item)=>{
+								item.compareValueType = "static"
+								return item
+							})
+						}
+					}
 				}
 			}
 

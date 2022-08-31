@@ -1,10 +1,10 @@
 <template>
     <div class="kn-page">
         <Toolbar class="kn-toolbar kn-toolbar--primary">
-            <template #left>
+            <template #start>
                 {{ $t('managers.configurationManagement.title') }}
             </template>
-            <template #right>
+            <template #end>
                 <KnFabButton icon="fas fa-plus" @click="showForm()" data-test="open-form-button"></KnFabButton>
             </template>
         </Toolbar>
@@ -51,7 +51,7 @@
                         {{ $t('common.info.dataLoading') }}
                     </template>
 
-                    <Column v-for="col of columns" :field="col.field" :header="$t(col.header)" :key="col.field" :sortable="true" :style="col.style" class="kn-truncated">
+                    <Column v-for="col of columns" :field="col.field" :header="$t(col.header)" :key="col.field" :sortable="true" :style="[col.style, [col.field == 'valueCheck' ? 'max-width: 200px' : '']]" class="kn-truncated">
                         <template #filter="{ filterModel }">
                             <InputText type="text" v-model="filterModel.value" class="p-column-filter"></InputText>
                         </template>
@@ -84,7 +84,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import KnFabButton from '@/components/UI/KnFabButton.vue'
 import ConfigurationManagementDialog from './ConfigurationManagementDialog.vue'
-
+import mainStore from '../../../App.store'
 export default defineComponent({
     name: 'configuration-management',
     components: {
@@ -101,7 +101,6 @@ export default defineComponent({
             columns: configurationManagementDescriptor.columns,
             formVisible: false,
             loading: false,
-
             filters: {
                 global: [filterDefault],
                 label: {
@@ -127,6 +126,10 @@ export default defineComponent({
             } as Object
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadConfigurations()
     },
@@ -134,7 +137,7 @@ export default defineComponent({
         async loadConfigurations() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs')
                 .then((response: AxiosResponse<any>) => {
                     this.configurations = response.data
                 })
@@ -149,15 +152,14 @@ export default defineComponent({
             })
         },
         async deleteConfiguration(configurationId: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs/' + configurationId).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs/' + configurationId).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })
                 this.loadConfigurations()
             })
         },
-
         showForm(event) {
             if (event) {
                 this.selectedConfiguration = event.data

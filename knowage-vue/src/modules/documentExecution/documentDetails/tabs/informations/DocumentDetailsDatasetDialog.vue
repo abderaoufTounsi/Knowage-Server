@@ -2,7 +2,7 @@
     <Dialog class="document-details-dialog remove-padding" :contentStyle="mainDescriptor.style.flex" position="right" :visible="visible" :modal="false" :closable="false" :baseZIndex="10" :autoZIndex="true">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary kn-width-full">
-                <template #left>
+                <template #start>
                     {{ $t('documentExecution.documentDetails.info.datasetDialogTitle') }}
                 </template>
             </Toolbar>
@@ -60,7 +60,7 @@ export default defineComponent({
         async getAllDatasets() {
             this.loading = true
             this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasets/basicinfo/all/`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/basicinfo/all/`)
                 .then((response: AxiosResponse<any>) => (this.datasets = response.data))
                 .finally(() => (this.loading = false))
         }

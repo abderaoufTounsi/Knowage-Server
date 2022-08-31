@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('kpi.kpiDefinition.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                     </template>
                 </Toolbar>
@@ -38,6 +38,9 @@ import { defineComponent } from 'vue'
 import { AxiosResponse } from 'axios'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
+import { formatDateWithLocale } from '@/helpers/commons/localeHelper'
+import mainStore from '../../../App.store'
+
 export default defineComponent({
     name: 'tenant-management',
     components: {
@@ -57,6 +60,10 @@ export default defineComponent({
             cloneKpiVersion: Number
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.getKpiList()
     },
@@ -64,7 +71,7 @@ export default defineComponent({
         async getKpiList() {
             this.loading = true
             return this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/listKpi`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/listKpi`)
                 .then((response: AxiosResponse<any>) => {
                     this.kpiList = [...response.data]
                 })
@@ -80,8 +87,8 @@ export default defineComponent({
             })
         },
         async deleteKpi(kpiId: number, kpiVersion: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/deleteKpi`).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${kpiId}/${kpiVersion}/deleteKpi`).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })
@@ -115,8 +122,7 @@ export default defineComponent({
             this.hintVisible = true
         },
         formatDate(date) {
-            let fDate = new Date(date)
-            return fDate.toLocaleString()
+            return formatDateWithLocale(date, { dateStyle: 'short', timeStyle: 'short' })
         },
         async reloadAndReroute(event) {
             await this.getKpiList()

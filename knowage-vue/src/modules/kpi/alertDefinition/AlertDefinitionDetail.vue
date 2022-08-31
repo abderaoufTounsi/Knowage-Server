@@ -1,17 +1,17 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-m-0">
-        <template #left>{{ selectedAlert.name }} </template>
-        <template #right>
+        <template #start>{{ selectedAlert.name }} </template>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="buttonDisabled" @click="handleSubmit" />
             <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeTemplateConfirm" />
         </template>
     </Toolbar>
-    <div class="p-grid p-m-0 p-jc-center" style="overflow:auto">
+    <div class="p-grid p-m-0 p-jc-center" style="overflow: auto">
         <Message class="p-m-2" v-if="expiredCard" severity="warn" :closable="true" :style="alertDescriptor.styles.message">
             {{ $t('kpi.alert.expiredWarning') }}
         </Message>
         <NameCard :selectedAlert="selectedAlert" :listeners="listeners" @valueChanged="updateAlert" :vcomp="v$.selectedAlert" />
-        <KnCron class="p-m-2" v-if="selectedAlert?.frequency" :frequency="selectedAlert.frequency" @touched="touched = true" />
+        <KnCron class="p-m-2" v-if="selectedAlert?.frequency" :frequency="selectedAlert.frequency" @touched="touched = true" @cronValid="setCronValid($event)" />
         <EventsCard :selectedAlert="selectedAlert" @valueChanged="updateAlert" />
         <KpiCard v-if="isListenerSelected && actionList?.length > 0" :selectedAlert="selectedAlert" :kpiList="kpiList" :actionList="actionList" @showDialog="onShowActionDialog($event)" @kpiLoaded="updateKpi" @touched="touched = true" />
     </div>
@@ -31,6 +31,7 @@ import KpiCard from './cards/AlertDefinitionKpiCard.vue'
 import EventsCard from './cards/AlertDefinitionEventsCard.vue'
 import KnCron from '@/components/UI/KnCron/KnCron.vue'
 import AddActionDialog from './actions/AlertDefinitionActionDialog.vue'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'alert-details',
@@ -62,10 +63,15 @@ export default defineComponent({
             return true
         },
         buttonDisabled(): any {
-            if (this.selectedAlert.jsonOptions?.actions.length === 0 || !this.selectedAlert.name || !this.selectedAlert.alertListener) return true
+            if (this.selectedAlert.jsonOptions?.actions?.length === 0 || !this.selectedAlert.name || !this.selectedAlert.alertListener || this.validCron == false) return true
             return false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
+
     created() {
         if (this.id) {
             this.loadAlert()
@@ -104,7 +110,8 @@ export default defineComponent({
             isActionDialogVisible: false,
             expiredCard: false,
             touched: false,
-            actionIndexToEdit: -1
+            actionIndexToEdit: -1,
+            validCron: true
         }
     },
     validations() {
@@ -115,16 +122,17 @@ export default defineComponent({
     methods: {
         async loadAlert() {
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/' + this.id + '/load')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/' + this.id + '/load')
                 .then((response: AxiosResponse<any>) => {
                     this.selectedAlert = { ...response.data }
                     this.selectedAlert.jsonOptions = JSON.parse(this.selectedAlert.jsonOptions ? this.selectedAlert.jsonOptions : '{}')
                     if (this.selectedAlert.frequency) {
                         this.selectedAlert.frequency.cron = JSON.parse(this.selectedAlert.frequency.cron ? this.selectedAlert.frequency.cron : '{}')
+                        this.selectedAlert.frequency.startDate = this.selectedAlert.frequency.startDate ?? new Date()
                     }
 
                     if (this.selectedAlert.jsonOptions) {
-                        this.selectedAlert.jsonOptions.actions = this.selectedAlert.jsonOptions.actions.map((action: any) => {
+                        this.selectedAlert.jsonOptions.actions = this.selectedAlert.jsonOptions.actions?.map((action: any) => {
                             return {
                                 jsonActionParameters: JSON.parse(action.jsonActionParameters),
                                 idAction: action.idAction,
@@ -136,17 +144,17 @@ export default defineComponent({
                 .finally(() => (this.expiredCard = this.selectedAlert.jobStatus == 'EXPIRED'))
         },
         async loadListener() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/listListener').then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/listListener').then((response: AxiosResponse<any>) => {
                 this.listeners = response.data
             })
         },
         async loadKpiList() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/listKpi').then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/listKpi').then((response: AxiosResponse<any>) => {
                 this.kpiList = [...response.data]
             })
         },
         async loadActionList() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/listAction').then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/listAction').then((response: AxiosResponse<any>) => {
                 this.actionList = [...response.data]
             })
         },
@@ -175,17 +183,17 @@ export default defineComponent({
             let operation = alertToSave.id ? 'update' : 'insert'
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/save', alertToSave)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/save', alertToSave)
                 .then((response: AxiosResponse<any>) => {
                     this.touched = false
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t(this.alertDescriptor.operation[operation].toastTitle),
                         msg: this.$t(this.alertDescriptor.operation.success)
                     })
                     this.$emit('saved', response.data.id)
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('kpi.alert.savingError'),
                         msg: error.message
                     })
@@ -247,6 +255,9 @@ export default defineComponent({
             this.selectedAction = payload && payload.action ? { ...payload.action, idAction: +payload.action.idAction, className: payload.action.data.className } : { jsonActionParameters: {} }
             this.actionIndexToEdit = payload ? payload.index : -1
             this.isActionDialogVisible = true
+        },
+        setCronValid(value: boolean) {
+            this.validCron = value
         }
     }
 })

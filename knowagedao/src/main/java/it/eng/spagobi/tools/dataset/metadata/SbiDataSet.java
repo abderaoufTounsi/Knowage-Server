@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import it.eng.spago.base.SourceBeanException;
+import it.eng.spagobi.commons.dao.dto.SbiCategory;
 import it.eng.spagobi.commons.metadata.SbiDomains;
 import it.eng.spagobi.commons.metadata.SbiHibernateModel;
 import it.eng.spagobi.federateddataset.metadata.SbiFederationDefinition;
@@ -77,7 +78,7 @@ public class SbiDataSet extends SbiHibernateModel {
 
 	private boolean active = true;
 
-	private SbiDomains category = null;
+	private SbiCategory category = null;
 	private String parameters = null;
 	private String dsMetadata = null;
 	private String type = null;
@@ -123,8 +124,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * constructor with id.
 	 *
-	 * @param id
-	 *            the id
+	 * @param id the id
 	 */
 	@JsonIgnore
 	public SbiDataSet(SbiDataSetId id) {
@@ -162,8 +162,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the name.
 	 *
-	 * @param name
-	 *            the new name
+	 * @param name the new name
 	 */
 	public void setName(String name) {
 		this.name = name;
@@ -181,8 +180,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the description.
 	 *
-	 * @param description
-	 *            the new description
+	 * @param description the new description
 	 */
 	public void setDescription(String description) {
 		this.description = description;
@@ -200,8 +198,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the label.
 	 *
-	 * @param label
-	 *            the new label
+	 * @param label the new label
 	 */
 	public void setLabel(String label) {
 		this.label = label;
@@ -255,8 +252,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param numRows
-	 *            the numRows to set
+	 * @param numRows the numRows to set
 	 */
 	public void setNumRows(boolean numRows) {
 		this.numRows = numRows;
@@ -275,8 +271,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the parameters.
 	 *
-	 * @param parameters
-	 *            the new parameters
+	 * @param parameters the new parameters
 	 */
 	public void setParameters(String parameters) {
 		this.parameters = parameters;
@@ -315,8 +310,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the pivot column name
 	 *
-	 * @param pivotColumnName
-	 *            the new pivot column name
+	 * @param pivotColumnName the new pivot column name
 	 */
 	public void setPivotColumnName(String pivotColumnName) {
 		this.pivotColumnName = pivotColumnName;
@@ -334,8 +328,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the pivot column value
 	 *
-	 * @param pivotColumnValue
-	 *            the new pivot column value
+	 * @param pivotColumnValue the new pivot column value
 	 */
 	public void setPivotColumnValue(String pivotColumnValue) {
 		this.pivotColumnValue = pivotColumnValue;
@@ -350,23 +343,23 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	@JsonIgnore
-	public SbiDomains getCategory() {
+	public SbiCategory getCategory() {
 		return category;
 	}
 
-	public void setCategory(SbiDomains category) {
+	public void setCategory(SbiCategory category) {
 		this.category = category;
 	}
 
 	public Integer getCategoryId() {
 		if (category != null)
-			return category.getValueId();
+			return category.getId();
 		else
 			return null;
 	}
 
 	public void setCategoryId(Integer id) {
-		category = getDomain(id);
+		category = getCategory(id);
 	}
 
 	/**
@@ -382,8 +375,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the transformer.
 	 *
-	 * @param transformer
-	 *            the new transformer
+	 * @param transformer the new transformer
 	 */
 	public void setTransformer(SbiDomains transformer) {
 		this.transformer = transformer;
@@ -413,8 +405,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * the metadata.
 	 *
-	 * @param transformer
-	 *            the new metadata
+	 * @param transformer the new metadata
 	 */
 	public void setDsMetadata(String dsMetadata) {
 		this.dsMetadata = dsMetadata;
@@ -448,16 +439,14 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param isPersisted
-	 *            the isPersisted to set
+	 * @param isPersisted the isPersisted to set
 	 */
 	public void setPersisted(boolean isPersisted) {
 		this.persisted = isPersisted;
 	}
 
 	/**
-	 * @param persistTableName
-	 *            the persistTableName to set
+	 * @param persistTableName the persistTableName to set
 	 */
 	public void setPersistTableName(String persistTableName) {
 		this.persistTableName = persistTableName;
@@ -478,8 +467,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param configuration
-	 *            the configuration to set
+	 * @param configuration the configuration to set
 	 */
 	@JsonDeserialize(using = JsonRawDeserializer.class)
 	public void setConfiguration(String configuration) {
@@ -507,8 +495,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param type
-	 *            the type to set
+	 * @param type the type to set
 	 */
 	public void setType(String type) {
 		this.type = type;
@@ -522,8 +509,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param userUp
-	 *            the userUp to set
+	 * @param userUp the userUp to set
 	 */
 	public void setUserUp(String userUp) {
 		this.userUp = userUp;
@@ -537,8 +523,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param userDe
-	 *            the userDe to set
+	 * @param userDe the userDe to set
 	 */
 	public void setUserDe(String userDe) {
 		this.userDe = userDe;
@@ -552,8 +537,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param sbiVersionUp
-	 *            the sbiVersionUp to set
+	 * @param sbiVersionUp the sbiVersionUp to set
 	 */
 	public void setSbiVersionUp(String sbiVersionUp) {
 		this.sbiVersionUp = sbiVersionUp;
@@ -567,8 +551,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param sbiVersionDe
-	 *            the sbiVersionDe to set
+	 * @param sbiVersionDe the sbiVersionDe to set
 	 */
 	public void setSbiVersionDe(String sbiVersionDe) {
 		this.sbiVersionDe = sbiVersionDe;
@@ -582,8 +565,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param timeUp
-	 *            the timeUp to set
+	 * @param timeUp the timeUp to set
 	 */
 	public void setTimeUp(Date timeUp) {
 		this.timeUp = timeUp;
@@ -597,8 +579,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param timeDe
-	 *            the timeDe to set
+	 * @param timeDe the timeDe to set
 	 */
 	public void setTimeDe(Date timeDe) {
 		this.timeDe = timeDe;
@@ -616,8 +597,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	/**
 	 * Sets the id.
 	 *
-	 * @param SbiDataSetId
-	 *            the new id
+	 * @param SbiDataSetId the new id
 	 */
 	public void setId(SbiDataSetId id) {
 		this.id = id;
@@ -631,8 +611,7 @@ public class SbiDataSet extends SbiHibernateModel {
 	}
 
 	/**
-	 * @param owner
-	 *            the owner to set
+	 * @param owner the owner to set
 	 */
 	public void setOwner(String owner) {
 		this.owner = owner;
@@ -650,6 +629,17 @@ public class SbiDataSet extends SbiHibernateModel {
 			}
 		} else
 			return null;
+	}
+
+	private SbiCategory getCategory(Integer id) {
+		if (id != null) {
+			SbiCategory sbiDomain = new SbiCategory();
+			sbiDomain.setId(id);
+
+			return sbiDomain;
+		} else {
+			return null;
+		}
 	}
 
 	public SbiFederationDefinition getFederation() {

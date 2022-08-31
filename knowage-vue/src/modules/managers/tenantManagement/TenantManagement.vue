@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.tenantManagement.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                     </template>
                 </Toolbar>
@@ -38,7 +38,7 @@
             </div>
 
             <div class="p-col-8 p-sm-8 p-md-9 p-p-0 p-m-0">
-                <router-view :selectedTenant="selTenant" :licenses="listOfavailableLicenses" @touched="touched = true" @closed="onFormClose" @inserted="pageReload" @showDialog="displayInfoDialog" />
+                <router-view :selectedTenant="selTenant" :licenses="listOfavailableLicenses" @touched="touched = true" @closed="onFormClose" @inserted="pageReload" />
                 <KnHint :title="'managers.tenantManagement.hintTitle'" :hint="'managers.tenantManagement.hint'" v-if="hintVisible" />
             </div>
         </div>
@@ -53,6 +53,7 @@ import tenantsDescriptor from './TenantManagementDescriptor.json'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import KnHint from '@/components/UI/KnHint.vue'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'tenant-management',
@@ -75,17 +76,21 @@ export default defineComponent({
             hintVisible: true
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadTenants()
         await this.getLicences()
     },
     methods: {
         loadData(dataType: string) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `multitenant${dataType}`).finally(() => (this.loading = false))
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `multitenant${dataType}`).finally(() => (this.loading = false))
         },
         async getLicences() {
             return this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/license`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/license`)
                 .then((response: AxiosResponse<any>) => {
                     var host = response.data.hosts[0].hostName
                     var licenses = response.data.licenses[host]
@@ -109,9 +114,9 @@ export default defineComponent({
             })
         },
         async deleteTenant(selectedTenant: Object) {
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'multitenant'
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'multitenant'
             await this.$http.delete(url, { data: selectedTenant }).then(() => {
-                this.$store.commit('setInfo', {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

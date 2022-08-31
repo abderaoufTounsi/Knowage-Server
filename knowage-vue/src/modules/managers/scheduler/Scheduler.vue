@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.scheduler.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showJobDetail(null, false)" data-test="progress-bar" />
                     </template>
                 </Toolbar>
@@ -28,6 +28,7 @@ import { AxiosResponse } from 'axios'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import KnListBox from '@/components/UI/KnListBox/KnListBox.vue'
 import schedulerDescriptor from './SchedulerDescriptor.json'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'scheduler',
@@ -39,6 +40,10 @@ export default defineComponent({
             selectedJob: null as iPackage | null,
             loading: false
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     async created() {
         await this.loadPage()
@@ -56,7 +61,7 @@ export default defineComponent({
             this.loading = true
             this.jobs = []
             let tempJobs = [] as iPackage[]
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/listAllJobs/`).then((response: AxiosResponse<any>) => (tempJobs = response.data.root))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/listAllJobs/`).then((response: AxiosResponse<any>) => (tempJobs = response.data.root))
             tempJobs.forEach((el: iPackage) => {
                 if (el.jobGroup === 'BIObjectExecutions') {
                     this.jobs.push({ ...el, numberOfDocuments: el.documents.length })
@@ -89,16 +94,16 @@ export default defineComponent({
             this.loading = true
             let tempResponse = null as any
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/deleteJob?jobGroup=BIObjectExecutions&jobName=${jobName}`)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/deleteJob?jobGroup=BIObjectExecutions&jobName=${jobName}`)
                 .then((response: AxiosResponse<any>) => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
                     tempResponse = response.data
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: error?.message
                     })

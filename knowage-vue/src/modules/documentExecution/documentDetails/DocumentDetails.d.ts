@@ -216,3 +216,37 @@ export interface iOutputParam {
     isChanged?: boolean
     numberOfErrors?: any
 }
+
+export interface iDocumentType {
+    domainCode: string
+    domainName: string
+    translatedValueDescription: string
+    translatedValueName: string
+    valueCd: string
+    valueDescription: string
+    valueId: number
+    valueName: string
+}
+
+export interface iMondrianSchema {
+    id: number,
+    currentContentId: number,
+    name: string,
+    description: string,
+    type: string,
+    modelLocked: boolean,
+    modelLocker: string | null
+}
+
+export interface iXMLATemplate {
+    address: string;
+    parameters: { name: string, value: string }[]
+}
+
+export interface iMondrianTemplate {
+    id: number,
+    mondrianSchema: string,
+    mondrianSchemaId: number,
+    mdxQuery: string,
+    mondrianMdxQuery: string
+}

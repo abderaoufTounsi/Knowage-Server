@@ -2,7 +2,7 @@
     <div class="kn-page">
         <div class="kn-page-content p-m-0">
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.templatePruning.title') }}
                 </template>
             </Toolbar>
@@ -15,7 +15,7 @@
                     <Card>
                         <template #header>
                             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                                <template #left>
+                                <template #start>
                                     {{ $t('managers.templatePruning.referenceDate') }}
                                 </template>
                             </Toolbar>
@@ -53,7 +53,7 @@
                     <Card data-test="document-selection-card">
                         <template #header>
                             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                                <template #left>
+                                <template #start>
                                     {{ $t('managers.templatePruning.documentSelection') }}
                                 </template>
                             </Toolbar>
@@ -84,6 +84,7 @@ import Card from 'primevue/card'
 import Calendar from 'primevue/calendar'
 import ProgressSpinner from 'primevue/progressspinner'
 import Tree from 'primevue/tree'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'template-pruning',
@@ -121,6 +122,10 @@ export default defineComponent({
             return Object.keys(this.selectedDocuments).length === 0
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     methods: {
         formatDate(date: Date) {
             return date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate()
@@ -136,10 +141,10 @@ export default defineComponent({
             this.loading = false
         },
         async loadFolderStructure() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true').then((response: AxiosResponse<any>) => (this.folderStructure = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true').then((response: AxiosResponse<any>) => (this.folderStructure = response.data))
         },
         async loadDocuments(date: Date) {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documents?date=${this.formatDate(date)}`).then((response: AxiosResponse<any>) => (this.documents = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documents?date=${this.formatDate(date)}`).then((response: AxiosResponse<any>) => (this.documents = response.data))
         },
         createNodeTree() {
             this.nodes = []
@@ -248,8 +253,8 @@ export default defineComponent({
                 })
             }
 
-            await this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'template/deleteTemplate', documentsToDelete).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'template/deleteTemplate', documentsToDelete).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

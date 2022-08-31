@@ -1,19 +1,24 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-d-flex p-flex-row">
-        <template #left>
+        <template #start>
             <Button id="showSidenavIcon" icon="fas fa-bars" class="p-button-text p-button-rounded p-button-plain" @click="$emit('showMenu')" />
             {{ $t('workspace.myModels.title') }}
         </template>
-        <template #right>
+        <template #end>
             <Button v-if="toggleCardDisplay" icon="fas fa-list" class="p-button-text p-button-rounded p-button-plain" @click="toggleDisplayView" />
             <Button v-if="!toggleCardDisplay" icon="fas fa-th-large" class="p-button-text p-button-rounded p-button-plain" @click="toggleDisplayView" />
-            <KnFabButton icon="fas fa-plus" @click="createNewFederation" />
+            <KnFabButton v-if="tableMode === 'Federated'" icon="fas fa-plus" @click="createNewFederation" />
         </template>
     </Toolbar>
     <ProgressBar mode="indeterminate" class="kn-progress-bar" v-if="loading" />
-    <div class="p-d-flex p-flex-row p-ai-center">
-        <InputText id="model-search" class="kn-material-input p-m-3" v-model="searchWord" :placeholder="$t('common.search')" @input="searchItems" data-test="search-input" />
-        <SelectButton id="model-select-buttons" v-model="tableMode" :options="selectButtonOptions" @click="onTableModeChange" />
+
+    <div class="p-d-flex p-flex-row p-ai-center p-flex-wrap">
+        <InputText class="kn-material-input p-m-3 model-search" v-model="searchWord" :placeholder="$t('common.search')" @input="searchItems" data-test="search-input" />
+        <span class="p-float-label p-mr-auto model-search">
+            <MultiSelect class="kn-material-input kn-width-full" :style="mainDescriptor.style.multiselect" v-model="selectedCategories" :options="modelCategories" optionLabel="VALUE_CD" @change="searchItems" :filter="true" />
+            <label class="kn-material-input-label"> {{ $t('common.type') }} </label>
+        </span>
+        <SelectButton class="p-mx-2" v-model="tableMode" :options="selectButtonOptions" @click="onTableModeChange" />
     </div>
 
     <div class="p-m-2 kn-overflow">
@@ -29,9 +34,10 @@
                     :viewType="document && document.federation_id ? 'federationDataset' : 'businessModel'"
                     :document="document"
                     @openSidebar="setSelectedModel"
-                    @openDatasetInQBE="openDatasetInQBE"
+                    @openDatasetInQBE="openDatasetInQBE($event)"
                     @editDataset="editDataset"
                     @deleteDataset="deleteDatasetConfirm"
+                    @monitoring="showMonitoring = !showMonitoring"
                 />
             </template>
         </div>
@@ -41,12 +47,15 @@
         :visible="showDetailSidebar"
         :viewType="selectedModel && selectedModel.federation_id ? 'federationDataset' : 'businessModel'"
         :document="selectedModel"
-        @openDatasetInQBE="openDatasetInQBE"
+        @openDatasetInQBE="openDatasetInQBE($event)"
         @editDataset="editDataset"
         @deleteDataset="deleteDatasetConfirm"
+        @monitoring="showMonitoring = !showMonitoring"
         @close="showDetailSidebar = false"
         data-test="detail-sidebar"
     />
+
+    <QBE v-if="qbeVisible" :visible="qbeVisible" :dataset="selectedQbeDataset" @close="closeQbe" />
 </template>
 
 <script lang="ts">
@@ -60,15 +69,20 @@ import KnFabButton from '@/components/UI/KnFabButton.vue'
 import SelectButton from 'primevue/selectbutton'
 import WorkspaceModelsTable from './tables/WorkspaceModelsTable.vue'
 import { AxiosResponse } from 'axios'
+import QBE from '@/modules/qbe/QBE.vue'
+import MultiSelect from 'primevue/multiselect'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     name: 'workspace-models-view',
-    components: { DetailSidebar, KnFabButton, Message, SelectButton, WorkspaceModelsTable, WorkspaceCard },
-    emits: ['showMenu', 'toggleDisplayView'],
+    components: { MultiSelect, DetailSidebar, KnFabButton, Message, SelectButton, WorkspaceModelsTable, WorkspaceCard, QBE },
+    emits: ['showMenu', 'toggleDisplayView', 'showQbeDialog'],
     props: { toggleCardDisplay: { type: Boolean } },
     data() {
         return {
             mainDescriptor,
+            selectedCategories: [] as any,
+            selectedCategoryIds: [] as any,
             businessModels: [] as IBusinessModel[],
             federatedDatasets: [] as IFederatedDataset[],
             allItems: [] as (IBusinessModel | IFederatedDataset)[],
@@ -79,12 +93,18 @@ export default defineComponent({
             searchWord: '' as string,
             showDetailSidebar: false,
             user: null as any,
-            loading: false
+            loading: false,
+            datasetDrivers: null as any,
+            datasetName: '',
+            qbeVisible: false,
+            selectedQbeDataset: null,
+            modelCategories: [] as any
         }
     },
     computed: {
         hasEnableFederatedDatasetFunctionality(): boolean {
-            return this.user.functionalities.includes('EnableFederatedDataset')
+            if (this.user && this.user.functionalities) return this.user.functionalities.includes('EnableFederatedDataset')
+            else return false
         }
     },
     watch: {
@@ -93,8 +113,13 @@ export default defineComponent({
             this.selectedModel = null
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
-        this.user = (this.$store.state as any).user
+        this.user = (this.store.$state as any).user
+        await this.getModelCategories()
         await this.loadBusinessModels()
         if (this.hasEnableFederatedDatasetFunctionality) {
             await this.loadFederatedDatasets()
@@ -110,7 +135,7 @@ export default defineComponent({
         },
         async loadBusinessModels() {
             this.loading = true
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/businessmodels/?fileExtension=jar`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/businessmodels/?fileExtension=jar`).then((response: AxiosResponse<any>) => {
                 this.businessModels = response.data
                 this.businessModels = this.businessModels.map((el: any) => {
                     return { ...el, type: 'businessModel' }
@@ -120,7 +145,7 @@ export default defineComponent({
         },
         async loadFederatedDatasets() {
             this.loading = true
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `federateddataset/`).then((response: AxiosResponse<any>) => {
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `federateddataset/`).then((response: AxiosResponse<any>) => {
                 this.federatedDatasets = response.data
                 this.federatedDatasets = this.federatedDatasets.map((el: any) => {
                     return { ...el, type: 'federatedDataset' }
@@ -128,9 +153,21 @@ export default defineComponent({
             })
             this.loading = false
         },
-        searchItems() {
+        async getModelCategories() {
+            this.loading = true
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `domainsforfinaluser/bm-categories`).then((response: AxiosResponse<any>) => {
+                this.modelCategories = [...response.data]
+            })
+        },
+        searchItems(event?) {
             setTimeout(() => {
-                if (!this.searchWord.trim().length) {
+                if (event?.value) {
+                    this.selectedCategoryIds = [] as any
+                    event.value.forEach((el) => {
+                        this.selectedCategoryIds.push(el.VALUE_ID)
+                    })
+                }
+                if (!this.searchWord.trim().length && this.selectedCategoryIds.length == 0) {
                     this.filteredItems = [...this.allItems] as (IBusinessModel | IFederatedDataset)[]
                 } else {
                     let items = [] as (IBusinessModel | IFederatedDataset)[]
@@ -141,20 +178,29 @@ export default defineComponent({
                     } else {
                         items = this.allItems
                     }
-                    this.filteredItems = items.filter((el: any) => {
-                        return el.name?.toLowerCase().includes(this.searchWord.toLowerCase()) || el.description?.toLowerCase().includes(this.searchWord.toLowerCase())
-                    })
+
+                    if (this.selectedCategoryIds.length > 0) {
+                        this.filteredItems = items.filter((el: any) => {
+                            return this.selectedCategoryIds.includes(el.category) && (el.name?.toLowerCase().includes(this.searchWord.toLowerCase()) || el.description?.toLowerCase().includes(this.searchWord.toLowerCase()))
+                        })
+                    } else {
+                        this.filteredItems = items.filter((el: any) => {
+                            return el.name?.toLowerCase().includes(this.searchWord.toLowerCase()) || el.description?.toLowerCase().includes(this.searchWord.toLowerCase())
+                        })
+                    }
                 }
             }, 250)
         },
         resetSearch() {
             this.searchWord = ''
         },
-        openDatasetInQBE() {
-            this.$store.commit('setInfo', {
-                title: 'Todo',
-                msg: 'Functionality not in this sprint'
-            })
+        openDatasetInQBE(dataset: any) {
+            if (import.meta.env.VITE_USE_OLD_QBE_IFRAME == 'true') {
+                this.$emit('showQbeDialog', dataset)
+            } else {
+                this.selectedQbeDataset = dataset
+                this.qbeVisible = true
+            }
         },
         createNewFederation() {
             this.$router.push('models/federation-definition/new-federation')
@@ -173,9 +219,9 @@ export default defineComponent({
         async deleteDataset(dataset: IFederatedDataset) {
             this.loading = true
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/federateddataset/${dataset.federation_id}`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/federateddataset/${dataset.federation_id}`)
                 .then(async () => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.success')
                     })
@@ -198,6 +244,8 @@ export default defineComponent({
             this.$emit('toggleDisplayView')
         },
         onTableModeChange() {
+            this.selectedCategoryIds = [] as any
+            this.selectedCategories = [] as any
             switch (this.tableMode) {
                 case 'Business':
                     this.filteredItems = [...this.businessModels]
@@ -208,17 +256,17 @@ export default defineComponent({
                 case 'All':
                     this.filteredItems = [...this.allItems]
             }
+        },
+        closeQbe() {
+            this.qbeVisible = false
+            this.selectedQbeDataset = null
         }
     }
 })
 </script>
 
 <style lang="scss" scoped>
-#model-select-buttons {
-    margin: 2rem 2rem 2rem auto;
-}
-
-#model-search {
+.model-search {
     flex: 0.3;
 }
 </style>

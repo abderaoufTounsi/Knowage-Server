@@ -9,7 +9,7 @@
             </div>
             <div v-if="selectedRule.dataSource">
                 <Toolbar class="kn-toolbar kn-toolbar--primary p-m-0">
-                    <template #right>
+                    <template #end>
                         <Button class="kn-button p-button-text p-button-rounded" @click="showPreview" :disabled="previewDisabled">{{ $t('kpi.measureDefinition.preview') }}</Button>
                     </template>
                 </Toolbar>
@@ -21,11 +21,10 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent  } from 'vue'
 import { iRule } from '../../MeasureDefinition'
-import { VCodeMirror } from 'vue3-code-mirror'
-import CodeMirror from 'codemirror'
 import { AxiosResponse } from 'axios'
+import VCodeMirror, { CodeMirror  } from 'codemirror-editor-vue3'
 import queryCardDescriptor from './MeasureDefinitionQueryCardDescriptor.json'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
@@ -33,8 +32,10 @@ import MeasureDefinitionPreviewDialog from './MeasureDefinitionPreviewDialog.vue
 
 export default defineComponent({
     name: 'measure-definition-query-card',
-    components: { Card, Dropdown, VCodeMirror, MeasureDefinitionPreviewDialog },
-    props: { rule: { type: Object, required: true }, datasourcesList: { type: Array, required: true }, aliases: { type: Array }, placeholders: { type: Array }, columns: { type: Array }, rows: { type: Array }, codeInput: { type: String }, preview: { type: Boolean } },
+    components: { Card, Dropdown, 
+    VCodeMirror, 
+    MeasureDefinitionPreviewDialog },
+    props: { rule: { type: Object, required: true }, datasourcesList: { type: Array, required: true }, aliases: { type: Array }, placeholders: { type: Array }, columns: { type: Array }, rows: { type: Array }, codeInput: { type: String }, preview: { type: Boolean }, activeTab: {type: Number} },
     emits: ['touched', 'queryChanged', 'loadPreview', 'closePreview'],
     data() {
         return {
@@ -42,7 +43,7 @@ export default defineComponent({
             selectedRule: {} as iRule,
             code: '',
             datasourceStructure: {},
-            codeMirror: {} as any,
+            codeMirror: null as any,
             hintList: [] as any,
             options: {
                 mode: 'text/x-mysql',
@@ -72,6 +73,9 @@ export default defineComponent({
             this.codeMirror.replaceRange(this.codeInput, this.cursorPosition)
             this.selectedRule.definition = this.code
             this.$emit('queryChanged')
+        },
+        activeTab(value: number) {
+            if (value === 0 && this.codeMirror) setTimeout(() => this.codeMirror.refresh(), 100)
         }
     },
     async mounted() {
@@ -85,7 +89,7 @@ export default defineComponent({
         },
         async loadDataSourceStructure() {
             if (this.selectedRule.dataSource) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/datasources/structure/${this.selectedRule.dataSource.DATASOURCE_ID}`).then((response: AxiosResponse<any>) => (this.datasourceStructure = response.data))
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasources/structure/${this.selectedRule.dataSource.DATASOURCE_ID}`).then((response: AxiosResponse<any>) => (this.datasourceStructure = response.data))
             }
             this.$emit('touched')
 
@@ -98,7 +102,7 @@ export default defineComponent({
         setupCodeMirror() {
             const interval = setInterval(() => {
                 if (!this.$refs.codeMirror) return
-                this.codeMirror = (this.$refs.codeMirror as any).editor as any
+                this.codeMirror = (this.$refs.codeMirror as any).cminstance as any
                 setTimeout(() => {
                     this.codeMirror.refresh()
                 }, 0)

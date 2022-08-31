@@ -248,10 +248,6 @@
 	<ROLE_TYPE_USER_FUNCTIONALITY
 		userFunctionality="CreateCockpitFunctionality" roleType="MODEL_ADMIN" />
 	<ROLE_TYPE_USER_FUNCTIONALITY
-		userFunctionality="HierarchiesManagement" roleType="ADMIN" />
-	<ROLE_TYPE_USER_FUNCTIONALITY
-		userFunctionality="HierarchiesManagement" roleType="DEV_ROLE" />	
-	<ROLE_TYPE_USER_FUNCTIONALITY
 		userFunctionality="CreateSocialAnalysis" roleType="ADMIN" />
 	<ROLE_TYPE_USER_FUNCTIONALITY
 		userFunctionality="ViewSocialAnalysis" roleType="ADMIN" />
@@ -406,4 +402,11 @@
 	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="LicenseReadOnly" roleType="TEST_ROLE"/>
 	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="LicenseReadOnly" roleType="USER"/>
 	
+	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="QbeAdvancedSaving" roleType="ADMIN" />	
+	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="QbeAdvancedSaving" roleType="DEV_ROLE" />	
+	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="QbeAdvancedSaving" roleType="TEST_ROLE" />	
+	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="QbeAdvancedSaving" roleType="MODEL_ADMIN" />	
+
+	<ROLE_TYPE_USER_FUNCTIONALITY userFunctionality="ThemeManagement" roleType="ADMIN" />	
+		
 </ROLE_TYPE_USER_FUNCTIONALITIES>

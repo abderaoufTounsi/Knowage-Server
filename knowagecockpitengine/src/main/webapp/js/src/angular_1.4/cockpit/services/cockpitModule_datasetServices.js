@@ -20,7 +20,8 @@ $mdPanel,cockpitModule_widgetSelection,cockpitModule_properties,cockpitModule_ut
 			"SbiSolrDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.solr'),
 			"SbiSPARQLDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.sparql'),
 			"SbiRESTDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.rest'),
-			"SbiPythonDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.python')
+			"SbiPythonDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.python'),
+			"SbiPreparedDataSet": sbiModule_translate.load('kn.cockpit.dataset.type.prepared')
 	}
 
 	this.isDatasetFromTemplateLoaded = false;
@@ -1228,7 +1229,11 @@ $mdPanel,cockpitModule_widgetSelection,cockpitModule_properties,cockpitModule_ut
 			if (parameters.hasOwnProperty(parameter)){
 				if (parameters[parameter] == null || parameters[parameter] == undefined) {
 					output += delim + "\"" + parameter + "\":null";
-				}else{
+				}
+				else if (!cockpitModule_properties.PARAMETERS[parameter].multiValue){
+					output += delim + "\"" + parameter + "\":"+ "\""+parameters[parameter]+ "\"";
+				}
+				else{
 //					var tempJSN = JSON.stringify(parameters[parameter]);
 					var tempJSN = '"';
 					if(Array.isArray(parameters[parameter])) {

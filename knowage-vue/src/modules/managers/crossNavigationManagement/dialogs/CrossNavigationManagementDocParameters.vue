@@ -1,7 +1,7 @@
 <template>
     <div class="p-field p-col-6 p-mb-3">
         <Toolbar class="kn-toolbar kn-toolbar--secondary">
-            <template #left>
+            <template #start>
                 {{ $t('managers.crossNavigationManagement.availableIO') }}
             </template>
         </Toolbar>
@@ -25,7 +25,7 @@
     </div>
     <div class="p-field p-col-6 p-mb-3">
         <Toolbar class="kn-toolbar kn-toolbar--secondary">
-            <template #left>
+            <template #start>
                 {{ $t('managers.crossNavigationManagement.availableInput') }}
             </template>
         </Toolbar>
@@ -56,6 +56,8 @@
 import { defineComponent } from 'vue'
 import Listbox from 'primevue/listbox'
 import dialogDescriptor from './CrossNavigationManagementDialogDescriptor.json'
+import mainStore from '../../../../App.store'
+
 export default defineComponent({
     name: 'cross-navigation-detail',
     components: { Listbox },
@@ -71,6 +73,10 @@ export default defineComponent({
             fixedValue: '',
             dropzoneActive: [] as boolean[]
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         if (this.selectedNavigation) {
@@ -105,7 +111,7 @@ export default defineComponent({
                 item.links = [param]
                 this.$emit('touched')
             } else {
-                this.$store.commit('setInfo', {
+                this.store.setInfo({
                     title: this.$t('managers.crossNavigationManagement.incompatibleTypes'),
                     msg: this.$t('managers.crossNavigationManagement.incompatibleTypesMessage', { originParam: param.name, targetParam: item.name })
                 })

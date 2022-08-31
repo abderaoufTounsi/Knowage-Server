@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import flushPromises from 'flush-promises'
 import Listbox from 'primevue/listbox'
@@ -28,27 +29,25 @@ const mockedNews = [
     }
 ]
 
-jest.mock('axios', () => ({
-    get: jest.fn(() => Promise.resolve({ data: mockedNews })),
-    delete: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
 
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() => Promise.resolve({ data: mockedNews })),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const factory = () => {
     return mount(NewsManagement, {
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Listbox,
@@ -58,16 +57,16 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('News Management loading', () => {
@@ -78,7 +77,7 @@ describe('News Management loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
+        $http.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
         const wrapper = factory()
 
         await flushPromises()
@@ -100,9 +99,11 @@ describe('News Management', () => {
 
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
-        await wrapper.vm.deleteNews(1)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/news/' + 1)
+        await flushPromises()
+
+        await wrapper.vm.deleteNews(mockedNews[0])
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/news/' + 1)
     })
     it('changes url when the "+" button is clicked', async () => {
         const wrapper = factory()

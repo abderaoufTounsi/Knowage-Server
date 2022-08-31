@@ -1,6 +1,6 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-p-0 p-m-0">
-        <template #right>
+        <template #end>
             <Button icon="pi pi-save" class="kn-button p-button-text p-button-rounded" :disabled="buttonDisabled" @click="handleSubmit" />
             <Button class="kn-button p-button-text p-button-rounded" icon="pi pi-times" @click="closeForm" />
         </template>
@@ -131,6 +131,8 @@ import InputNumber from 'primevue/inputnumber'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import constraintsManagementDetailDescriptor from './ConstraintsManagementDetailDescriptor.json'
 import constraintsManagementValidationDescriptor from './ConstraintsManagementValidationDescriptor.json'
+import mainStore from '../../../App.store'
+
 export default defineComponent({
     name: 'constraint-management-detail',
     components: { Dropdown, KnValidationMessages, InputNumber },
@@ -157,7 +159,7 @@ export default defineComponent({
     validations() {
         const customValidators: ICustomValidatorMap = {
             'range-check': () => {
-                return (this.constraint && this.constraint.firstValue && this.constraint.secondValue && this.constraint.firstValue < this.constraint.secondValue) || this.constraint.valueTypeCd != 'RANGE'
+                return this.rangeCheck || this.constraint.valueTypeCd != 'RANGE'
             }
         }
         return {
@@ -173,6 +175,10 @@ export default defineComponent({
         },
         numberType(): any {
             return this.constraint.valueTypeCd == 'MAXLENGTH' || this.constraint.valueTypeCd == 'RANGE' || this.constraint.valueTypeCd == 'DECIMALS' || this.constraint.valueTypeCd == 'MINLENGTH'
+        },
+        rangeCheck(): any {
+            let test = this.constraint.firstValue < this.constraint.secondValue
+            return test
         }
     },
     watch: {
@@ -180,6 +186,10 @@ export default defineComponent({
             this.v$.$reset()
             this.constraint = { ...this.selectedConstraint } as iConstraint
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     mounted() {
         if (this.selectedConstraint) {
@@ -197,7 +207,7 @@ export default defineComponent({
             })
             this.constraint.valueTypeId = selectedDomain[0].VALUE_ID
 
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/customChecks/'
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/customChecks/'
             if (this.constraint.checkId) {
                 this.operation = 'update'
                 url += this.constraint.checkId
@@ -208,14 +218,14 @@ export default defineComponent({
             await this.sendRequest(url)
                 .then((response: AxiosResponse<any>) => {
                     this.constraint.checkId = response.data
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t(this.constraintsManagementDetailDescriptor.operation[this.operation].toastTitle),
                         msg: this.$t(this.constraintsManagementDetailDescriptor.operation.success)
                     })
                     this.$emit('created', this.constraint)
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('managers.constraintManagement.saveError'),
                         msg: error.message
                     })

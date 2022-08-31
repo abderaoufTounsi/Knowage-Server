@@ -13,11 +13,11 @@
         </span>
     </div>
 
-    <Dialog contentStyle="height:100vh;width:100vw" :visible="showDatasetsDialog" :modal="true" class="full-screen-dialog p-fluid kn-dialog--toolbar--primary" :closable="false">
+    <Dialog :visible="showDatasetsDialog" :modal="true" class="full-screen-dialog p-fluid kn-dialog--toolbar--primary" :closable="false" position="right" :baseZIndex="1" :autoZIndex="true">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-m-0 p-col">
-                <template #left>Select Dataset</template>
-                <template #right>
+                <template #start>Select Dataset</template>
+                <template #end>
                     <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="buttonDisabled" @click="onSave" data-test="submit-button" />
                     <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="showDatasetsDialog = false" data-test="close-button" />
                 </template>
@@ -127,7 +127,7 @@ export default defineComponent({
     },
     methods: {
         async loadDatasets() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/datasets/datasetsforlov/').then((response: AxiosResponse<any>) => (this.datasets = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/datasets/datasetsforlov/').then((response: AxiosResponse<any>) => (this.datasets = response.data))
         },
         loadDataset() {
             this.selectedDataset = { ...this.dataset }
@@ -143,6 +143,19 @@ export default defineComponent({
 <style lang="scss">
 .full-screen-dialog.p-dialog {
     max-height: 100%;
+    height: 100vh;
+    width: calc(100vw - #{54px});
+    margin: 0;
+    .p-dialog-content {
+        padding: 0;
+        margin: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+    .p-dialog-header {
+        padding: 0;
+        margin: 0;
+    }
 }
 .full-screen-dialog.p-dialog .p-dialog-content {
     padding: 0;

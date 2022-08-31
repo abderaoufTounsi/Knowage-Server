@@ -2,10 +2,10 @@
     <div class="kn-page-content p-grid p-m-0">
         <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.constraintManagement.title') }}
                 </template>
-                <template #right>
+                <template #end>
                     <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                 </template>
             </Toolbar>
@@ -54,6 +54,7 @@ import { iConstraint } from './ConstraintsManagement'
 import ConstraintsManagementDetail from './ConstraintsManagementDetail.vue'
 import KnHint from '@/components/UI/KnHint.vue'
 import Tooltip from 'primevue/tooltip'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'constraint-management',
@@ -80,6 +81,10 @@ export default defineComponent({
             constraintManagementDescriptor
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadAll()
     },
@@ -92,7 +97,7 @@ export default defineComponent({
             this.loadCheks()
         },
         async getAllPredefinedChecks() {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/predefinedChecks`).then((response: AxiosResponse<any>) => {
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/predefinedChecks`).then((response: AxiosResponse<any>) => {
                 this.predefinedChecks = response.data.map((check: any) => {
                     return {
                         checkId: check.checkId,
@@ -109,7 +114,7 @@ export default defineComponent({
             })
         },
         async getAllCustomChecks() {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/customChecks`).then((response: AxiosResponse<any>) => {
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/customChecks`).then((response: AxiosResponse<any>) => {
                 this.customChecks = response.data.map((check: any) => {
                     return {
                         checkId: check.checkId,
@@ -145,7 +150,7 @@ export default defineComponent({
             }
         },
         async getDomainTypes() {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `domains/listValueDescriptionByType?DOMAIN_TYPE=CHECK`).then((response: AxiosResponse<any>) => {
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `domains/listValueDescriptionByType?DOMAIN_TYPE=CHECK`).then((response: AxiosResponse<any>) => {
                 this.domains = response.data
             })
         },
@@ -159,9 +164,9 @@ export default defineComponent({
         },
         async deleteConstraint(id: number) {
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/customChecks/' + id)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/customChecks/' + id)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
@@ -169,7 +174,7 @@ export default defineComponent({
                     this.formVisible = false
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('managers.constraintManagement.deleteError'),
                         msg: error.message
                     })

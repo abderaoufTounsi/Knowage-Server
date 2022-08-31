@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.metadata.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <KnFabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button"></KnFabButton>
                     </template>
                 </Toolbar>
@@ -38,7 +38,7 @@
             </div>
             <div class="kn-list--column p-col-8 p-sm-8 p-md-9 p-p-0">
                 <KnHint :title="'managers.metadata.title'" :hint="'managers.metadata.hint'" v-if="!formVisible"></KnHint>
-                <MetadataManagementDetail :model="selectedMetadata" @close="closeForm" @saved="reloadMetadata" @touched="touched = true" v-if="formVisible" data-test="metadata-form"></MetadataManagementDetail>
+                <MetadataManagementDetail :model="selectedMetadata" @close="closeForm" @saved="reloadMetadata" @touched="touched = true" v-if="formVisible"></MetadataManagementDetail>
             </div>
         </div>
     </div>
@@ -53,6 +53,7 @@ import KnHint from '@/components/UI/KnHint.vue'
 import Listbox from 'primevue/listbox'
 import metadataManagementDescriptor from './MetadataManagementDescriptor.json'
 import MetadataManagementDetail from './MetadataManagementDetail.vue'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'metadata-management',
@@ -67,6 +68,10 @@ export default defineComponent({
             selectedMetadata: {} as iMetadata
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadAllMetadata()
     },
@@ -75,7 +80,7 @@ export default defineComponent({
             this.loading = true
             this.metadataList = []
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/objMetadata')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/objMetadata')
                 .then((response: AxiosResponse<any>) =>
                     response.data.map((metadata: any) => {
                         this.metadataList.push({
@@ -113,8 +118,8 @@ export default defineComponent({
             })
         },
         async deleteMetadata(metadataId: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/objMetadata/' + metadataId).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/objMetadata/' + metadataId).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

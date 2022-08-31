@@ -142,7 +142,9 @@ angular.module("cockpitModule").service("cockpitModule_widgetSelection",function
 						}
 					}
 				}
-
+				else if(col.fieldType == "MEASURE" && ngModel.content.chartTemplate && ngModel.content.chartTemplate.CHART){
+					obj["orderType"] = col.orderType ? col.orderType : "";
+					}
 				// SUM is default but for attribute is meaningless
 				if(ngModel.type != "discovery" && (col.fieldType=="ATTRIBUTE" || col.fieldType=="SPATIAL_ATTRIBUTE") && col.aggregationSelected && col.aggregationSelected === 'SUM'){
 					obj["funct"] = 'NONE';
@@ -175,8 +177,8 @@ angular.module("cockpitModule").service("cockpitModule_widgetSelection",function
 					//it is measure
 					if(col.aggregationColumn) obj.functColumn = col.aggregationColumn;
 					obj["orderColumn"] = col.name;
-					if(obj.orderType!=undefined){
-						obj.orderType  = col.orderType;
+					if(obj.orderType==undefined && obj.columnName==ngModel.settings.sortingColumn){
+						obj.orderType  = ngModel.settings.sortingOrder;
 					}
 					measures.push(obj);
 				}
@@ -1070,7 +1072,7 @@ angular.module("cockpitModule").service("cockpitModule_widgetSelection",function
 		}, 0);
 	}
 
-	this.getSelectionValues = function(datasetLabel, columnName){
+	this.getSelectionValues = function(datasetLabel, columnName,templateSelections){
 		var result = null;
 
 		var aggregations = cockpitModule_template.configuration.aggregations;
@@ -1096,6 +1098,13 @@ angular.module("cockpitModule").service("cockpitModule_widgetSelection",function
 					result = selections[datasetLabel][columnName];
 				}
 			}
+		}
+		
+		if(templateSelections && result == undefined){
+			selections = cockpitModule_template.selections.filter((item)=>{
+				return item.ds === datasetLabel && item.columnName === columnName
+			});
+			if(selections && selections.length > 0)result = selections[0].value;
 		}
 
 		if(result){

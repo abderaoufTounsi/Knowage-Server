@@ -1,6 +1,6 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary">
-        <template #left>
+        <template #start>
             <Button id="showSidenavIcon" icon="fas fa-bars" class="p-button-text p-button-rounded p-button-plain" @click="$emit('showMenu')" />
             {{ $t('workspace.schedulation.title') }}
         </template>
@@ -37,7 +37,7 @@ export default defineComponent({
     methods: {
         async loadJobs() {
             this.loading = true
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/listAllJobs`).then((response: AxiosResponse<any>) => (this.jobs = response.data.root))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/listAllJobs`).then((response: AxiosResponse<any>) => (this.jobs = response.data.root))
             this.loading = false
         },
         viewOldSchedulations(job: IPackage) {

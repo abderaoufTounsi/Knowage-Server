@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import axios from 'axios'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -71,13 +73,19 @@ const mockedRoles = [
     { id: 3, name: 'admin' }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedParentFunctionality }))
-axios.put.mockImplementation(() => Promise.resolve({ data: mockedFunctionality }))
-
-const $store = {
-    commit: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedParentFunctionality
+        })
+    ),
+    put: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedFunctionality
+        })
+    )
 }
 
 const factory = () => {
@@ -88,17 +96,18 @@ const factory = () => {
             parentId: 1
         },
         global: {
+            plugins: [createTestingPinia()],
             stubs: { Button, Card, Checkbox, Column, DataTable, InputText, KnValidationMessages, Toolbar },
             mocks: {
                 $t: (msg) => msg,
-                $store
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Functionalities Detail', () => {
@@ -283,8 +292,9 @@ describe('Functionalities Detail', () => {
 
         await flushPromises()
         await wrapper.find('[data-test="submit-button"]').trigger('click')
+        await flushPromises()
 
-        expect(axios.put).toHaveBeenCalledTimes(1)
+        expect($http.put).toHaveBeenCalledTimes(1)
         expect(wrapper.emitted()).toHaveProperty('inserted')
     })
 })

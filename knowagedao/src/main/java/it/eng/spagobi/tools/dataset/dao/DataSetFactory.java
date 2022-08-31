@@ -60,12 +60,14 @@ import it.eng.spagobi.tools.dataset.bo.JDBCDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCDatasetFactory;
 import it.eng.spagobi.tools.dataset.bo.JDBCHiveDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCOrientDbDataSet;
+import it.eng.spagobi.tools.dataset.bo.JDBCPostgreSQLDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCRedShiftDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCSpannerDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCSynapseDataSet;
 import it.eng.spagobi.tools.dataset.bo.JDBCVerticaDataSet;
 import it.eng.spagobi.tools.dataset.bo.JavaClassDataSet;
 import it.eng.spagobi.tools.dataset.bo.MongoDataSet;
+import it.eng.spagobi.tools.dataset.bo.PreparedDataSet;
 import it.eng.spagobi.tools.dataset.bo.PythonDataSet;
 import it.eng.spagobi.tools.dataset.bo.RESTDataSet;
 import it.eng.spagobi.tools.dataset.bo.SPARQLDataSet;
@@ -107,6 +109,7 @@ public class DataSetFactory {
 	public static final String CUSTOM_DS_TYPE = "Custom";
 	public static final String FEDERATED_DS_TYPE = "Federated";
 	public static final String FLAT_DS_TYPE = "Flat";
+	public static final String PREPARED_DS_TYPE = "Prepared";
 	public static final String SPARQL_DS_TYPE = "SPARQL";
 
 	static private Logger logger = Logger.getLogger(DataSetFactory.class);
@@ -464,6 +467,18 @@ public class DataSetFactory {
 				((FlatDataSet) ds).setDataSource(dataSource);
 				((FlatDataSet) ds).setTableName(jsonConf.getString(DataSetConstants.FLAT_TABLE_NAME));
 				ds.setDsType(FLAT_DS_TYPE);
+			} else if (type.equalsIgnoreCase(DataSetConstants.DS_PREPARED)) {
+				ds = new PreparedDataSet();
+				ds.setConfiguration(sbiDataSet.getConfiguration());
+				DataSourceDAOHibImpl dataSourceDao = new DataSourceDAOHibImpl();
+				if (userProfile != null)
+					dataSourceDao.setUserProfile(userProfile);
+
+				IDataSource dataSource = DAOFactory.getDataSourceDAO().loadDataSourceUseForDataprep();
+				((PreparedDataSet) ds).setDataSource(dataSource);
+				((PreparedDataSet) ds).setTableName(jsonConf.getString(DataSetConstants.TABLE_NAME));
+				((PreparedDataSet) ds).setDataPreparationInstance(jsonConf.getString(DataSetConstants.DATA_PREPARATION_INSTANCE_ID));
+				ds.setDsType(PREPARED_DS_TYPE);
 			}
 
 		} catch (SpagoBIRuntimeException ex) {
@@ -477,8 +492,8 @@ public class DataSetFactory {
 			try {
 
 				if (sbiDataSet.getCategory() != null) {
-					ds.setCategoryCd(sbiDataSet.getCategory().getValueCd());
-					ds.setCategoryId(sbiDataSet.getCategory().getValueId());
+					ds.setCategoryCd(sbiDataSet.getCategory().getCode());
+					ds.setCategoryId(sbiDataSet.getCategory().getId());
 				}
 				// ds.setConfiguration(sbiDataSet.getConfiguration());
 				if (sbiDataSet.getId().getDsId() != null)
@@ -496,6 +511,7 @@ public class DataSetFactory {
 
 				ds.setParameters(sbiDataSet.getParameters());
 				ds.setDsMetadata(sbiDataSet.getDsMetadata());
+				ds.setMetadata(sbiDataSet.getMetadata());
 				ds.setOrganization(sbiDataSet.getId().getOrganization());
 
 				if (ds.getPivotColumnName() != null && ds.getPivotColumnValue() != null && ds.getPivotRowName() != null) {
@@ -550,7 +566,6 @@ public class DataSetFactory {
 			} catch (Exception e) {
 				throw new SpagoBIRuntimeException("Error while defining dataset configuration.", e);
 			}
-
 
 			managePersistedDataset(ds);
 		}
@@ -827,6 +842,8 @@ public class DataSetFactory {
 				ds = new JDBCSynapseDataSet();
 			} else if (dialectToLowerCase.contains("Spanner")) {
 				ds = new JDBCSpannerDataSet();
+			} else if (dialectToLowerCase.contains("postgres")) {
+				ds = new JDBCPostgreSQLDataSet();
 			}
 		}
 		return (ds != null) ? ds : new JDBCDataSet();
@@ -1080,8 +1097,8 @@ public class DataSetFactory {
 			try {
 
 				if (sbiDataSet.getCategory() != null) {
-					ds.setCategoryCd(sbiDataSet.getCategory().getValueCd());
-					ds.setCategoryId(sbiDataSet.getCategory().getValueId());
+					ds.setCategoryCd(sbiDataSet.getCategory().getCode());
+					ds.setCategoryId(sbiDataSet.getCategory().getId());
 				}
 				// ds.setConfiguration(sbiDataSet.getConfiguration());
 				if (sbiDataSet.getId().getDsId() != null)

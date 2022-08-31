@@ -33,7 +33,6 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.supercsv.cellprocessor.ift.CellProcessor;
 import org.supercsv.io.CsvMapReader;
 import org.supercsv.io.ICsvMapReader;
 import org.supercsv.prefs.CsvPreference;
@@ -61,6 +60,10 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 	public static final String CSV_FILE_ENCODING = "csvEncoding";
 	public static final String CSV_FILE_DATE_FORMAT = "dateFormat";
 	public static final String CSV_FILE_TIMESTAMP_FORMAT = "timestampFormat";
+
+	private static final String UTF_8_ENCODING = "UTF-8";
+	private static final String UTF_8_BOM_ENCODING = "UTF-8-BOM";
+	private static final String UTF8_BOM = "\uFEFF";
 
 	private String csvDelimiter;
 	private String csvQuote;
@@ -139,7 +142,12 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 
 	private DataStore readWithCsvMapReader(InputStream inputDataStream) throws Exception {
 
-		InputStreamReader inputStreamReader = new InputStreamReader(inputDataStream, csvEncoding);
+		String fileEncoding = csvEncoding;
+		if (isUTF8BOMEncoding()) {
+			fileEncoding = UTF_8_ENCODING;
+		}
+		InputStreamReader inputStreamReader = new InputStreamReader(inputDataStream, fileEncoding);
+
 		DataStore dataStore = null;
 		MetaData dataStoreMeta;
 		dataStore = new DataStore();
@@ -165,8 +173,6 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 			// the header columns are used as the keys to the Map
 			final String[] header = mapReader.getHeader(true);
 
-			int columnsNumber = mapReader.length();
-
 			if (metaData != null)
 				dataStore.setMetaData(metaData);
 			else {
@@ -180,13 +186,7 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 				dataStore.setMetaData(dataStoreMeta);
 			}
 
-			final CellProcessor[] processors = new CellProcessor[columnsNumber];
-			for (int i = 0; i < processors.length; i++) {
-				processors[i] = null;
-			}
-
-			Map<String, Object> contentsMap;
-
+			Map<String, String> contentsMap;
 			boolean paginated = false;
 			logger.debug("Reading data ...");
 			if (isPaginationSupported() && getOffset() >= 0 && getFetchSize() >= 0) {
@@ -197,7 +197,7 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 			}
 
 			int rowFetched = 0;
-			while ((contentsMap = mapReader.read(header, processors)) != null) {
+			while ((contentsMap = mapReader.read(header)) != null) {
 
 				if ((!paginated && (!checkMaxResults || (rowFetched < maxResults)))
 						|| ((paginated && (rowFetched >= offset) && (rowFetched - offset < fetchSize))
@@ -214,7 +214,14 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 						} else {
 							field = new Field(contentsMap.get(header[i]));
 							// update metadata type in order with the real value's type (default was string)
-							if (NumberUtils.isNumber((String) field.getValue())) {
+							// check if it's integer
+							if (NumberUtils.isDigits((String) field.getValue()) && !isIntegerOverflow((String) field.getValue())) {
+								meta = ((FieldMetadata) dataStore.getMetaData().getFieldMeta(i));
+								meta.setType(getNewMetaType(meta.getType(), Integer.class));
+								field.setValue(new Integer(String.valueOf(field.getValue())));
+							}
+							// check if it's float
+							else if (NumberUtils.isNumber((String) field.getValue())) {
 								meta = ((FieldMetadata) dataStore.getMetaData().getFieldMeta(i));
 								meta.setType(getNewMetaType(meta.getType(), BigDecimal.class));
 								field.setValue(new BigDecimal(String.valueOf(field.getValue())));
@@ -276,12 +283,35 @@ public class FileDatasetCsvDataReader extends AbstractDataReader {
 				logger.debug("Calculation of result set number is NOT enabled");
 			}
 
+			if (header.length > 0 && isUTF8BOMEncoding())
+				((FieldMetadata) dataStore.getMetaData().getFieldsMeta().get(0)).setName(escapeUTF8BOM(header[0]));
+
+		} catch (Exception e) {
+			throw new SpagoBIRuntimeException("Error while reading csv file", e);
 		} finally {
 			if (mapReader != null) {
 				mapReader.close();
 			}
 		}
 		return dataStore;
+	}
+
+	private String escapeUTF8BOM(String input) {
+		return input.startsWith(UTF8_BOM) ? input.replace(UTF8_BOM, "") : input;
+	}
+
+	private boolean isUTF8BOMEncoding() {
+		return UTF_8_BOM_ENCODING.equals(csvEncoding);
+	}
+
+	private boolean isIntegerOverflow(String currentIntStringValue) {
+		String maxIntStringValue = Integer.toString(Integer.MAX_VALUE);
+		if (currentIntStringValue.length() > maxIntStringValue.length())
+			return true;
+		else if (currentIntStringValue.length() < maxIntStringValue.length())
+			return false;
+		else
+			return currentIntStringValue.compareTo(maxIntStringValue) > 0;
 	}
 
 	@Override

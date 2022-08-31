@@ -1,10 +1,10 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary">
-        <template #left>
+        <template #start>
             <Button id="showSidenavIcon" icon="fas fa-bars" class="p-button-text p-button-rounded p-button-plain" @click="$emit('showMenu')" />
             {{ $t('workspace.menuLabels.myRepository') }}
         </template>
-        <template #right>
+        <template #end>
             <Button v-if="toggleCardDisplay" icon="fas fa-list" class="p-button-text p-button-rounded p-button-plain" @click="toggleDisplayView" />
             <Button v-if="!toggleCardDisplay" icon="fas fa-th-large" class="p-button-text p-button-rounded p-button-plain" @click="toggleDisplayView" />
         </template>
@@ -14,7 +14,7 @@
 
     <InputText class="kn-material-input p-m-2" :style="mainDescriptor.style.filterInput" v-model="searchWord" type="text" :placeholder="$t('common.search')" @input="searchItems" data-test="search-input" />
     <div class="p-m-2 kn-overflow">
-        <DataTable v-if="!toggleCardDisplay" class="p-datatable-sm kn-table" :value="filteredDocuments" :loading="loading" dataKey="biObjId" responsiveLayout="stack" breakpoint="600px" data-test="documents-table">
+        <DataTable v-if="!toggleCardDisplay" class="p-datatable-sm kn-table p-mx-2" :value="filteredDocuments" :loading="loading" dataKey="biObjId" responsiveLayout="stack" breakpoint="600px" data-test="documents-table">
             <template #empty>
                 {{ $t('common.info.noDataFound') }}
             </template>
@@ -79,6 +79,8 @@ import WorkspaceRepositoryMoveDialog from './dialogs/WorkspaceRepositoryMoveDial
 import WorkspaceWarningDialog from '../../genericComponents/WorkspaceWarningDialog.vue'
 import WorkspaceRepositoryBreadcrumb from './breadcrumbs/WorkspaceRepositoryBreadcrumb.vue'
 import { AxiosResponse } from 'axios'
+import { formatDateWithLocale } from '@/helpers/commons/localeHelper'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     components: { DataTable, Column, DetailSidebar, WorkspaceCard, Menu, Message, WorkspaceRepositoryMoveDialog, WorkspaceWarningDialog, WorkspaceRepositoryBreadcrumb },
@@ -109,6 +111,10 @@ export default defineComponent({
             this.loadFolders()
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadFolders()
         this.getFolderDocuments()
@@ -120,7 +126,7 @@ export default defineComponent({
         getFolderDocuments() {
             this.loading = true
             return this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/organizer/documents/${this.id}`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/organizer/documents/${this.id}`)
                 .then((response: AxiosResponse<any>) => {
                     this.documents = [...response.data]
                     this.filteredDocuments = [...this.documents]
@@ -128,8 +134,7 @@ export default defineComponent({
                 .finally(() => (this.loading = false))
         },
         formatDate(date) {
-            let fDate = new Date(date)
-            return fDate.toLocaleString()
+            return formatDateWithLocale(date, { dateStyle: 'short', timeStyle: 'short' })
         },
         showSidebar(clickedDocument) {
             this.selectedDocument = clickedDocument
@@ -163,9 +168,9 @@ export default defineComponent({
         async handleDocumentMove(folder: any) {
             this.loading = true
             await this.$http
-                .put(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/organizer/documentsee/${this.selectedDocument.biObjId}/${this.selectedDocument.functId}/${folder.id}`)
+                .put(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/organizer/documentsee/${this.selectedDocument.biObjId}/${this.selectedDocument.functId}/${folder.id}`)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.updateTitle'),
                         msg: this.$t('common.toast.success')
                     })
@@ -190,9 +195,9 @@ export default defineComponent({
         deleteDocument(document: IDocument) {
             this.loading = true
             this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/organizer/documents/${document.functId}/${document.biObjId}`)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/organizer/documents/${document.functId}/${document.biObjId}`)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.success')
                     })

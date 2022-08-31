@@ -2,10 +2,10 @@
     <div class="kn-page-content p-grid p-m-0">
         <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.dataSourceManagement.title') }}
                 </template>
-                <template #right>
+                <template #end>
                     <FabButton icon="fas fa-plus" @click="showForm" data-test="open-form-button" />
                 </template>
             </Toolbar>
@@ -27,11 +27,11 @@
                 <template #option="slotProps">
                     <div class="kn-list-item" data-test="list-item">
                         <Avatar
-                            :icon="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName].dbIcon"
+                            :icon="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName]?.dbIcon"
                             shape="circle"
                             size="medium"
-                            :style="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName].style"
-                            v-tooltip="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName].tooltip"
+                            :style="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName]?.style"
+                            v-tooltip="dataSourceDescriptor.iconTypesMap[slotProps.option.dialectName]?.tooltip"
                         />
                         <div class="kn-list-item-text">
                             <span>{{ slotProps.option.label }}</span>
@@ -56,6 +56,7 @@ import dataSourceDescriptor from './DataSourceDescriptor.json'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import Avatar from 'primevue/avatar'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'datasources-management',
@@ -75,6 +76,10 @@ export default defineComponent({
             touched: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.getAllDatasources()
         await this.getAllDatabases()
@@ -83,7 +88,7 @@ export default defineComponent({
     methods: {
         async getAllDatabases() {
             return this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/databases`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/databases`)
                 .then((response: AxiosResponse<any>) => {
                     this.listOfAvailableDatabases = response.data
                 })
@@ -92,7 +97,7 @@ export default defineComponent({
 
         async getCurrentUser() {
             return this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/currentuser`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/currentuser`)
                 .then((response: AxiosResponse<any>) => {
                     this.user = response.data
                 })
@@ -102,7 +107,7 @@ export default defineComponent({
         async getAllDatasources() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/datasources')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/datasources')
                 .then((response: AxiosResponse<any>) => {
                     this.datasources = response.data
                     this.convertToSeconds(this.datasources)
@@ -151,9 +156,9 @@ export default defineComponent({
         },
         async deleteDatasource(datasourceId: number) {
             await this.$http
-                .delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/datasources/' + datasourceId)
+                .delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/datasources/' + datasourceId)
                 .then(() => {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
@@ -161,7 +166,7 @@ export default defineComponent({
                     this.getAllDatasources()
                 })
                 .catch((error) => {
-                    this.$store.commit('setError', { title: 'Delete error', msg: error.message })
+                    this.store.setError({ title: 'Delete error', msg: error.message })
                 })
         },
 

@@ -1,10 +1,10 @@
 <template>
     <div>
         <Toolbar class="kn-toolbar kn-toolbar--secondary">
-            <template #left>
+            <template #start>
                 {{ $t('managers.scheduler.timingAndOutput') }}
             </template>
-            <template #right>
+            <template #end>
                 <Button class="kn-button p-button-text p-button-rounded" @click="showTriggerDetail(null)">{{ $t('common.add') }}</Button>
             </template>
         </Toolbar>
@@ -74,6 +74,7 @@ import Menu from 'primevue/menu'
 import schedulerTimingOutputTableDescriptor from './SchedulerTimingOutputTableDescriptor.json'
 import SchedulerTimingOutputDetailDialog from './SchedulerTimingOutputDetailDialog/SchedulerTimingOutputDetailDialog.vue'
 import SchedulerTimingOutputInfoDialog from './SchedulerTimingOutputInfoDialog.vue'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     name: 'scheduler-timing-output-table',
@@ -94,6 +95,10 @@ export default defineComponent({
         job() {
             this.loadTriggers()
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     created() {
         this.loadTriggers()
@@ -142,7 +147,7 @@ export default defineComponent({
             this.$emit('loading', true)
             if (trigger) {
                 await this.$http
-                    .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/getTriggerInfo?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
+                    .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/getTriggerInfo?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
                     .then((response) => {
                         this.triggerInfo = response.data
                     })
@@ -169,10 +174,10 @@ export default defineComponent({
             this.$emit('loading', true)
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/executeTrigger?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/executeTrigger?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.resp === 'ok') {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.information'),
                             msg: this.$t('managers.scheduler.schedulationExecuted')
                         })
@@ -193,10 +198,10 @@ export default defineComponent({
             this.$emit('loading', true)
             const action = trigger.triggerIsPaused ? 'resumeTrigger' : 'pauseTrigger'
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/${action}?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/${action}?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.resp === 'ok') {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.information'),
                             msg: trigger.triggerIsPaused ? this.$t('managers.scheduler.schedulationResumed') : this.$t('managers.scheduler.schedulationPaused')
                         })
@@ -217,10 +222,10 @@ export default defineComponent({
         async deleteTrigger(trigger: any, index: number) {
             this.$emit('loading', true)
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/deleteTrigger?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/deleteTrigger?jobName=${trigger.jobName}&jobGroup=${trigger.jobGroup}&triggerName=${trigger.triggerName}&triggerGroup=${trigger.triggerGroup}`)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.resp === 'ok') {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.toast.deleteTitle'),
                             msg: this.$t('common.toast.deleteSuccess')
                         })

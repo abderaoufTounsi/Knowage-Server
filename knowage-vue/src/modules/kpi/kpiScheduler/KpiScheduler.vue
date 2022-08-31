@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('kpi.kpiScheduler.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <FabButton icon="fas fa-plus" @click="showForm" data-test="new-button" />
                     </template>
                 </Toolbar>
@@ -59,6 +59,7 @@ import kpiSchedulerDescriptor from './KpiSchedulerDescriptor.json'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import Menu from 'primevue/menu'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'kpi-scheduler',
@@ -72,7 +73,10 @@ export default defineComponent({
             touched: false
         }
     },
-
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadPage()
     },
@@ -80,7 +84,7 @@ export default defineComponent({
         async loadAllSchedules() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpi/listSchedulerKPI')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpi/listSchedulerKPI')
                 .then((response: AxiosResponse<any>) => {
                     this.schedulerList = response.data
                     this.schedulerList.sort((a: iKpiSchedule, b: iKpiSchedule) => (a.name.toUpperCase() > b.name.toUpperCase() ? 1 : -1))
@@ -136,7 +140,7 @@ export default defineComponent({
             }
             const query = '?jobGroup=KPI_SCHEDULER_GROUP&triggerGroup=KPI_SCHEDULER_GROUP&jobName=' + schedule.id + '&triggerName=' + schedule.id
             const action = schedule.jobStatus?.toUpperCase() === 'SUSPENDED' ? 'resumeTrigger' : 'pauseTrigger'
-            this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'scheduler/' + action + query).then((response: AxiosResponse<any>) => {
+            this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'scheduler/' + action + query).then((response: AxiosResponse<any>) => {
                 if (response.data.resp === 'ok') {
                     schedule.jobStatus = schedule.jobStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED'
                 }
@@ -151,8 +155,8 @@ export default defineComponent({
             })
         },
         async deleteSchedule(scheduleId: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/kpi/${scheduleId}/deleteKpiScheduler`).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/kpi/${scheduleId}/deleteKpiScheduler`).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

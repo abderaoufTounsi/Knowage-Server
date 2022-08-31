@@ -1,7 +1,7 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--secondary p-m-0">
-        <template #left>{{ tenant.MULTITENANT_NAME }}</template>
-        <template #right>
+        <template #start>{{ tenant.MULTITENANT_NAME }}</template>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" @click="handleSubmit" :disabled="buttonDisabled" />
             <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeTemplateConfirm" />
         </template>
@@ -45,6 +45,7 @@ import tabViewDescriptor from './TenantManagementTabViewDescriptor.json'
 import TenantDetail from './DetailTab/TenantDetail.vue'
 import ProductTypes from './SelectionTableTab/SelectionTable.vue'
 import useValidate from '@vuelidate/core'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     components: {
@@ -85,6 +86,10 @@ export default defineComponent({
             return false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     mounted() {
         if (this.selectedTenant) {
             this.tenant = { ...this.selectedTenant } as iMultitenant
@@ -104,7 +109,7 @@ export default defineComponent({
     },
     methods: {
         loadData(dataType: string) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `multitenant${dataType}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `multitenant${dataType}`)
         },
 
         async loadAllData() {
@@ -159,16 +164,16 @@ export default defineComponent({
             if (this.v$.$invalid) {
                 return
             }
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'multitenant/save'
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'multitenant/save'
 
             await this.$http.post(url, this.createTenantToSave()).then((response: AxiosResponse<any>) => {
                 if (this.selectedTenant) {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t(this.tabViewDescriptor.operation[this.operation].toastTitle),
                         msg: this.$t(this.tabViewDescriptor.operation.success)
                     })
                 } else {
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t(this.tabViewDescriptor.operation[this.operation].toastTitle),
                         msg: this.$t(this.tabViewDescriptor.operation.success) + response.data.NEW_USER,
                         duration: 0
@@ -184,7 +189,7 @@ export default defineComponent({
             let tenantToSave = {} as iTenantToSave
             tenantToSave.MULTITENANT_ID = this.tenant.MULTITENANT_ID ? '' + this.tenant.MULTITENANT_ID : ''
             tenantToSave.MULTITENANT_NAME = this.tenant.MULTITENANT_NAME
-            tenantToSave.MULTITENANT_THEME = this.tenant.MULTITENANT_THEME
+            this.tenant.MULTITENANT_THEME ? (tenantToSave.MULTITENANT_THEME = this.tenant.MULTITENANT_THEME) : ''
             tenantToSave.MULTITENANT_IMAGE = this.tenant.MULTITENANT_IMAGE
             tenantToSave.DS_LIST = this.listOfSelectedDataSources.map((dataSource) => {
                 delete dataSource.CHECKED

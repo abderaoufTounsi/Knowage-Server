@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Dialog from 'primevue/dialog'
@@ -27,23 +28,21 @@ const mockedWords = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation((url) => {
-    switch (url) {
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/listWords?Page=1&ItemPerPage=`:
-            return Promise.resolve({ data: mockedWords })
-        default:
-            return Promise.resolve({ data: [] })
-    }
-})
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation((url) => {
+        switch (url) {
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/listWords?Page=1&ItemPerPage=`:
+                return Promise.resolve({ data: mockedWords })
+            default:
+                return Promise.resolve({ data: [] })
+        }
+    })
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const factory = () => {
@@ -52,12 +51,14 @@ const factory = () => {
             directives: {
                 tooltip() {}
             },
-            plugins: [PrimeVue],
+            plugins: [PrimeVue, createTestingPinia()],
             stubs: {
                 Button,
                 Card,
                 Dialog,
                 FabButton,
+                GlossaryDefinitionInfoDialog: true,
+                GlossaryDefinitionWordEdit: true,
                 InputText,
                 Listbox,
                 ProgressBar,
@@ -66,7 +67,7 @@ const factory = () => {
             mocks: {
                 $t: (msg) => msg,
                 $confirm,
-                $store
+                $http
             }
         }
     })
@@ -80,7 +81,7 @@ describe('Glossary Definition loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows an hint component when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })

@@ -1,16 +1,18 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import { createRouter, createWebHistory } from 'vue-router'
 import AlertHint from './AlertDefinitionHint.vue'
-import axios from 'axios'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import flushPromises from 'flush-promises'
 import InputText from 'primevue/inputtext'
 import Listbox from 'primevue/listbox'
 import ProgressBar from 'primevue/progressbar'
-import Alert from './Alert.vue'
+import AlertDefinition from './AlertDefinition.vue'
 import Toolbar from 'primevue/toolbar'
 import KnHint from '@/components/UI/KnHint.vue'
+import mainStore from '../../../App.store'
 
 const mockedTarget = [
     {
@@ -78,21 +80,26 @@ const mockedTarget = [
     }
 ]
 
-jest.mock('axios', () => ({
-    get: jest.fn(() => Promise.resolve({ data: mockedTarget })),
-    delete: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
+
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedTarget
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
+}
 
 const $confirm = {
-    require: jest.fn()
+    require: vi.fn()
 }
 
 const $route = { path: '/alert' }
 
 const $router = {
-    push: jest.fn(),
-
-    replace: jest.fn()
+    push: vi.fn(),
+    replace: vi.fn()
 }
 const router = createRouter({
     history: createWebHistory(),
@@ -117,13 +124,10 @@ const router = createRouter({
     ]
 })
 
-const $store = {
-    commit: jest.fn()
-}
 const factory = () => {
-    return mount(Alert, {
+    return mount(AlertDefinition, {
         global: {
-            plugins: [router],
+            plugins: [router, createTestingPinia()],
             stubs: {
                 Button,
                 Card,
@@ -135,17 +139,17 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
                 $route,
-                $router
+                $router,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Alert Definition loading', () => {
@@ -156,7 +160,7 @@ describe('Alert Definition loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -182,6 +186,7 @@ describe('Alert Definition loading', () => {
         })
         it('deletes alert when clicking on delete icon', async () => {
             const wrapper = factory()
+            const store = mainStore()
 
             await flushPromises()
 
@@ -192,9 +197,9 @@ describe('Alert Definition loading', () => {
             expect($confirm.require).toHaveBeenCalledTimes(1)
 
             await wrapper.vm.deleteAlert(1)
-            expect(axios.delete).toHaveBeenCalledTimes(1)
-            expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/alert/' + 1 + '/delete')
-            expect($store.commit).toHaveBeenCalledTimes(1)
+            expect($http.delete).toHaveBeenCalledTimes(1)
+            expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/alert/' + 1 + '/delete')
+            expect(store.setInfo).toHaveBeenCalledTimes(1)
         })
         it("opens empty detail form when the '+' button is clicked", async () => {
             const wrapper = factory()

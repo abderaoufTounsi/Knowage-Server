@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Calendar from 'primevue/calendar'
 import Card from 'primevue/card'
@@ -59,21 +60,19 @@ const mockedDocuments = [
 ]
 
 const $confirm = {
-    require: jest.fn()
+    require: vi.fn()
 }
 
-const $store = {
-    commit: jest.fn()
+vi.mock('axios')
+
+const $http = {
+    post: vi.fn().mockImplementation(() => Promise.resolve())
 }
-
-jest.mock('axios')
-
-axios.post.mockImplementation(() => Promise.resolve())
 
 const factory = () => {
     return mount(TemplatePruning, {
         global: {
-            plugins: [PrimeVue],
+            plugins: [PrimeVue, createTestingPinia()],
             stubs: {
                 Button,
                 Calendar,
@@ -84,8 +83,9 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $confirm
+
+                $confirm,
+                $http
             }
         }
     })
@@ -96,7 +96,8 @@ describe('Template Pruning', () => {
         const wrapper = factory()
         const dateInput = wrapper.find('[data-test="date-input"]')
 
-        expect(dateInput.wrapperElement._value).toBe(moment().format('MM/DD/YYYY'))
+        expect(wrapper.vm.selectedDate).toBeTruthy()
+        expect(dateInput.exists()).toBe(true)
     })
     it('datepicker max date is the current date', () => {
         const wrapper = factory()
@@ -113,9 +114,9 @@ describe('Template Pruning', () => {
         expect(filterButton.element.disabled).toBe(true)
     })
     it('if no template is available the card below shows a no available template message', async () => {
-        axios.get.mockImplementation((url) => {
+        $http.get = vi.fn().mockImplementation((url) => {
             switch (url) {
-                case process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true':
+                case import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true':
                     return Promise.resolve({ data: [] })
                 default:
                     return Promise.resolve({ data: [] })
@@ -141,9 +142,9 @@ describe('Template Pruning', () => {
         expect(wrapper.find('[data-test="delete-button"]').exists()).toBe(false)
     })
     it('if one or more templates are available the folder tree appears with the search bar', async () => {
-        axios.get.mockImplementation((url) => {
+        $http.get = vi.fn().mockImplementation((url) => {
             switch (url) {
-                case process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true':
+                case import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/folders?includeDocs=true':
                     return Promise.resolve({ data: mockedFolders })
                 default:
                     return Promise.resolve({ data: mockedDocuments })
@@ -170,7 +171,7 @@ describe('Template Pruning', () => {
 
         await wrapper.find('[role="checkbox"]').trigger('click')
 
-        expect(wrapper.vm.selectedDocuments).toEqual(expect.objectContaining({ '20': { checked: true, partialChecked: false }, '25': { checked: true, partialChecked: false }, '30': { checked: true, partialChecked: false }, '32': { checked: true, partialChecked: false } }))
+        expect(wrapper.vm.selectedDocuments).toEqual(expect.objectContaining({ 20: { checked: true, partialChecked: false }, 25: { checked: true, partialChecked: false }, 30: { checked: true, partialChecked: false }, 32: { checked: true, partialChecked: false } }))
         expect(wrapper.vm.deleteDisabled).toBe(false)
         expect(wrapper.find('[data-test="delete-button"]').element.disabled).toBe(false)
     })
@@ -184,14 +185,14 @@ describe('Template Pruning', () => {
         await wrapper.find('[role="checkbox"]').trigger('click')
 
         expect(wrapper.vm.selectedDocuments).toEqual(
-            expect.objectContaining({ '20': { checked: true, partialChecked: false }, '25': { checked: true, partialChecked: false }, '30': { checked: true, partialChecked: false }, '31': { checked: true, partialChecked: false }, '32': { checked: true, partialChecked: false } })
+            expect.objectContaining({ 20: { checked: true, partialChecked: false }, 25: { checked: true, partialChecked: false }, 30: { checked: true, partialChecked: false }, 31: { checked: true, partialChecked: false }, 32: { checked: true, partialChecked: false } })
         )
 
         await wrapper.find('[data-test="delete-button"]').trigger('click')
 
         wrapper.vm.deleteDocuments()
 
-        expect(axios.post).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + 'template/deleteTemplate', [
+        expect($http.post).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + 'template/deleteTemplate', [
             { id: 20, data: currentDate },
             { id: 25, data: currentDate },
             { id: 30, data: currentDate },

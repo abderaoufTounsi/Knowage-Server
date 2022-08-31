@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import axios from 'axios'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -33,23 +35,25 @@ const mockedMetadata = [
     }
 ]
 
-jest.mock('axios', () => ({
-    get: jest.fn(() => Promise.resolve({ data: mockedMetadata })),
-    delete: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
 
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedMetadata
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const factory = () => {
     return mount(MetadataManagement, {
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 Card,
@@ -60,15 +64,15 @@ const factory = () => {
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
-                $confirm
+                $confirm,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Metadata Management loading', () => {
@@ -79,7 +83,7 @@ describe('Metadata Management loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -104,8 +108,8 @@ describe('Metadata Management', () => {
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
         await wrapper.vm.deleteMetadata(1)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/objMetadata/' + 1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/objMetadata/' + 1)
     })
 
     it('adds empty card with inputs and tabs in detail when the "+" button is clicked', async () => {

@@ -11,10 +11,10 @@
     >
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-p-0 p-m-0 p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('managers.crossNavigationManagement.selectDocument') }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button icon="pi pi-times" class="kn-button p-button-text p-button-rounded" @click="closeDialog" />
                 </template>
             </Toolbar>
@@ -119,7 +119,7 @@ export default defineComponent({
         async loadAllDoc() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument')
                 .then((response: AxiosResponse<any>) => (this.documents = response.data))
                 .finally(() => (this.loading = false))
         },

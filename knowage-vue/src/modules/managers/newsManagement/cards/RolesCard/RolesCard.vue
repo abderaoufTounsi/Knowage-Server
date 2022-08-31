@@ -2,7 +2,7 @@
     <Card :style="rolesCardDescriptor.card.style">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.newsManagement.roles') }}
                 </template>
             </Toolbar>
@@ -20,8 +20,8 @@
                 breakpoint="960px"
                 @rowSelect="setDirty"
                 @rowUnselect="setDirty"
-                @rowSelectAll="setDirty"
-                @rowUnselectAll="setDirty"
+                @rowSelectAll="onSelectAll"
+                @rowUnselectAll="onUnselectAll"
                 data-test="data-table"
             >
                 <template #empty>
@@ -70,6 +70,14 @@ export default defineComponent({
     },
     methods: {
         setDirty() {
+            this.$emit('changed', this.selectedCategories)
+        },
+        onSelectAll(event: any) {
+            this.selectedCategories = event.data
+            this.$emit('changed', this.selectedCategories)
+        },
+        onUnselectAll() {
+            this.selectedCategories = []
             this.$emit('changed', this.selectedCategories)
         },
         loadSelectedCategories() {

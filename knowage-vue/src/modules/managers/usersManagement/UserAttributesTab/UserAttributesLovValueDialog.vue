@@ -2,10 +2,10 @@
     <Dialog :visible="dialogVisible" :modal="true" class="kn-dialog--toolbar--primary" :closable="false" :style="userAttributesLovValueDialogDescriptor.style">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-col">
-                <template #left>
+                <template #start>
                     {{ attribute.attributeName }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="buttonDisabled" @click="handleSubmit" data-test="submit-button" />
                     <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeDialog" />
                 </template>
@@ -78,7 +78,7 @@ export default defineComponent({
     methods: {
         async loadAttributeValue() {
             if (this.attribute?.lovId) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/lovs/${this.attribute.lovId}/preview`).then((response: AxiosResponse<any>) => {
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/lovs/${this.attribute.lovId}/preview`).then((response: AxiosResponse<any>) => {
                     this.lovValues = response.data.map((lovValue, index) => {
                         return { value: lovValue, id: index }
                     })

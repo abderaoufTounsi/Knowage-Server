@@ -1,11 +1,13 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import flushPromises from 'flush-promises'
 import InputText from 'primevue/inputtext'
 import MondrianSchemasManagement from './MondrianSchemasManagement.vue'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
+import Card from 'primevue/card'
 
 const mockedSchemas = [
     {
@@ -28,45 +30,55 @@ const mockedSchemas = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedSchemas }))
-axios.delete.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $route = {
+    fullPath: '/mondrian-schemas-management'
 }
 
-const $store = {
-    commit: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedSchemas
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
+}
+
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const factory = () => {
     return mount(MondrianSchemasManagement, {
         global: {
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 InputText,
                 ProgressBar,
                 Toolbar,
+                Card,
                 routerView: true
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
+
                 $confirm,
-                $router
+                $router,
+                $http,
+                $route
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Mondrian Schema Management loading', () => {
@@ -77,7 +89,7 @@ describe('Mondrian Schema Management loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
+        $http.get.mockReturnValueOnce(Promise.resolve({ data: [] }))
         const wrapper = factory()
 
         await flushPromises()
@@ -100,8 +112,8 @@ describe('Mondrian Schema Management', () => {
         expect($confirm.require).toHaveBeenCalledTimes(1)
 
         await wrapper.vm.deleteSchema(1)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource/' + 1)
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/mondrianSchemasResource/' + 1)
     })
     it('opens empty detail form when the ' + ' button is clicked', async () => {
         const wrapper = factory()
@@ -109,14 +121,14 @@ describe('Mondrian Schema Management', () => {
 
         await openButton.trigger('click')
 
-        expect($router.push).toHaveBeenCalledWith('/schemas/new-schema')
+        expect($router.push).toHaveBeenCalledWith('/mondrian-schemas-management/new-schema')
     })
     it('open filled detail when a row is clicked', async () => {
         const wrapper = factory()
         await flushPromises()
         await wrapper.find('[data-test="list-item"]').trigger('click')
 
-        expect($router.push).toHaveBeenCalledWith('/schemas/' + 1)
+        expect($router.push).toHaveBeenCalledWith('/mondrian-schemas-management/' + 1)
     })
 })
 

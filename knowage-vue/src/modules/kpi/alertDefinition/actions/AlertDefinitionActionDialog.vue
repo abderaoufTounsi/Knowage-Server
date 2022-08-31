@@ -2,10 +2,10 @@
     <Dialog :header="$t('kpi.alert.addAction')" :breakpoints="addActionDialogDescriptor.dialog.breakpoints" :style="addActionDialogDescriptor.dialog.style" :visible="dialogVisible" :modal="true" :closable="false" class="p-fluid kn-dialog--toolbar--primary" data-test="add-action-dialog">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('kpi.alert.addAction') }}
                 </template>
-                <template #right>
+                <template #end>
                     <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="actionSaveButtonDisabled" @click="handleSave" />
                     <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="$emit('close')" />
                 </template>
@@ -34,7 +34,7 @@
                 <label for="threshold" class="kn-material-input-label"> {{ $t('kpi.alert.threshold') }} * </label>
             </span>
         </div>
-        <Card style="height:37rem">
+        <Card style="height: 37rem">
             <template #content>
                 <ExectuteEtlCard v-if="action && action.className == 'it.eng.knowage.enterprise.tools.alert.action.ExecuteETLDocument'" :loading="loading" :files="etlDocumentList" :data="action" />
                 <ContextBrokerCard v-if="action && action.className == 'it.eng.spagobi.tools.alert.action.NotifyContextBroker'" :data="action" />
@@ -148,13 +148,13 @@ export default defineComponent({
             }
         },
         async loadEtlDocuments() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument?includeType=ETL').then((response: AxiosResponse<any>) => {
-                this.etlDocumentList = [...response.data.item]
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument?includeType=ETL').then((response: AxiosResponse<any>) => {
+                this.etlDocumentList = response.data ? response.data.item : []
             })
         },
         async loadUsers() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/users').then((response: AxiosResponse<any>) => {
-                this.usersList = [...response.data]
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/users').then((response: AxiosResponse<any>) => {
+                this.usersList = response.data
             })
         },
         handleSave() {

@@ -2,7 +2,7 @@
     <Card>
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.businessModelManager.driversDetails') }}
                 </template>
             </Toolbar>
@@ -116,11 +116,11 @@
     <Card v-if="selectedDriver">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.businessModelManager.driverDataConditions') }}
                 </template>
-                <template #right>
-                    <Button class="kn-button p-button-text" @click="showForm" :disabled="modes.length === 0 || readonly">{{ $t('managers.businessModelManager.addCondition') }}</Button>
+                <template #end>
+                    <Button class="kn-button p-button-text" @click="showForm" :disabled="modes.length === 0 || !driver.id || readonly">{{ $t('managers.businessModelManager.addCondition') }}</Button>
                 </template>
             </Toolbar>
         </template>
@@ -148,14 +148,15 @@
             <div id="operationInfo">
                 <p>{{ $t('managers.businessModelManager.operationInfo', { driver: driver.label }) }}</p>
             </div>
+
             <form class="p-fluid p-m-5">
                 <div class="p-field p-d-flex">
                     <div :style="businessModelDriverDetailDescriptor.input.parFather.style">
                         <span class="p-float-label">
-                            <Dropdown id="parFather" class="kn-material-input" v-model="condition.parFather" :options="drivers" placeholder=" " :disabled="readonly">
+                            <Dropdown id="parFather" class="kn-material-input" v-model="condition.parFatherId" :options="drivers" placeholder=" " optionValue="id" :disabled="readonly">
                                 <template #value="slotProps">
                                     <div v-if="slotProps.value">
-                                        <span>{{ slotProps.value.label }}</span>
+                                        <span>{{ getDriverProperty(slotProps.value, 'label') }}</span>
                                     </div>
                                 </template>
                                 <template #option="slotProps">
@@ -239,6 +240,7 @@ import KnHint from '@/components/UI/KnHint.vue'
 import KnValidationMessages from '@/components/UI/KnValidatonMessages.vue'
 import Listbox from 'primevue/listbox'
 import useValidate from '@vuelidate/core'
+import mainStore from '../../../../../App.store'
 
 export default defineComponent({
     name: 'business-model-driver-detail-card',
@@ -261,8 +263,7 @@ export default defineComponent({
             required: true
         },
         formVisible: {
-            type: Boolean,
-            required: true
+            type: Boolean
         },
         driverOptions: {
             type: Array,
@@ -294,6 +295,10 @@ export default defineComponent({
         businessModelDrivers() {
             this.loadBusinessModelDrivers()
         }
+    },
+    setup() {
+        const store = mainStore()
+        return { store }
     },
     async created() {
         this.loadSelectedDriver()
@@ -367,7 +372,7 @@ export default defineComponent({
         async loadDataDependencies() {
             this.conditions = []
             if (this.driver && this.driver.id) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies?driverId=${this.driver.id}`).then((response: AxiosResponse<any>) =>
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies?driverId=${this.driver.id}`).then((response: AxiosResponse<any>) =>
                     response.data.forEach((condition: any) => {
                         const index = this.conditions.findIndex((cond) => cond.parFatherId === condition.parFatherId && cond.filterOperation == condition.filterOperation && cond.logicOperator == condition.logicOperator)
                         condition.modalities = []
@@ -382,16 +387,16 @@ export default defineComponent({
             }
         },
         async loadModes() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.driver?.parameter?.id}/modes`).then((response: AxiosResponse<any>) => (this.modes = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.driver?.parameter?.id}/modes`).then((response: AxiosResponse<any>) => (this.modes = response.data))
         },
         async loadLovs() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.driver?.parameter?.id}/lovs`).then((response: AxiosResponse<any>) => (this.lovs = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/analyticalDrivers/${this.driver?.parameter?.id}/lovs`).then((response: AxiosResponse<any>) => (this.lovs = response.data))
         },
         getLovs(lovId: number) {
             const index = this.lovs.findIndex((lov) => lov.id === lovId)
             if (index > -1) {
                 const lov = JSON.parse(this.lovs[index].lovProviderJSON)
-                return lov.QUERY['VISIBLE-COLUMNS'].split(',')
+                return lov.QUERY ? lov.QUERY['VISIBLE-COLUMNS'].split(',') : []
             }
         },
         isModeActive(modeId: number) {
@@ -414,6 +419,7 @@ export default defineComponent({
                     reject: () => this.resetDrodpwonValue()
                 })
             }
+            this.setChanged()
         },
         resetDrodpwonValue() {
             if (this.driver) {
@@ -421,7 +427,7 @@ export default defineComponent({
             }
         },
         async saveCondition(condition: any) {
-            await this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies`, condition).finally(() => (this.conditionFormVisible = false))
+            await this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies`, condition).finally(() => (this.conditionFormVisible = false))
         },
         async handleSubmit() {
             if (this.condition.id) {
@@ -434,8 +440,8 @@ export default defineComponent({
                     if (this.selectedModes[i] === +modalityKeys[j]) {
                         const conditionForPost = {
                             ...this.condition,
-                            parFatherId: this.condition.parFather.id,
-                            parFatherUrlName: (this.selectedDriver as iBusinessModelDriver).parameterUrlName,
+                            parFatherId: '' + this.condition.parFatherId,
+                            parFatherUrlName: this.getDriverProperty(this.condition.parFatherId, 'parameterUrlName'),
                             parId: (this.selectedDriver as iBusinessModelDriver).id,
                             useModeId: +modalityKeys[j],
                             filterColumn: this.modalities[this.selectedModes[i]]
@@ -456,12 +462,12 @@ export default defineComponent({
                         conditionForPost.prog++
                         delete conditionForPost.parFather
                         delete conditionForPost.modalities
-                        await this.sendRequest(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies`, conditionForPost).then((response: AxiosResponse<any>) => {
+                        await this.sendRequest(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies`, conditionForPost).then((response: AxiosResponse<any>) => {
                             if (response.data.errors) {
                                 this.errorMessage = response.data.errors[0].message
                                 this.displayWarning = true
                             } else {
-                                this.$store.commit('setInfo', {
+                                this.store.setInfo({
                                     title: this.$t(this.businessModelDriverDetailDescriptor.operation[this.operation].toastTitle),
                                     msg: this.$t(this.businessModelDriverDetailDescriptor.operation.success)
                                 })
@@ -537,8 +543,8 @@ export default defineComponent({
         async deleteCondition(condition: any) {
             delete condition.parFather
             delete condition.modalities
-            await this.$http.post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies/delete`, condition).then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/businessmodels/${this.businessModelId}/datadependencies/delete`, condition).then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })
@@ -558,6 +564,10 @@ export default defineComponent({
             this.condition = {}
             this.operation = 'insert'
             this.conditionFormVisible = false
+        },
+        getDriverProperty(driverId: number, property: string) {
+            const index = this.drivers.findIndex((driver: any) => driver.id === driverId)
+            return index !== -1 ? this.drivers[index][property] : ''
         }
     }
 })

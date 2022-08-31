@@ -59,7 +59,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		$scope.bulkSelection = false;
 		$scope.selectedCells = [];
 		$scope.selectedRows = [];
-
+		$scope.maxScaleValue = 10;
 		$scope.getTemplateUrl = function(template){
 	  		return cockpitModule_generalServices.getTemplateUrl('advancedTableWidget',template);
 	  	}
@@ -149,6 +149,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 						}else{
 							tempCol.headerTooltip = $scope.ngModel.content.columnSelectedOfDataset[c].aliasToShow || $scope.ngModel.content.columnSelectedOfDataset[c].alias;
 						}
+						if(tempCol.measure === 'MEASURE') tempCol.aggregationSelected = $scope.ngModel.content.columnSelectedOfDataset[c].aggregationSelected;
 						tempCol.pinned = $scope.ngModel.content.columnSelectedOfDataset[c].pinned;
 
 						if ($scope.ngModel.content.columnSelectedOfDataset[c].isCalculated){
@@ -245,7 +246,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 							tempCol.valueFormatter = dateTimeFormatter;
 							tempCol.comparator = dateComparator;
 						}
-						if(tempCol.fieldType == 'float' || tempCol.fieldType == 'integer' ) {
+						if(tempCol.fieldType == 'float' || tempCol.fieldType == 'integer' || (tempCol.fieldType == 'string' && tempCol.measure == 'MEASURE' && ["COUNT","COUNT_DISTINCT"].indexOf(tempCol.aggregationSelected) != -1) ) {
 							tempCol.valueFormatter = numberFormatter;
 							// When server-side pagination is disabled
 							tempCol.comparator = function (valueA, valueB, nodeA, nodeB, isInverted) {
@@ -411,13 +412,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		};
 
 		function getCellStyle(params){
+			
 			var tempStyle = params.colDef.style || {};
 			if(params.colDef.ranges && params.colDef.ranges.length > 0){
-				for(var k in params.colDef.ranges){
-					if (params.value!="" && eval(params.value + params.colDef.ranges[k].operator + params.colDef.ranges[k].value)) {
-						tempStyle['background-color'] = params.colDef.ranges[k]['background-color'] || (tempStyle['background-color'] || '');
-						tempStyle['color'] = params.colDef.ranges[k]['color'] || (tempStyle['color'] || '');
-                        if (params.colDef.ranges[k].operator == '==') break;
+				for(const range of params.colDef.ranges){
+					var valueToCompare;
+					if(range.compareValueType == 'static') valueToCompare = range.value;
+					if(range.compareValueType == 'variable') {
+						if(range.compareValueKey) valueToCompare = cockpitModule_properties.VARIABLES[range.value][range.compareValueKey];
+						else valueToCompare = cockpitModule_properties.VARIABLES[range.value];
+					}
+					if(range.compareValueType == 'parameter') {
+						var parameterKey = cockpitModule_analyticalDrivers[range.value+'_description'] ? range.value+'_description' : range.value;
+						valueToCompare = cockpitModule_analyticalDrivers[parameterKey];
+					}
+					if (params.value!="" && eval(params.value + range.operator + valueToCompare)) {
+						tempStyle['background-color'] = range['background-color'] || (tempStyle['background-color'] || '');
+						tempStyle['color'] = range['color'] || (tempStyle['color'] || '');
+                        if (range.operator == '==') break;
                     }
 				}
 			}
@@ -457,9 +469,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		 * In case of a returning empty string that one will be displayed.
 		 */
 		function numberFormatter(params){
-			if(params.value != "" && (!params.colDef.style || (params.colDef.style && !params.colDef.style.asString))) {
+			if(typeof params.value === "number") {
+				var useSeparator = (params.colDef.style && params.colDef.style.asString)? false : true;
 				var defaultPrecision = (params.colDef.fieldType == 'float') ? 2 : 0;
-				return $filter('number')(params.value, (params.colDef.style && typeof params.colDef.style.precision != 'undefined') ? params.colDef.style.precision : defaultPrecision);
+				var precision = (params.colDef.style && params.colDef.style.precision != undefined) ? params.colDef.style.precision : defaultPrecision;
+				var locale = `${sbiModule_config.curr_language}-${sbiModule_config.curr_country}`;
+				return new Intl.NumberFormat(locale, { minimumFractionDigits:precision, maximumFractionDigits:precision,useGrouping:useSeparator}).format(params.value);
 			}else return params.value;
 		}
 
@@ -501,19 +516,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 					this.eGui.innerHTML = '<div class="inner-chart-bar" style="justify-content:'+tempStyle['justify-content']+'"><div class="bar" style="justify-content:'+tempStyle['justify-content']+';background-color:'+tempStyle['background-color']+';width:'+percentage+'%">'+(params.colDef.visType.toLowerCase() == 'text & chart' ? '<span style="color:'+tempStyle.color+'">'+tempValue+'</span>' : '')+'</div></div>';
 				}
 				if(params.colDef.ranges && params.colDef.ranges.length > 0){
-					for(var k in params.colDef.ranges){
-						if (typeof params.value != "undefined" && typeof params.value != "string" && eval(params.value + params.colDef.ranges[k].operator + params.colDef.ranges[k].value)) {
-							if(params.colDef.ranges[k]['background-color']) {
+					
+					for(const range of params.colDef.ranges){
+						var valueToCompare;
+						if(range.compareValueType == 'static') valueToCompare = range.value;
+						if(range.compareValueType == 'variable') {
+							if(range.compareValueKey) valueToCompare = cockpitModule_properties.VARIABLES[range.value][range.compareValueKey];
+							else valueToCompare = cockpitModule_properties.VARIABLES[range.value];
+						}
+						if(range.compareValueType == 'parameter') {
+							var parameterKey = cockpitModule_analyticalDrivers[range.value+'_description'] ? range.value+'_description' : range.value;
+							valueToCompare = cockpitModule_analyticalDrivers[parameterKey];
+						}
+						if(typeof valueToCompare != "undefined" && typeof valueToCompare === 'string') valueToCompare = "'"+valueToCompare+"'";
+						if (typeof params.value != "undefined" && eval((typeof params.value == 'string' ? "'"+params.value+"'": params.value) + range.operator + valueToCompare)) {
+							if(range['background-color']) {
 								if(params.colDef.visType && (params.colDef.visType.toLowerCase() == 'chart' || params.colDef.visType.toLowerCase() == 'text & chart')) {
 									this.eGui.innerHTML = this.eGui.innerHTML.replace(/background-color:([\#a-z0-9\(\)\,]+);/g,function(match,p1){
-										return 'background-color:'+params.colDef.ranges[k]['background-color']+';';
+										return 'background-color:'+range['background-color']+';';
 									})
-								}else params.eParentOfValue.style.backgroundColor = params.colDef.ranges[k]['background-color'];
+								}else params.eParentOfValue.style.backgroundColor = range['background-color'];
 							}
-							if(params.colDef.ranges[k]['color']) params.eParentOfValue.style.color = params.colDef.ranges[k]['color'];
-							if(params.colDef.visType && params.colDef.visType.toLowerCase() == 'icon only') tempValue = '<i class="'+params.colDef.ranges[k].icon+'"></i>';
-							else tempValue += '<i class="'+params.colDef.ranges[k].icon+'"></i>';
-	                        if (params.colDef.ranges[k].operator == '==') break;
+							if(range['color']) params.eParentOfValue.style.color = range['color'];
+							if(params.colDef.visType && params.colDef.visType.toLowerCase() == 'icon only') tempValue = '<i class="'+range.icon+'"></i>';
+							else tempValue += '<i class="'+range.icon+'"></i>';
+	                        if (range.operator == '==') break;
 	                    }
 					}
 				}
@@ -564,7 +591,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 		}
 
 		function crossIconRenderer(params){
-			return '<md-button class="md-icon-button" ng-click=""><md-icon md-font-icon="'+params.colDef.crossIcon+'"></md-icon></md-button>';
+			if(params.node.rowPinned === 'bottom') return '';
+			else return '<md-button class="md-icon-button" ng-click=""><md-icon md-font-icon="'+params.colDef.crossIcon+'"></md-icon></md-button>';
 		}
 
 		function cellMultiRenderer () {}

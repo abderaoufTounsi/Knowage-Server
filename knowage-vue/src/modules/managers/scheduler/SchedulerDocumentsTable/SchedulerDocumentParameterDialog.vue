@@ -2,7 +2,7 @@
     <Dialog class="p-fluid kn-dialog--toolbar--primary" :contentStyle="schedulerDocumentParameterDialogDescriptor.dialog.style" :visible="visible" :modal="true" :closable="false">
         <template #header>
             <Toolbar class="kn-toolbar kn-toolbar--primary p-p-0 p-m-0 p-col-12">
-                <template #left>
+                <template #start>
                     {{ $t('managers.scheduler.documentParameter') }}
                 </template>
             </Toolbar>
@@ -72,7 +72,7 @@ export default defineComponent({
             this.$emit('close')
         },
         async loadFormulas() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/formulas/`).then((response: AxiosResponse<any>) => (this.formulas = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/formulas/`).then((response: AxiosResponse<any>) => (this.formulas = response.data))
         },
         setParameters() {
             this.$emit('setParameters', this.parameters)

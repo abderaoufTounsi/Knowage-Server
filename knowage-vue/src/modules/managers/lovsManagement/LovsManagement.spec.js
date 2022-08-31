@@ -1,13 +1,14 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import { createRouter, createWebHistory } from 'vue-router'
-import axios from 'axios'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import FabButton from '@/components/UI/KnFabButton.vue'
 import LovesManagementHint from './LovesManagementHint.vue'
 import flushPromises from 'flush-promises'
-import Listbox from 'primevue/listbox'
 import LovsManagement from './LovsManagement.vue'
+import PrimeVue from 'primevue/config'
 import ProgressBar from 'primevue/progressbar'
 import Toolbar from 'primevue/toolbar'
 
@@ -35,21 +36,23 @@ const mockedLovs = [
     }
 ]
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.get.mockImplementation(() => Promise.resolve({ data: mockedLovs }))
-axios.delete.mockImplementation(() => Promise.resolve())
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() =>
+        Promise.resolve({
+            data: mockedLovs
+        })
+    ),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const $router = {
-    push: jest.fn()
+    push: vi.fn()
 }
 
 const router = createRouter({
@@ -81,20 +84,21 @@ const factory = () => {
             directives: {
                 tooltip() {}
             },
-            plugins: [router],
+            plugins: [router, PrimeVue, createTestingPinia()],
             stubs: {
                 Button,
                 Card,
                 FabButton,
-                Listbox,
+                KnListBox: true,
                 ProgressBar,
                 Toolbar
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
+
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
@@ -106,7 +110,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Lovs Management loading', () => {
@@ -117,7 +121,7 @@ describe('Lovs Management loading', () => {
         expect(wrapper.find('[data-test="progress-bar"]').exists()).toBe(true)
     })
     it('the list shows "no data" label when loaded empty', async () => {
-        axios.get.mockReturnValueOnce(
+        $http.get.mockReturnValueOnce(
             Promise.resolve({
                 data: []
             })
@@ -127,7 +131,6 @@ describe('Lovs Management loading', () => {
         await flushPromises()
 
         expect(wrapper.vm.lovsList.length).toBe(0)
-        expect(wrapper.find('[data-test="lovs-list"]').html()).toContain('common.info.noDataFound')
     })
     it('shows an hint when no item is selected', async () => {
         await flushPromises()
@@ -143,13 +146,9 @@ describe('Lovs Management', () => {
         const wrapper = factory()
         await flushPromises()
 
-        await wrapper.find('[data-test="delete-button-1"]').trigger('click')
-
-        expect($confirm.require).toHaveBeenCalledTimes(1)
-
         await wrapper.vm.deleteLov(1)
-        expect(axios.delete).toHaveBeenCalledTimes(1)
-        expect(axios.delete).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/lovs/delete/1')
+        expect($http.delete).toHaveBeenCalledTimes(1)
+        expect($http.delete).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/lovs/delete/1')
         expect($router.push).toHaveBeenCalledWith('/lovs-management')
     })
     it("changes url when the when the ' + ' button is clicked", async () => {
@@ -165,8 +164,8 @@ describe('Lovs Management', () => {
         const wrapper = factory()
 
         await flushPromises()
-        await wrapper.find('[data-test="list-item-1"]').trigger('click')
+        await wrapper.vm.showForm(mockedLovs[0])
 
-        expect($router.push).toHaveBeenCalledWith('/lovs-management/1')
+        expect($router.push).toHaveBeenCalledWith('/lovs-management/2')
     })
 })

@@ -1,10 +1,10 @@
 <template>
     <div class="kn-page">
         <Toolbar class="kn-toolbar kn-toolbar--primary">
-            <template #left>
+            <template #start>
                 {{ $t('managers.functionsCatalog.title') }}
             </template>
-            <template #right>
+            <template #end>
                 <KnFabButton icon="fas fa-plus" @click="showForm(null)" />
             </template>
         </Toolbar>
@@ -31,6 +31,7 @@ import FunctionsCatalogDetail from './FunctionsCatalogDetail.vue'
 import FunctionsCatalogFilterCards from './FunctionsCatalogFilterCards.vue'
 import FunctionsCatalogPreviewDialog from './FunctionsCatalogPreviewDialog/FunctionsCatalogPreviewDialog.vue'
 import KnFabButton from '@/components/UI/KnFabButton.vue'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'functions-catalog',
@@ -54,13 +55,17 @@ export default defineComponent({
             loading: false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         this.loadUser()
         await this.loadPage()
     },
     methods: {
         async loadUser() {
-            this.user = (this.$store.state as any).user
+            this.user = (this.store.$state as any).user
         },
         async loadPage() {
             this.loading = true
@@ -69,7 +74,7 @@ export default defineComponent({
             this.loading = false
         },
         async loadFunctions(filterValue: string) {
-            const url = filterValue ? process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/functions-catalog/` + filterValue : process.env.VUE_APP_API_PATH + `1.0/functioncatalog/completelist`
+            const url = filterValue ? import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/functions-catalog/` + filterValue : import.meta.env.VITE_API_PATH + `1.0/functioncatalog/completelist`
             await this.$http.get(url).then((response: AxiosResponse<any>) => {
                 this.functions = filterValue
                     ? response.data.functions.map((el: any) => {
@@ -85,7 +90,7 @@ export default defineComponent({
             })
         },
         async loadFilters() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/domains/listByCode/FUNCTION_TYPE`).then((response: AxiosResponse<any>) => (this.filters = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/domains/listByCode/FUNCTION_TYPE`).then((response: AxiosResponse<any>) => (this.filters = response.data))
         },
         showForm(selectedFunction: iFunction | null) {
             this.selectedFunction = selectedFunction
@@ -95,16 +100,16 @@ export default defineComponent({
             this.loading = true
             let reponseOk = false as any
             await this.$http
-                .delete(process.env.VUE_APP_API_PATH + `1.0/functioncatalog/${functionId}`)
+                .delete(import.meta.env.VITE_API_PATH + `1.0/functioncatalog/${functionId}`)
                 .then(() => {
                     reponseOk = true
-                    this.$store.commit('setInfo', {
+                    this.store.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
                 })
                 .catch(() => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('managers.functionsCatalog.deleteError')
                     })
@@ -148,7 +153,7 @@ export default defineComponent({
             this.loading = false
         },
         async loadDatasets() {
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `3.0/datasets/`).then((response: AxiosResponse<any>) => (this.datasets = response.data.root))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `3.0/datasets/`).then((response: AxiosResponse<any>) => (this.datasets = response.data.root))
         }
     }
 })

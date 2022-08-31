@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Dropdown from 'primevue/dropdown'
@@ -8,6 +9,7 @@ import InputText from 'primevue/inputtext'
 import flushPromises from 'flush-promises'
 import GeneralSettingsCard from './GeneralSettingsCard.vue'
 import Toolbar from 'primevue/toolbar'
+import mainStore from '../../../../../App.store'
 
 const mockedDatasets = [
     {
@@ -81,14 +83,12 @@ const expectedConfiguration = [
     }
 ]
 
-jest.mock('axios', () => ({
-    get: jest.fn(() => Promise.resolve({ data: mockedDatasets })),
-    put: jest.fn(() => Promise.resolve()),
-    delete: jest.fn(() => Promise.resolve())
-}))
+vi.mock('axios')
 
-const $store = {
-    commit: jest.fn()
+const $http = {
+    get: vi.fn().mockImplementation(() => Promise.resolve({ data: mockedDatasets })),
+    put: vi.fn().mockImplementation(() => Promise.resolve()),
+    delete: vi.fn().mockImplementation(() => Promise.resolve())
 }
 
 const factory = (item, datasources, selectedDatasource) => {
@@ -99,18 +99,18 @@ const factory = (item, datasources, selectedDatasource) => {
             selectedDatasource
         },
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: { Button, Card, Dropdown, InputNumber, InputText, Toolbar },
             mocks: {
                 $t: (msg) => msg,
-                $store
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 describe('Cache Management General Settings', () => {
@@ -136,6 +136,7 @@ describe('Cache Management General Settings', () => {
     })
     it('when save is clicked the save function is called', async () => {
         const wrapper = factory(mockedSettings, mockedDatasets, mockedDatasets[0])
+        const store = mainStore()
 
         expect(wrapper.vm.settings).toStrictEqual(mockedSettings)
 
@@ -153,13 +154,16 @@ describe('Cache Management General Settings', () => {
         wrapper.vm.datasource = mockedDatasets[0]
 
         await wrapper.find('[data-test="save-button"]').trigger('click')
-        expect(axios.get).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/cacheee/remove')
-        expect(axios.put).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/datasources', { ...mockedDatasets[0], writeDefault: true })
 
         await flushPromises()
 
-        expect(axios.put).toHaveBeenCalledWith(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/configs/conf', { configurations: expectedConfiguration })
-        expect($store.commit).toHaveBeenCalledTimes(1)
+        expect($http.get).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/cacheee/remove')
+        expect($http.put).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/datasources', { ...mockedDatasets[0], writeDefault: true })
+
+        await flushPromises()
+
+        expect($http.put).toHaveBeenCalledWith(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/configs/conf', { configurations: expectedConfiguration })
+        expect(store.setInfo).toHaveBeenCalledTimes(1)
         expect(wrapper.emitted()).toHaveProperty('inserted')
     })
 })

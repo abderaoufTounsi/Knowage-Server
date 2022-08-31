@@ -3,16 +3,16 @@
         <ProgressBar mode="indeterminate" class="kn-progress-bar" v-if="loading" />
         <div class="p-grid p-m-0" v-if="!linkTableVisible">
             <div class="p-col-6">
-                <GlossaryUsageNavigationCard class="p-m-2" :type="'document'" :items="documents" @infoClicked="showDocumentInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onDocumentsSelected"></GlossaryUsageNavigationCard>
+                <GlossaryUsageNavigationCard class="p-m-2" :type="'document'" :items="documents" :glossaryChanged="glossaryChanged" @infoClicked="showDocumentInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onDocumentsSelected"></GlossaryUsageNavigationCard>
             </div>
             <div class="p-col-6">
-                <GlossaryUsageNavigationCard class="p-m-2" :type="'dataset'" :items="datasets" @infoClicked="showDatasetInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onDatasetsSelected"></GlossaryUsageNavigationCard>
+                <GlossaryUsageNavigationCard class="p-m-2" :type="'dataset'" :items="datasets" :glossaryChanged="glossaryChanged" @infoClicked="showDatasetInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onDatasetsSelected"></GlossaryUsageNavigationCard>
             </div>
             <div class="p-col-6">
-                <GlossaryUsageNavigationCard class="p-m-2" :type="'businessClass'" :items="businessClasses" @infoClicked="showBusinessClassInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onBusinessClassesSelected"></GlossaryUsageNavigationCard>
+                <GlossaryUsageNavigationCard class="p-m-2" :type="'businessClass'" :items="businessClasses" :glossaryChanged="glossaryChanged" @infoClicked="showBusinessClassInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onBusinessClassesSelected"></GlossaryUsageNavigationCard>
             </div>
             <div class="p-col-6">
-                <GlossaryUsageNavigationCard class="p-m-2" :type="'table'" :items="tables" @infoClicked="showTableInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onTablesSelected"></GlossaryUsageNavigationCard>
+                <GlossaryUsageNavigationCard class="p-m-2" :type="'table'" :items="tables" :glossaryChanged="glossaryChanged" @infoClicked="showTableInfo($event)" @linkClicked="onLinkClicked($event)" @selected="onTablesSelected"></GlossaryUsageNavigationCard>
             </div>
         </div>
         <GlossaryUsageLinkCard v-else :title="linkTableTitle" class="p-m-2" :items="linkTableItems" :words="selectedLinkItemWords" :treeWords="selectedLinkItemTree" :showModelColumn="showModelColumn" @close="onLinkTableClose" @selected="onLinkItemSelect"></GlossaryUsageLinkCard>
@@ -26,12 +26,13 @@ import { AxiosResponse } from 'axios'
 import GlossaryUsageNavigationCard from './card/GlossaryUsageNavigationCard.vue'
 import GlossaryUsageLinkCard from './card/GlossaryUsageLinkCard.vue'
 import glossaryUsageDescriptor from './GlossaryUsageDescriptor.json'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'glossary-usage-detail',
     components: { GlossaryUsageNavigationCard, GlossaryUsageLinkCard },
     props: { glossaryId: { type: Number }, selectedWords: { type: Array } },
-    emits: ['infoClicked', 'linkClicked', 'wordsFiltered'],
+    emits: ['infoClicked', 'linkClicked', 'wordsFiltered', 'loading'],
     data() {
         return {
             glossaryUsageDescriptor,
@@ -49,12 +50,14 @@ export default defineComponent({
             selectedLinkItemWords: {} as any,
             selectedLinkItemTree: {} as any,
             showModelColumn: false,
+            glossaryChanged: false,
             loading: false
         }
     },
     watch: {
         async glossaryId() {
             this.linkTableVisible = false
+            this.resetSelected()
             await this.loadNavigationItems('all', 'word')
         },
         selectedWords: {
@@ -64,12 +67,17 @@ export default defineComponent({
             deep: true
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadNavigationItems('all', 'word')
     },
     methods: {
         async loadNavigationItems(type: string, item: string) {
             this.loading = true
+            this.$emit('loading', true)
             const postData = {
                 type: type,
                 item: item,
@@ -80,13 +88,13 @@ export default defineComponent({
                     page: 1,
                     GLOSSARY_ID: this.glossaryId
                 },
-                document: { selected: this.selectedDocuments, search: '', item_number: 9223372036854775807, page: 1 },
-                dataset: { selected: this.selectedDatasets, search: '', item_number: 9223372036854775807, page: 1 },
-                table: { selected: this.selectedTables, search: '', item_number: 9223372036854775807, page: 1 },
-                bness_cls: { selected: this.selectedBusinessClasses, search: '', item_number: 9223372036854775807, page: 1 }
+                document: { selected: this.selectedDocuments, search: '', item_number: 9223372036854775807, page: 1, GLOSSARY_ID: this.glossaryId },
+                dataset: { selected: this.selectedDatasets, search: '', item_number: 9223372036854775807, page: 1, GLOSSARY_ID: this.glossaryId },
+                table: { selected: this.selectedTables, search: '', item_number: 9223372036854775807, page: 1, GLOSSARY_ID: this.glossaryId },
+                bness_cls: { selected: this.selectedBusinessClasses, search: '', item_number: 9223372036854775807, page: 1, GLOSSARY_ID: this.glossaryId }
             }
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/glossary/loadNavigationItem', postData)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/glossary/loadNavigationItem', postData)
                 .then((response: AxiosResponse<any>) => {
                     this.formatNavigationItems(response.data)
                     if (response.data.word) {
@@ -94,12 +102,15 @@ export default defineComponent({
                     }
                 })
                 .catch((response: AxiosResponse<any>) => {
-                    this.$store.commit('setError', {
+                    this.store.setError({
                         title: this.$t('common.error.generic'),
                         msg: response
                     })
                 })
-                .finally(() => (this.loading = false))
+                .finally(() => {
+                    this.loading = false
+                    this.$emit('loading', false)
+                })
         },
         formatNavigationItems(data: any) {
             if ('document' in data) {
@@ -141,10 +152,10 @@ export default defineComponent({
         async showDocumentInfo(document: iNavigationTableItem) {
             this.loading = true
             let tempDocument = null as any
-            await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/documents/${document.label}`).then((response: AxiosResponse<any>) => (tempDocument = response.data))
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documents/${document.label}`).then((response: AxiosResponse<any>) => (tempDocument = response.data))
 
             if (tempDocument) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/documents/${tempDocument.id}/roles`).then((response: AxiosResponse<any>) => (tempDocument.access = response.data))
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documents/${tempDocument.id}/roles`).then((response: AxiosResponse<any>) => (tempDocument.access = response.data))
                 this.$emit('infoClicked', { data: tempDocument, type: 'document' })
             }
             this.loading = false
@@ -187,7 +198,7 @@ export default defineComponent({
             this.showModelColumn = false
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument?Page=1&ItemPerPage=&label=&scope=GLOSSARY')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/documents/listDocument?Page=1&ItemPerPage=&label=&scope=GLOSSARY')
                 .then((response: AxiosResponse<any>) => {
                     response.data.item.forEach((el: any) =>
                         this.linkTableItems.push({
@@ -208,7 +219,7 @@ export default defineComponent({
             this.showModelColumn = false
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/datasets/?asPagedList=true&Page=1&ItemPerPage=&label=')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/datasets/?asPagedList=true&Page=1&ItemPerPage=&label=')
                 .then((response: AxiosResponse<any>) => {
                     response.data.item.forEach((el: any) => {
                         this.linkTableItems.push({
@@ -231,7 +242,7 @@ export default defineComponent({
             this.showModelColumn = true
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/metaBC/listMetaBC?Page=1&ItemPerPage=&label=')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/metaBC/listMetaBC?Page=1&ItemPerPage=&label=')
                 .then((response: AxiosResponse<any>) => {
                     response.data.forEach((el: any) =>
                         this.linkTableItems.push({
@@ -253,7 +264,7 @@ export default defineComponent({
             this.showModelColumn = false
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/metaTable/listMetaTable?Page=1&ItemPerPage=&label=')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/metaTable/listMetaTable?Page=1&ItemPerPage=&label=')
                 .then((response: AxiosResponse<any>) => {
                     response.data.forEach((el: any) =>
                         this.linkTableItems.push({
@@ -318,7 +329,7 @@ export default defineComponent({
         async loadDocumentWords(document: iLinkTableItem) {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/getDocumentInfo?DOCUMENT_ID=${document.id}`)
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/getDocumentInfo?DOCUMENT_ID=${document.id}`)
                 .then((response: AxiosResponse<any>) => (this.selectedLinkItemWords[document.id] = response.data.word))
                 .finally(() => (this.loading = false))
         },
@@ -371,17 +382,24 @@ export default defineComponent({
                 .finally(() => (this.loading = false))
         },
         loadDatasetInfo(dataset: any) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/getDataSetInfo?DATASET_ID=${dataset.id}&ORGANIZATION=${dataset.organization}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/getDataSetInfo?DATASET_ID=${dataset.id}&ORGANIZATION=${dataset.organization}`)
         },
         loadBusinessClassInfo(businessClass: any) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/getMetaBcInfo?META_BC_ID=${businessClass.id}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/getMetaBcInfo?META_BC_ID=${businessClass.id}`)
         },
         loadTableInfo(table: any) {
-            return this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `1.0/glossary/getMetaTableInfo?META_TABLE_ID=${table.id}`)
+            return this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/glossary/getMetaTableInfo?META_TABLE_ID=${table.id}`)
         },
         async onLinkTableClose() {
             this.linkTableVisible = false
             await this.loadNavigationItems('all', 'word')
+        },
+        resetSelected() {
+            this.selectedDocuments = []
+            this.selectedDatasets = []
+            this.selectedBusinessClasses = []
+            this.selectedTables = []
+            this.glossaryChanged = !this.glossaryChanged
         }
     }
 })

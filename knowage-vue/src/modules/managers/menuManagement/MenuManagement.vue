@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0 p-d-flex p-flex-column">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.menuManagement.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <KnFabButton icon="fas fa-plus" @click="showForm()" data-test="open-form-button"></KnFabButton>
                     </template>
                 </Toolbar>
@@ -16,7 +16,19 @@
 
             <div class="p-col-8 p-sm-8 p-md-9 p-p-0 p-m-0 kn-page">
                 <KnHint :title="'managers.menuManagement.title'" :hint="'managers.menuManagement.hint'" v-if="hideForm"></KnHint>
-                <MenuElementsDetail v-if="!hideForm" :selectedRoles="selectedMenuNode.roles" :roles="roles" :selectedMenuNode="selectedMenuNode" @refreshRecordSet="loadMenuNodes" @closesForm="closeForm" @dataChanged="dirty = true" :hidden="hideForm"></MenuElementsDetail>
+                <MenuElementsDetail
+                    v-if="!hideForm"
+                    :selectedRoles="selectedMenuNode.roles"
+                    :parentNodeRoles="parentNodeRoles"
+                    :roles="roles"
+                    :selectedMenuNode="selectedMenuNode"
+                    :menuNodes="menuNodes"
+                    :staticPagesList="staticPagesList"
+                    @refreshRecordSet="loadMenuNodes"
+                    @closesForm="closeForm"
+                    @dataChanged="dirty = true"
+                    :hidden="hideForm"
+                ></MenuElementsDetail>
             </div>
         </div>
     </div>
@@ -30,7 +42,9 @@ import KnHint from '@/components/UI/KnHint.vue'
 import { iMenuNode } from './MenuManagement'
 import MenuNodesTree from './MenuNodesTree/MenuManagementNodesTree.vue'
 import MenuElementsDetail from './ElementDetailsCard/MenuManagementElementsDetail.vue'
-import { iRole } from '../usersManagement/UsersManagement'
+import { iRole, iStaticPage } from '../usersManagement/UsersManagement'
+import mainStore from '../../../App.store'
+
 export default defineComponent({
     name: 'menu-management',
     components: {
@@ -41,18 +55,25 @@ export default defineComponent({
     },
     data() {
         return {
-            apiUrl: process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/',
+            apiUrl: import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/',
             menuNodes: [] as iMenuNode[],
+            staticPagesList: [] as iStaticPage[],
             selectedMenuNode: {} as any,
+            parentNodeRoles: [] as iRole[] | null,
             loading: false as Boolean,
             hideForm: true as Boolean,
             dirty: false as Boolean,
             roles: [] as iRole[]
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadMenuNodes()
         await this.loadRoles()
+        await this.loadStaticPages()
     },
     methods: {
         async loadRoles() {
@@ -81,7 +102,15 @@ export default defineComponent({
             this.selectedMenuNode.level = 0
             this.selectedMenuNode.icon = {}
             this.selectedMenuNode.roles = []
-            this.selectedMenuNode.custIcon = this.selectedMenuNode.externalApplicationUrl = this.selectedMenuNode.functionality = this.selectedMenuNode.initialPath = this.selectedMenuNode.objId = this.selectedMenuNode.objParameters = this.selectedMenuNode.staticPage = this.selectedMenuNode.parentId = null
+            this.selectedMenuNode.custIcon =
+                this.selectedMenuNode.externalApplicationUrl =
+                this.selectedMenuNode.functionality =
+                this.selectedMenuNode.initialPath =
+                this.selectedMenuNode.objId =
+                this.selectedMenuNode.objParameters =
+                this.selectedMenuNode.staticPage =
+                this.selectedMenuNode.parentId =
+                    null
             this.selectedMenuNode.hideSliders = this.selectedMenuNode.hideToolbar = this.selectedMenuNode.viewIcons = false
         },
         closeForm() {
@@ -98,6 +127,17 @@ export default defineComponent({
                 })
                 .finally(() => (this.loading = false))
         },
+        async loadStaticPages() {
+            this.loading = true
+            this.hideForm = true
+            this.dirty = false
+            await this.$http
+                .get(this.apiUrl + 'menu/htmls')
+                .then((response: AxiosResponse<any>) => {
+                    this.staticPagesList = response.data
+                })
+                .finally(() => (this.loading = false))
+        },
         onNodeSelect(menuNode?: iMenuNode) {
             if (this.dirty) {
                 this.$confirm.require({
@@ -111,8 +151,12 @@ export default defineComponent({
                     }
                 })
             } else {
-                if (menuNode) this.prepareFormData(menuNode)
-                else this.hideForm = true
+                if (menuNode && menuNode.menuId) this.prepareFormData(menuNode)
+                else {
+                    this.selectedMenuNode = { ...menuNode }
+                    this.parentNodeRoles = null
+                    this.hideForm = true
+                }
             }
         },
         onNodeUnselect() {
@@ -174,7 +218,7 @@ export default defineComponent({
                     this.axios
                         .delete(this.apiUrl + 'menu/' + id)
                         .then(() => {
-                            this.$store.commit('setInfo', {
+                            this.store.setInfo({
                                 title: this.$t('managers.menuManagement.info.deleteTitle'),
                                 msg: this.$t('managers.menuManagement.info.deleteMessage')
                             })
@@ -190,7 +234,14 @@ export default defineComponent({
             if (this.hideForm) {
                 this.hideForm = false
             }
-            this.selectedMenuNode = { ...menuNode }
+            this.selectedMenuNode = { ...menuNode, staticPage: menuNode.staticPage }
+            this.parentNodeRoles = null
+            if (menuNode.parentId) {
+                const parentNode = this.menuNodes.find((node) => node.menuId === menuNode.parentId)
+                if (parentNode) {
+                    this.parentNodeRoles = parentNode.roles
+                }
+            }
         }
     }
 })

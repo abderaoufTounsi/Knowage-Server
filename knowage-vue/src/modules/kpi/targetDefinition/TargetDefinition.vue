@@ -3,10 +3,10 @@
         <div class="kn-page-content p-grid p-m-0">
             <div class="kn-list--column p-col-4 p-sm-4 p-md-3 p-p-0">
                 <Toolbar class="kn-toolbar kn-toolbar--primary">
-                    <template #left>
+                    <template #start>
                         {{ $t('kpi.targetDefinition.title') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <KnFabButton icon="fas fa-plus" @click="showForm(null, false)" data-test="open-form-button"></KnFabButton>
                     </template>
                 </Toolbar>
@@ -51,6 +51,7 @@ import targetDefinitionDecriptor from './TargetDefinitionDescriptor.json'
 import KnFabButton from '@/components/UI/KnFabButton.vue'
 import Listbox from 'primevue/listbox'
 import { AxiosResponse } from 'axios'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'target-definition',
@@ -64,6 +65,10 @@ export default defineComponent({
             formatDate: formatDate
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     async created() {
         await this.loadAllMetadata()
     },
@@ -71,7 +76,7 @@ export default defineComponent({
         async loadAllMetadata() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpiee/listTarget')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpiee/listTarget')
                 .then(
                     (response: AxiosResponse<any>) =>
                         (this.targetList = response.data.map((target: any) => {
@@ -113,8 +118,8 @@ export default defineComponent({
             })
         },
         async deleteTarget(targetId: number) {
-            await this.$http.delete(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '1.0/kpiee/' + targetId + '/deleteTarget').then(() => {
-                this.$store.commit('setInfo', {
+            await this.$http.delete(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '1.0/kpiee/' + targetId + '/deleteTarget').then(() => {
+                this.store.setInfo({
                     title: this.$t('common.toast.deleteTitle'),
                     msg: this.$t('common.toast.deleteSuccess')
                 })

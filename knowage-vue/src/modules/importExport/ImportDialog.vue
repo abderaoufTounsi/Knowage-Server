@@ -48,7 +48,7 @@
                         </template>
 
                         <Column v-for="col in getData(functionality.type)" :field="col.field" :header="$t(col.header)" :key="col.field" :style="col.style" :selectionMode="col.field == 'selectionMode' ? 'multiple' : ''" :exportable="col.field == 'selectionMode' ? false : ''">
-                            <template #body="{data}" v-if="col.displayType">
+                            <template #body="{ data }" v-if="col.displayType">
                                 <span class="p-float-label kn-material-input">
                                     <div v-if="col.displayType == 'widgetTags'">
                                         <Tag class="importExportTags p-mr-1" v-for="(tag, index) in data.tags" v-bind:key="index" rounded :value="tag"> </Tag>
@@ -72,7 +72,7 @@
 
             <Button v-if="step == 0" v-bind:visible="visibility" class="kn-button kn-button--primary" v-t="'common.next'" :disabled="uploadedFiles && uploadedFiles.length == 0" @click="goToChooseElement(uploadedFiles)" />
             <span v-if="step == 1">
-                <Button v-bind:visible="visibility" class="kn-button kn-button--secondary" v-t="'common.back'" @click="resetToFirstStep"/>
+                <Button v-bind:visible="visibility" class="kn-button kn-button--secondary" v-t="'common.back'" @click="resetToFirstStep" />
                 <Button v-bind:visible="visibility" class="kn-button kn-button--primary" v-t="'common.import'" :disabled="isImportDisabled()" @click="startImport"
             /></span>
         </template>
@@ -80,226 +80,231 @@
 </template>
 
 <script lang="ts">
-    import { AxiosResponse } from 'axios'
-    import { defineComponent } from 'vue'
-    import { FilterMatchMode, FilterOperator } from 'primevue/api'
-    import { ICatalogFunctionTemplate } from '@/modules/importExport/catalogFunction/ICatalogFunctionTemplate'
-    import { IGalleryTemplate } from '@/modules/managers/galleryManagement/GalleryManagement'
-    import { ITableColumn } from '../commons/ITableColumn'
-    import Avatar from 'primevue/avatar'
-    import Badge from 'primevue/badge'
-    import Column from 'primevue/column'
-    import DataTable from 'primevue/datatable'
-    import Dialog from 'primevue/dialog'
-    import FileUpload from 'primevue/fileupload'
-    import importExportDescriptor from './ImportExportDescriptor.json'
-    import Message from 'primevue/message'
-    import TabPanel from 'primevue/tabpanel'
-    import TabView from 'primevue/tabview'
-    import Tag from 'primevue/tag'
+import { AxiosResponse } from 'axios'
+import { defineComponent } from 'vue'
+import { FilterMatchMode, FilterOperator } from 'primevue/api'
+import { ICatalogFunctionTemplate } from '@/modules/importExport/catalogFunction/ICatalogFunctionTemplate'
+import { IGalleryTemplate } from '@/modules/managers/galleryManagement/GalleryManagement'
+import { ITableColumn } from '../commons/ITableColumn'
+import Avatar from 'primevue/avatar'
+import Badge from 'primevue/badge'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
+import Dialog from 'primevue/dialog'
+import FileUpload from 'primevue/fileupload'
+import importExportDescriptor from './ImportExportDescriptor.json'
+import Message from 'primevue/message'
+import TabPanel from 'primevue/tabpanel'
+import TabView from 'primevue/tabview'
+import Tag from 'primevue/tag'
+import mainStore from '../../App.store'
 
-    export default defineComponent({
-        name: 'import-dialog',
-        components: { Avatar, Badge, Column, DataTable, Dialog, FileUpload, Message, TabPanel, TabView, Tag },
-        props: {
-            visibility: Boolean
-        },
-        data() {
-            return {
-                importExportDescriptor: importExportDescriptor,
-                uploadedFiles: [],
-                fileName: '',
-                filters: {},
-                loading: false,
-                packageItems: {
-                    gallery: Array<IGalleryTemplate>(),
-                    catalogFunction: Array<ICatalogFunctionTemplate>()
-                },
-                selectedItems: {
-                    gallery: Array<IGalleryTemplate>(),
-                    catalogFunction: Array<ICatalogFunctionTemplate>()
-                },
-                step: 0,
-                token: ''
+export default defineComponent({
+    name: 'import-dialog',
+    components: { Avatar, Badge, Column, DataTable, Dialog, FileUpload, Message, TabPanel, TabView, Tag },
+    props: {
+        visibility: Boolean
+    },
+    data() {
+        return {
+            importExportDescriptor: importExportDescriptor,
+            uploadedFiles: [],
+            fileName: '',
+            filters: {},
+            loading: false,
+            packageItems: {
+                gallery: Array<IGalleryTemplate>(),
+                catalogFunction: Array<ICatalogFunctionTemplate>()
+            },
+            selectedItems: {
+                gallery: Array<IGalleryTemplate>(),
+                catalogFunction: Array<ICatalogFunctionTemplate>()
+            },
+            step: 0,
+            token: ''
+        }
+    },
+    emits: ['update:visibility', 'import'],
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
+    created() {
+        this.filters = {
+            global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+            name: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
+            type: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
+            tags: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] }
+        }
+    },
+    methods: {
+        async cleanTempDirectory() {
+            if (this.token != '') {
+                this.uploadedFiles = []
+                await this.$http.get(import.meta.env.VITE_API_PATH + '1.0/import/cleanup', { params: { token: this.token } }).then(
+                    () => {
+                        this.token = ''
+                        this.packageItems = {
+                            gallery: [],
+                            catalogFunction: []
+                        }
+                    },
+                    (error) => console.log(error)
+                )
             }
         },
-        emits: ['update:visibility', 'import'],
-        created() {
-            this.filters = {
-                global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-                name: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
-                type: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.STARTS_WITH }] },
-                tags: { operator: FilterOperator.OR, constraints: [{ value: null, matchMode: FilterMatchMode.CONTAINS }] }
-            }
+        closeDialog(): void {
+            this.$emit('update:visibility', false)
         },
-        methods: {
-            async cleanTempDirectory() {
-                if (this.token != '') {
-                    this.uploadedFiles = []
-                    await this.$http.get(process.env.VUE_APP_API_PATH + '1.0/import/cleanup', { params: { token: this.token } }).then(
-                        () => {
-                            this.token = ''
-                            this.packageItems = {
-                                gallery: [],
-                                catalogFunction: []
-                            }
-                        },
-                        (error) => console.log(error)
-                    )
-                }
-            },
-            closeDialog(): void {
-                this.$emit('update:visibility', false)
-            },
-            emitImport(): void {
-                this.$emit('import', { files: this.uploadedFiles })
-            },
-            getData(type): Array<ITableColumn> {
-                let columns = this.importExportDescriptor['import'][type]['column']
-                columns.sort(function(a, b) {
-                    if (a.position > b.position) return 1
-                    if (a.position < b.position) return -1
-                    return 0
-                })
-                return columns
-            },
-            getMessageWarningCondition() {
-                return this.selectedItems.gallery.filter((e) => !e.id || (e.id && (e.id === '' || e.id === null))).length > 0
-            },
-            getPackageItems(e) {
-                this.packageItems[e.functionality] = e.items
-            },
-            getSelectedItems(e) {
-                this.selectedItems[e.functionality] = e.items
-            },
-            async goToChooseElement(uploadedFiles) {
-                if (this.uploadedFiles.length == 1) {
-                    this.loading = true
-                    this.step = 1
+        emitImport(): void {
+            this.$emit('import', { files: this.uploadedFiles })
+        },
+        getData(type): Array<ITableColumn> {
+            let columns = this.importExportDescriptor['import'][type]['column']
+            columns.sort(function (a, b) {
+                if (a.position > b.position) return 1
+                if (a.position < b.position) return -1
+                return 0
+            })
+            return columns
+        },
+        getMessageWarningCondition() {
+            return this.selectedItems.gallery.filter((e) => !e.id || (e.id && (e.id === '' || e.id === null))).length > 0
+        },
+        getPackageItems(e) {
+            this.packageItems[e.functionality] = e.items
+        },
+        getSelectedItems(e) {
+            this.selectedItems[e.functionality] = e.items
+        },
+        async goToChooseElement(uploadedFiles) {
+            if (this.uploadedFiles.length == 1) {
+                this.loading = true
+                this.step = 1
 
-                    var formData = new FormData()
-                    formData.append('file', uploadedFiles[0])
-                    await this.$http
-                        .post(process.env.VUE_APP_API_PATH + '1.0/import/upload', formData, {
-                            headers: {
-                                'Content-Type': 'multipart/form-data'
-                            }
-                        })
-                        .then(
-                            (response: AxiosResponse<any>) => {
-                                this.packageItems = response.data.entries
-                                this.token = response.data.token
-                                this.step = 1
-                            },
-                            () => this.$store.commit('setError', { title: this.$t('common.error.uploading'), msg: this.$t('importExport.import.completedWithErrors') })
-                        )
-                    this.loading = false
-                } else {
-                    this.$store.commit('setWarning', { title: this.$t('common.uploading'), msg: this.$t('managers.widgetGallery.noFileProvided') })
-                }
-            },
-            isImportDisabled(): Boolean {
-                for (var idx in this.selectedItems) {
-                    if (this.selectedItems[idx].length > 0) return false
-                }
-                return true
-            },
-            onDelete(idx) {
-                this.uploadedFiles.splice(idx)
-            },
-            onUpload(data) {
-                // eslint-disable-next-line
-                // @ts-ignore
-                this.uploadedFiles[0] = data.files[0]
-            },
-            resetAndClose(): void {
-                this.resetToFirstStep()
-                this.closeDialog()
-            },
-            resetSearchFilter(): void {
-                this.filters['global'].value = ''
-            },
-            async resetToFirstStep() {
-                this.step = 0
-                this.selectedItems = {
-                    gallery: [],
-                    catalogFunction: []
-                }
-                this.packageItems = {
-                    gallery: [],
-                    catalogFunction: []
-                }
-                this.cleanTempDirectory()
-            },
-
-            startImport() {
-                this.$store.commit('setLoading', true)
-                this.$http
-                    .post(process.env.VUE_APP_API_PATH + '1.0/import/bulk', this.streamlineSelectedItemsArray(), {
+                var formData = new FormData()
+                formData.append('file', uploadedFiles[0])
+                await this.$http
+                    .post(import.meta.env.VITE_API_PATH + '1.0/import/upload', formData, {
                         headers: {
-                            // Overwrite Axios's automatically set Content-Type
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'multipart/form-data'
                         }
                     })
                     .then(
-                        () => {
-                            this.$store.commit('setInfo', { title: this.$t('common.import'), msg: this.$t('importExport.import.successfullyCompleted') })
-
-                            this.$store.commit('setLoading', false)
+                        (response: AxiosResponse<any>) => {
+                            this.packageItems = response.data.entries
+                            this.token = response.data.token
+                            this.step = 1
                         },
-                        () => this.$store.commit('setError', { title: this.$t('common.error.import'), msg: this.$t('importExport.import.completedWithErrors') })
+                        () => this.store.setError({ title: this.$t('common.error.uploading'), msg: this.$t('importExport.import.completedWithErrors') })
                     )
-                this.token = ''
-                this.resetAndClose()
-            },
-
-            streamlineSelectedItemsArray(): JSON {
-                let selectedItemsToBE = {} as JSON
-                selectedItemsToBE['selectedItems'] = {}
-                for (var category in this.selectedItems) {
-                    for (var k in this.selectedItems[category]) {
-                        if (!selectedItemsToBE['selectedItems'][category]) {
-                            selectedItemsToBE['selectedItems'][category] = []
-                        }
-
-                        selectedItemsToBE['selectedItems'][category].push(this.selectedItems[category][k].id)
-                    }
-                }
-
-                selectedItemsToBE['token'] = this.token
-
-                return selectedItemsToBE
+                this.loading = false
+            } else {
+                this.store.setWarning({ title: this.$t('common.uploading'), msg: this.$t('managers.widgetGallery.noFileProvided') })
             }
+        },
+        isImportDisabled(): Boolean {
+            for (var idx in this.selectedItems) {
+                if (this.selectedItems[idx].length > 0) return false
+            }
+            return true
+        },
+        onDelete(idx) {
+            this.uploadedFiles.splice(idx)
+        },
+        onUpload(data) {
+            // eslint-disable-next-line
+            // @ts-ignore
+            this.uploadedFiles[0] = data.files[0]
+        },
+        resetAndClose(): void {
+            this.resetToFirstStep()
+            this.closeDialog()
+        },
+        resetSearchFilter(): void {
+            this.filters['global'].value = ''
+        },
+        async resetToFirstStep() {
+            this.step = 0
+            this.selectedItems = {
+                gallery: [],
+                catalogFunction: []
+            }
+            this.packageItems = {
+                gallery: [],
+                catalogFunction: []
+            }
+            this.cleanTempDirectory()
+        },
+
+        startImport() {
+            this.store.setLoading(true)
+            this.$http
+                .post(import.meta.env.VITE_API_PATH + '1.0/import/bulk', this.streamlineSelectedItemsArray(), {
+                    headers: {
+                        // Overwrite Axios's automatically set Content-Type
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(
+                    () => {
+                        this.store.setInfo({ title: this.$t('common.import'), msg: this.$t('importExport.import.successfullyCompleted') })
+
+                        this.store.setLoading(false)
+                    },
+                    () => this.store.setError({ title: this.$t('common.error.import'), msg: this.$t('importExport.import.completedWithErrors') })
+                )
+            this.token = ''
+            this.resetAndClose()
+        },
+
+        streamlineSelectedItemsArray(): JSON {
+            let selectedItemsToBE = {} as JSON
+            selectedItemsToBE['selectedItems'] = {}
+            for (var category in this.selectedItems) {
+                for (var k in this.selectedItems[category]) {
+                    if (!selectedItemsToBE['selectedItems'][category]) {
+                        selectedItemsToBE['selectedItems'][category] = []
+                    }
+
+                    selectedItemsToBE['selectedItems'][category].push(this.selectedItems[category][k].id)
+                }
+            }
+
+            selectedItemsToBE['token'] = this.token
+
+            return selectedItemsToBE
         }
-    })
+    }
+})
 </script>
 <style lang="scss">
-    .importExportDialog {
-        min-width: 600px;
-        width: 60%;
-        max-width: 1200px;
+.importExportDialog {
+    min-width: 600px;
+    width: 60%;
+    max-width: 1200px;
 
-        .p-fileupload-buttonbar {
-            border: none;
+    .p-fileupload-buttonbar {
+        border: none;
 
-            .p-button:not(.p-fileupload-choose) {
-                display: none;
-            }
-
-            .p-fileupload-choose {
-                @extend .kn-button--primary;
-            }
+        .p-button:not(.p-fileupload-choose) {
+            display: none;
         }
 
-        .functionalityTable {
-            min-height: 400px;
-            height: 40%;
+        .p-fileupload-choose {
+            @extend .kn-button--primary;
         }
     }
-    .importExportTags {
-        background-color: $color-default;
+
+    .functionalityTable {
+        min-height: 400px;
+        height: 40%;
     }
-    .thirdButton {
-        float: left;
-    }
+}
+.importExportTags {
+    background-color: var(--kn-color-default);
+}
+.thirdButton {
+    float: left;
+}
 </style>

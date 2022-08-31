@@ -2,7 +2,7 @@
     <div class="kn-page">
         <div class="kn-page-content custom-kn-page-width p-d-flex p-flex-column">
             <Toolbar class="kn-toolbar kn-toolbar--primary">
-                <template #left>
+                <template #start>
                     {{ $t('managers.schedulationAgendaManagement.title') }}
                 </template>
             </Toolbar>
@@ -161,7 +161,7 @@ export default defineComponent({
         async loadPackages() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '/scheduleree/listAllJobs')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '/scheduleree/listAllJobs')
                 .then((response: AxiosResponse<any>) => {
                     let rawList = response.data.root
                     let filteredList = rawList.filter((x) => x.jobGroup == 'BIObjectExecutions')
@@ -179,7 +179,7 @@ export default defineComponent({
         async loadDocuments() {
             this.loading = true
             await this.$http
-                .get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + '2.0/documents')
+                .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + '2.0/documents')
                 .then((response: AxiosResponse<any>) => {
                     this.documentList = response.data
                 })
@@ -202,7 +202,7 @@ export default defineComponent({
         runSearch() {
             this.loading = true
 
-            let path = process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=${this.formatDateTime(this.startDateTime)}&end=${this.formatDateTime(this.endDateTime)}`
+            let path = import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=${this.formatDateTime(this.startDateTime)}&end=${this.formatDateTime(this.endDateTime)}`
             if (this.selectedPackage) {
                 path += `&jobPackageName=${this.selectedPackage.id}`
             }
@@ -273,6 +273,6 @@ export default defineComponent({
     flex-grow: 1;
 }
 .custom-kn-page-width {
-    width: calc(100vw - #{$mainmenu-width});
+    width: calc(100vw - var(--kn-mainmenu-width));
 }
 </style>

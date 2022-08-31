@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import { createRouter, createWebHistory } from 'vue-router'
-import axios from 'axios'
 import PrimeVue from 'primevue/config'
 import Card from 'primevue/card'
 import Toolbar from 'primevue/toolbar'
@@ -203,20 +204,24 @@ const mockedResultList = {
     ]
 }
 
-axios.get.mockImplementation((url) => {
-    switch (url) {
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `/2.0/documents`:
-            return Promise.resolve({ data: mockedDocumentList })
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `/scheduleree/listAllJobs`:
-            return Promise.resolve({ data: mockedPackageList })
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=2021-11-06T00:11:00&end=2021-11-11T00:11:00`:
-            return Promise.resolve({ data: mockedResultFiveDays })
-        case process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=2021-11-06T00:11:00&end=2025-11-11T00:11:00`:
-            return Promise.resolve({ data: mockedResultList })
-        default:
-            return Promise.resolve({ data: [] })
-    }
-})
+vi.mock('axios')
+
+const $http = {
+    get: vi.fn().mockImplementation((url) => {
+        switch (url) {
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `/2.0/documents`:
+                return Promise.resolve({ data: mockedDocumentList })
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `/scheduleree/listAllJobs`:
+                return Promise.resolve({ data: mockedPackageList })
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=2021-11-06T00:11:00&end=2021-11-11T00:11:00`:
+                return Promise.resolve({ data: mockedResultFiveDays })
+            case import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/nextExecutions?start=2021-11-06T00:11:00&end=2025-11-11T00:11:00`:
+                return Promise.resolve({ data: mockedResultList })
+            default:
+                return Promise.resolve({ data: [] })
+        }
+    })
+}
 
 const router = createRouter({
     history: createWebHistory(),
@@ -232,30 +237,20 @@ const router = createRouter({
     ]
 })
 
-jest.mock('axios')
+vi.mock('axios')
 
 const $confirm = {
-    require: jest.fn(() => {
-        console.log('confirm call')
-    })
-}
-
-const $store = {
-    commit: jest.fn(() => {
-        console.log('store call')
-    })
+    require: vi.fn(() => {})
 }
 
 const $router = {
-    push: jest.fn(() => {
-        console.log('router call')
-    })
+    push: vi.fn(() => {})
 }
 
 const factory = () => {
     return mount(SchedulationAgenda, {
         global: {
-            plugins: [PrimeVue, router],
+            plugins: [PrimeVue, router, createTestingPinia()],
             stubs: {
                 Calendar,
                 Card,
@@ -264,21 +259,21 @@ const factory = () => {
                 InputText,
                 Toolbar,
                 ProgressBar,
-                SchedulationAgenda,
-                SchedulationAgendaHint
+                SchedulationAgendaHint,
+                SchedulationAgendaDialog: true
             },
             mocks: {
                 $t: (msg) => msg,
-                $store,
                 $confirm,
-                $router
+                $router,
+                $http
             }
         }
     })
 }
 
 afterEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
 })
 
 beforeEach(() => {})
@@ -306,16 +301,16 @@ describe('Scheduler Agenda', () => {
     })
     it('should return all the available packages from the next 5 days if launched without filter', async () => {
         const wrapper = factory()
-        await wrapper.setData({ startDateTime: new Date(2021, 10, 6, 0, 0, 0) })
-        await wrapper.setData({ endDateTime: new Date(2021, 10, 11, 0, 0, 0) })
+        wrapper.vm.startDateTime = new Date(2021, 10, 6, 0, 0, 0)
+        wrapper.vm.endDateTime = new Date(2021, 10, 11, 0, 0, 0)
         await wrapper.vm.runSearch()
         await flushPromises()
         expect(wrapper.vm.schedulations).toStrictEqual(mockedResultFiveDays.root)
     })
     it('should return all the available packaged from the days set if launched with filter', async () => {
         const wrapper = factory()
-        await wrapper.setData({ startDateTime: new Date(2021, 10, 6, 0, 0, 0) })
-        await wrapper.setData({ endDateTime: new Date(2025, 10, 11, 0, 0, 0) })
+        wrapper.vm.startDateTime = new Date(2021, 10, 6, 0, 0, 0)
+        wrapper.vm.endDateTime = new Date(2025, 10, 11, 0, 0, 0)
         await wrapper.vm.runSearch()
         await flushPromises()
         expect(wrapper.vm.schedulations).toStrictEqual(mockedResultList.root)

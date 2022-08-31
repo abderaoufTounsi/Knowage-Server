@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
-import axios from 'axios'
+import { describe, expect, it, vi } from 'vitest'
+import { createTestingPinia } from '@pinia/testing'
 import Button from 'primevue/button'
 import Registry from './Registry.vue'
 import ProgressBar from 'primevue/progressbar'
@@ -20,7 +21,7 @@ const mockedRegistry = {
             { name: 'column_6', header: 'florist', dataIndex: 'column_6', type: 'boolean', multiValue: false, defaultValue: null },
             { name: 'column_7', header: 'coffee_bar', dataIndex: 'column_7', type: 'boolean', multiValue: false, defaultValue: null },
             { name: 'column_8', header: 'video_store', dataIndex: 'column_8', type: 'boolean', multiValue: false, defaultValue: null },
-            { name: 'column_9', header: 'first_opened_date', dataIndex: 'column_9', type: 'date', subtype: 'timestamp', dateFormat: 'd/m/Y H:i:s.uuu', dateFormatJava: 'dd/MM/yyyy HH:mm:ss.SSS', multiValue: false, defaultValue: null },
+            { name: 'column_9', header: 'first_opened_date', dataIndex: 'column_9', type: 'timestamp', dateFormat: 'd/m/Y H:i:s.uuu', dateFormatJava: 'dd/MM/yyyy HH:mm:ss.SSS', multiValue: false, defaultValue: null },
             { name: 'column_10', header: 'store_sqft', dataIndex: 'column_10', type: 'int', precision: 0, scale: 0, format: '#,###', multiValue: false, defaultValue: null },
             { name: 'column_11', header: 'sales_city', dataIndex: 'column_11', type: 'string', multiValue: false, defaultValue: null }
         ],
@@ -82,23 +83,21 @@ const mockedRegistry = {
     }
 }
 
-jest.mock('axios')
+vi.mock('axios')
 
-axios.post.mockImplementation((url) => {
-    switch (url) {
-        case `/knowageqbeengine/servlet/AdapterHTTP?ACTION_NAME=LOAD_REGISTRY_ACTION&SBI_EXECUTION_ID=1`:
-            return Promise.resolve({ data: mockedRegistry })
-        default:
-            return Promise.resolve({ data: [] })
-    }
-})
-
-const $confirm = {
-    require: jest.fn()
+const $http = {
+    post: vi.fn().mockImplementation((url) => {
+        switch (url) {
+            case `/knowageqbeengine/servlet/AdapterHTTP?ACTION_NAME=LOAD_REGISTRY_ACTION&SBI_EXECUTION_ID=1`:
+                return Promise.resolve({ data: mockedRegistry })
+            default:
+                return Promise.resolve({ data: [] })
+        }
+    })
 }
 
-const $store = {
-    commit: jest.fn()
+const $confirm = {
+    require: vi.fn()
 }
 
 const factory = () => {
@@ -107,7 +106,7 @@ const factory = () => {
             id: '1'
         },
         global: {
-            plugins: [],
+            plugins: [createTestingPinia()],
             stubs: {
                 Button,
                 RegistryDatatable: true,
@@ -118,7 +117,7 @@ const factory = () => {
             mocks: {
                 $t: (msg) => msg,
                 $confirm,
-                $store
+                $http
             }
         }
     })

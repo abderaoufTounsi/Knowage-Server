@@ -17,6 +17,8 @@
  */
 package it.eng.qbe.statement.jpa;
 
+import static java.util.Objects.nonNull;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
@@ -37,7 +39,9 @@ import org.hibernate.Session;
 import org.hibernate.type.Type;
 
 import it.eng.qbe.datasource.jpa.IJpaDataSource;
+import it.eng.qbe.datasource.jpa.JPADataSource;
 import it.eng.qbe.model.accessmodality.IModelAccessModality;
+import it.eng.qbe.query.serializer.json.QuerySerializationConstants;
 import it.eng.qbe.statement.AbstractQbeDataSet;
 import it.eng.qbe.statement.IStatement;
 import it.eng.spagobi.commons.SingletonConfig;
@@ -172,7 +176,11 @@ public class JPQLDataSet extends AbstractQbeDataSet {
 								if (!valueDescriptionMap.isEmpty()) {
 									value = valueDescriptionMap.get("value");
 									valueAfterConversion = mapValueToRequiredType(wantedClass, value);
-									filter.setParameter(driverName, valueAfterConversion);
+									if (valueAfterConversion instanceof List) {
+										filter.setParameterList(driverName, (List) valueAfterConversion);
+									} else {
+										filter.setParameter(driverName, valueAfterConversion);
+									}
 								}
 							}
 							if (valueList.size() > 1) {
@@ -202,49 +210,79 @@ public class JPQLDataSet extends AbstractQbeDataSet {
 	/**
 	 * Map value from driver to the required value from Hibernate's filter.
 	 *
-	 * @param wantedClass
-	 *            Type wanted by Hibernate
-	 * @param value
-	 *            Actual value
+	 * @param wantedClass Type wanted by Hibernate
+	 * @param value       Actual value
 	 * @return The mapped value
 	 *
-	 * @throws NoSuchMethodException
-	 *             When the wanted class has no constructor with only one string as parameter
-	 * @throws SecurityException
-	 *             When constructor with only one string as parameter is private
-	 * @throws InstantiationException
-	 *             When you can't instantiate the required class
-	 * @throws IllegalAccessException
-	 *             When you can't access the required constructor
-	 * @throws IllegalArgumentException
-	 *             Shouldn't happen
-	 * @throws InvocationTargetException
-	 *             Shouldn't happen
-	 * @throws ParseException
-	 *             When the date string is invalid
+	 * @throws NoSuchMethodException     When the wanted class has no constructor with only one string as parameter
+	 * @throws SecurityException         When constructor with only one string as parameter is private
+	 * @throws InstantiationException    When you can't instantiate the required class
+	 * @throws IllegalAccessException    When you can't access the required constructor
+	 * @throws IllegalArgumentException  Shouldn't happen
+	 * @throws InvocationTargetException Shouldn't happen
+	 * @throws ParseException            When the date string is invalid
 	 */
 	private Object mapValueToRequiredType(Class<?> wantedClass, Object value) throws NoSuchMethodException, SecurityException, InstantiationException,
 			IllegalAccessException, IllegalArgumentException, InvocationTargetException, ParseException {
 		Object ret = null;
-		if (Date.class.equals(wantedClass)) {
-			String configValue = SingletonConfig.getInstance().getConfigValue("SPAGOBI.DATE-FORMAT-SERVER.format");
-			SimpleDateFormat simpleDateFormat = new SimpleDateFormat(configValue);
-			ret = simpleDateFormat.parse(value.toString());
+		if (value instanceof List) {
+			List<?> listOfValues = (List<?>) value;
+			List<Object> _ret = new ArrayList<>();
+
+			for (Object currValue : listOfValues) {
+				if (Date.class.equals(wantedClass)) {
+					String configValue = SingletonConfig.getInstance().getConfigValue("SPAGOBI.DATE-FORMAT-SERVER.format");
+					SimpleDateFormat simpleDateFormat = new SimpleDateFormat(configValue);
+					_ret.add(simpleDateFormat.parse(currValue.toString()));
+				} else {
+					Constructor<?> constructor = wantedClass.getConstructor(String.class);
+					_ret.add(constructor.newInstance(currValue.toString()));
+				}
+			}
+
+			ret = _ret;
 		} else {
-			Constructor<?> constructor = wantedClass.getConstructor(String.class);
-			ret = constructor.newInstance(value.toString());
+			if (Date.class.equals(wantedClass)) {
+				String configValue = SingletonConfig.getInstance().getConfigValue("SPAGOBI.DATE-FORMAT-SERVER.format");
+				SimpleDateFormat simpleDateFormat = new SimpleDateFormat(configValue);
+				ret = simpleDateFormat.parse(value.toString());
+			} else {
+				Constructor<?> constructor = wantedClass.getConstructor(String.class);
+				ret = constructor.newInstance(value.toString());
+			}
 		}
 		return ret;
 	}
 
 	private int getResultNumber(IStatement filteredStatement) {
 		int resultNumber = 0;
+		EntityManager em = null;
 		try {
 			String sqlQueryString = filteredStatement.getSqlQueryString();
-			Number singleResult = (Number) getEntityMananger().createNativeQuery("SELECT COUNT(*) FROM (" + sqlQueryString + ") COUNT_INLINE_VIEW").getSingleResult();
+			em = getEntityMananger();
+
+			/*
+			 * Workaround for KNOWAGE-6753.
+			 *
+			 * We had some concurrency problem here: I've fixed extracting a new connection to the database.
+			 */
+			em = em.getEntityManagerFactory().createEntityManager();
+
+			JPADataSource ds = ((JPADataSource) filteredStatement.getDataSource());
+			String dialect = ds.getToolsDataSource().getHibDialectClass();
+			int orderByIndexOf = sqlQueryString.toLowerCase().indexOf("order by");
+			if (dialect.equals(QuerySerializationConstants.DIALECT_SQLSERVER) && orderByIndexOf != -1) {
+				sqlQueryString = sqlQueryString.substring(0, orderByIndexOf);
+			}
+
+			Number singleResult = (Number) em.createNativeQuery("SELECT COUNT(*) FROM (" + sqlQueryString + ") COUNT_INLINE_VIEW").getSingleResult();
 			resultNumber = singleResult.intValue();
 		} catch (Exception e) {
 			throw new RuntimeException("Impossible to get result number", e);
+		} finally {
+			if (nonNull(em)) {
+				em.close();
+			}
 		}
 		return resultNumber;
 	}

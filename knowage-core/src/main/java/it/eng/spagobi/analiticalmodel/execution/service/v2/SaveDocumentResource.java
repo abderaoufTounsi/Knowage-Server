@@ -48,6 +48,7 @@ import it.eng.spagobi.analiticalmodel.execution.service.v2.dto.FolderDTO;
 import it.eng.spagobi.analiticalmodel.execution.service.v2.dto.MetadataDTO;
 import it.eng.spagobi.analiticalmodel.execution.service.v2.dto.SaveDocumentDTO;
 import it.eng.spagobi.analiticalmodel.execution.service.v2.dto.SourceDatasetDTO;
+import it.eng.spagobi.analiticalmodel.execution.service.v2.exception.InvalidHtmlPayloadInCockpitException;
 import it.eng.spagobi.analiticalmodel.functionalitytree.bo.LowFunctionality;
 import it.eng.spagobi.analiticalmodel.functionalitytree.dao.ILowFunctionalityDAO;
 import it.eng.spagobi.api.AbstractSpagoBIResource;
@@ -65,6 +66,7 @@ import it.eng.spagobi.utilities.JSError;
 import it.eng.spagobi.utilities.assertion.Assert;
 import it.eng.spagobi.utilities.exceptions.SpagoBIRuntimeException;
 import it.eng.spagobi.utilities.exceptions.SpagoBIServiceException;
+import it.eng.spagobi.utilities.filters.XSSUtils;
 
 @Path("/2.0/saveDocument")
 @ManageAuthorization
@@ -96,11 +98,17 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 				String action = saveDocumentDTO.getAction();
 				logger.debug("Action type is equal to [" + action + "]");
 				if (DOC_SAVE.equalsIgnoreCase(action)) {
+
+					checkAndSanitizeXSS(saveDocumentDTO);
+
 					id = doInsertDocument(saveDocumentDTO, error);
 				} else if (DOC_UPDATE.equalsIgnoreCase(action)) {
 					logger.error("DOC_UPDATE action is no more supported");
 					throw new SpagoBIServiceException(saveDocumentDTO.getPathInfo(), "sbi.document.unsupported.udpateaction");
 				} else if (MODIFY_COCKPIT.equalsIgnoreCase(action) || MODIFY_KPI.equalsIgnoreCase(action)) {
+
+					checkAndSanitizeXSS(saveDocumentDTO);
+
 					id = doModifyDocument(saveDocumentDTO, action, error);
 				} else {
 					throw new SpagoBIServiceException(saveDocumentDTO.getPathInfo(), "sbi.document.unsupported.action");
@@ -118,6 +126,49 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 			throw new SpagoBIServiceException(saveDocumentDTO.getPathInfo(), "sbi.document.saveError", e);
 		} finally {
 			logger.debug("OUT");
+		}
+	}
+
+	private void checkAndSanitizeXSS(SaveDocumentDTO saveDocumentDTO) {
+		XSSUtils xssUtils = new XSSUtils();
+
+		CustomDataDTO customDataDTO = saveDocumentDTO.getCustomDataDTO();
+		Map<String, Object> templateContent = customDataDTO.getTemplateContent();
+		ArrayList<Map<String, Object>> sheets = (ArrayList<Map<String, Object>>) templateContent.get("sheets");
+
+		for (Map<String, Object> sheet : sheets) {
+			String label = (String) sheet.get("label");
+			ArrayList<Map<String, Object>> widgets = (ArrayList<Map<String, Object>>) sheet.get("widgets");
+
+			for (Map<String, Object> widget : widgets) {
+
+				String type = (String) widget.get("type");
+
+				if ("html".equals(type)) {
+
+					String html = (String) widget.get("htmlToRender");
+
+					boolean isSafe = xssUtils.isSafe(html);
+
+					if (!isSafe) {
+						throw new InvalidHtmlPayloadInCockpitException(label, html);
+					}
+
+				} else if ("customchart".equals(type)) {
+
+					Map<String, Object> html = (Map<String, Object>) widget.get("html");
+
+					String code = (String) html.get("code");
+
+					boolean isSafe = xssUtils.isSafe(code);
+
+					if (!isSafe) {
+						throw new InvalidHtmlPayloadInCockpitException(label, code);
+					}
+
+				}
+			}
+
 		}
 	}
 
@@ -168,7 +219,7 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 			} else {
 				String type = documentDTO.getType();
 				if ("MAP".equalsIgnoreCase(type)) {
-					insertGeoreportDocument(saveDocumentDTO, documentManagementAPI);
+					id = insertGeoreportDocument(saveDocumentDTO, documentManagementAPI);
 				} else if ("DOCUMENT_COMPOSITE".equalsIgnoreCase(type)) {
 					id = insertCockpitDocument(saveDocumentDTO, documentManagementAPI);
 				} else if ("KPI".equalsIgnoreCase(type)) {
@@ -271,7 +322,7 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 		return toReturn;
 	}
 
-	private JSError insertGeoreportDocument(SaveDocumentDTO saveDocumentDTO, AnalyticalModelDocumentManagementAPI documentManagementAPI)
+	private Integer insertGeoreportDocument(SaveDocumentDTO saveDocumentDTO, AnalyticalModelDocumentManagementAPI documentManagementAPI)
 			throws JSONException, EMFUserError {
 		String sourceModelName = getAttributeAsString("model_name");
 		DocumentDTO documentDTO = saveDocumentDTO.getDocumentDTO();
@@ -281,17 +332,19 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 
 		Assert.assertNotNull(customDataDTO, "Custom data object cannot be null");
 
+		Integer id = null;
+
 		if (saveDocumentDTO.getSourceDatasetDTO() != null) {
 			SourceDatasetDTO sourceDatasetDTO = saveDocumentDTO.getSourceDatasetDTO();
-			insertGeoReportDocumentCreatedOnDataset(sourceDatasetDTO, documentDTO, customDataDTO, filteredFolders, documentManagementAPI);
+			id = insertGeoReportDocumentCreatedOnDataset(sourceDatasetDTO, documentDTO, customDataDTO, filteredFolders, documentManagementAPI);
 		} else if (sourceModelName != null) {
-			return new JSError().addError("Impossible to create geo document defined on a metamodel");
+			throw new SpagoBIRuntimeException("Impossible to create geo document defined on a metamodel");
 		} else {
-			insertGeoReportDocumentCreatedOnDataset(null, documentDTO, customDataDTO, filteredFolders, documentManagementAPI);
+			id = insertGeoReportDocumentCreatedOnDataset(null, documentDTO, customDataDTO, filteredFolders, documentManagementAPI);
 			// throw new SpagoBIServiceException(SERVICE_NAME,
 			// "Impossible to create geo document because both sourceModel and sourceDataset are null");
 		}
-		return new JSError();
+		return id;
 	}
 
 	private Integer insertKPIDocument(SaveDocumentDTO saveDocumentDTO, AnalyticalModelDocumentManagementAPI documentManagementAPI)
@@ -348,7 +401,7 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 		return document.getId();
 	}
 
-	private JSError insertGeoReportDocumentCreatedOnDataset(SourceDatasetDTO sourceDataset, DocumentDTO documentDTO, CustomDataDTO customData,
+	private Integer insertGeoReportDocumentCreatedOnDataset(SourceDatasetDTO sourceDataset, DocumentDTO documentDTO, CustomDataDTO customData,
 			List<Integer> folders, AnalyticalModelDocumentManagementAPI documentManagementAPI) throws EMFUserError, JSONException {
 
 		logger.debug("IN");
@@ -365,10 +418,10 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 			try {
 				ISourceDataset = DAOFactory.getDataSetDAO().loadDataSetByLabel(sourceDatasetLabel);
 			} catch (Throwable t) {
-				return new JSError().addError("Impossible to load source datset [" + sourceDatasetLabel + "]");
+				throw new SpagoBIRuntimeException("Impossible to load source datset [" + sourceDatasetLabel + "]");
 			}
 			if (ISourceDataset == null) {
-				return new JSError().addError("Source datset [" + sourceDatasetLabel + "] does not exist");
+				throw new SpagoBIRuntimeException("Source datset [" + sourceDatasetLabel + "] does not exist");
 			}
 			document.setDataSetId(ISourceDataset.getId());
 		}
@@ -382,7 +435,7 @@ public class SaveDocumentResource extends AbstractSpagoBIResource {
 		if (metadata != null && metadata.size() > 0) {
 			documentManagementAPI.saveDocumentMetadataProperties(document, null, metadata);
 		}
-		return new JSError();
+		return document.getId();
 	}
 
 	// TODO consolidate the following 2 methods

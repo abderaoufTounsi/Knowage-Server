@@ -1,12 +1,13 @@
 <template>
     <Toolbar class="kn-toolbar kn-toolbar--primary p-m-0">
-        <template #left>{{ job.jobName }}</template>
-        <template #right>
+        <template #start>{{ job.jobName }}</template>
+        <template #end>
             <Button icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain" :disabled="saveDisabled" @click="saveJob" data-test="save-button" />
             <Button icon="pi pi-times" class="p-button-text p-button-rounded p-button-plain" @click="closeJobDetail" />
         </template>
     </Toolbar>
     <ProgressBar mode="indeterminate" class="kn-progress-bar" v-if="loading" data-test="progress-bar" />
+
     <Card v-if="job" id="scheduler-detail-card" class="p-m-2">
         <template #content>
             <form v-if="job" class="p-fluid p-formgrid p-grid p-m-4">
@@ -26,7 +27,7 @@
                         />
                         <label for="jobName" class="kn-material-input-label"> {{ $t('managers.scheduler.packageName') }} *</label>
                     </span>
-                    <small v-if="job.jobName?.length === 0 && jobNameDirty" class="p-error ">
+                    <small v-if="job.jobName?.length === 0 && jobNameDirty" class="p-error">
                         {{ $t('common.validation.required', { fieldName: $t('managers.scheduler.packageName') }) }}
                     </small>
                 </div>
@@ -50,6 +51,7 @@ import Card from 'primevue/card'
 import SchedulerDocumentsTable from './SchedulerDocumentsTable/SchedulerDocumentsTable.vue'
 import SchedulerTimingOutputTable from './SchedulerTimingOutputTable/SchedulerTimingOutputTable.vue'
 import { AxiosResponse } from 'axios'
+import mainStore from '../../../App.store'
 
 export default defineComponent({
     name: 'scheduler-detail',
@@ -77,6 +79,10 @@ export default defineComponent({
             return this.job && this.job.edit ? true : false
         }
     },
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     created() {
         this.loadJob()
     },
@@ -94,10 +100,10 @@ export default defineComponent({
             this.formatJob()
 
             await this.$http
-                .post(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `scheduleree/saveJob`, this.job)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `scheduleree/saveJob`, this.job)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.resp === 'ok') {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('common.toast.' + this.operation + 'Title'),
                             msg: this.$t('common.toast.success')
                         })
@@ -113,6 +119,7 @@ export default defineComponent({
         formatJob() {
             delete this.job?.edit
             delete this.job?.numberOfDocuments
+            this.job?.documents.forEach((document: any) => document.parameters?.forEach((parameter: any) => (parameter.value = parameter.value.trim())))
         },
         closeJobDetail() {
             this.job = null

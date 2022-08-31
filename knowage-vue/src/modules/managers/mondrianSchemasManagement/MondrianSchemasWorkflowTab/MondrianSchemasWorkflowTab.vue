@@ -3,7 +3,7 @@
         <div class="p-grid">
             <div class="p-col">
                 <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.mondrianSchemasManagement.workFlow.availableUsers') }}
                     </template>
                 </Toolbar>
@@ -31,10 +31,10 @@
             </div>
             <div class="p-col">
                 <Toolbar class="kn-toolbar kn-toolbar--secondary">
-                    <template #left>
+                    <template #start>
                         {{ $t('managers.mondrianSchemasManagement.workFlow.userWf') }}
                     </template>
-                    <template #right>
+                    <template #end>
                         <span v-tooltip.top="$t(tooltipValue)">
                             <Button :disabled="disableButton" icon="pi pi-play" class="p-button-rounded" @click="startWorkflow" />
                         </span>
@@ -80,6 +80,7 @@ import workflowDescriptor from './MondrianSchemasWorkflowDescriptor.json'
 import Listbox from 'primevue/listbox'
 import { AxiosResponse } from 'axios'
 import Tooltip from 'primevue/tooltip'
+import mainStore from '../../../../App.store'
 
 export default defineComponent({
     name: 'workflow-tab',
@@ -119,7 +120,10 @@ export default defineComponent({
             userInProg: null as any
         }
     },
-
+    setup() {
+        const store = mainStore()
+        return { store }
+    },
     mounted() {
         if (this.selectedSchema) {
             this.schema = { ...this.selectedSchema } as iSchema
@@ -143,7 +147,7 @@ export default defineComponent({
         },
         async isWorkflowStarted() {
             if (this.schema.id) {
-                await this.$http.get(process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/workflow/isStarted/${this.schema.id}`).then((response: AxiosResponse<any>) => {
+                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/workflow/isStarted/${this.schema.id}`).then((response: AxiosResponse<any>) => {
                     if (response.data > 0) {
                         this.isStartedWf = true
                         this.userInProg = response.data
@@ -158,14 +162,14 @@ export default defineComponent({
             }
         },
         async startWorkflow() {
-            let url = process.env.VUE_APP_RESTFUL_SERVICES_PATH + `2.0/workflow/startWorkflow/${this.schema.id}`
+            let url = import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/workflow/startWorkflow/${this.schema.id}`
             await this.$http
                 .put(url)
                 .then((response: AxiosResponse<any>) => {
                     if (response.data.errors) {
-                        this.$store.commit('setError', { title: this.$t('managers.mondrianSchemasManagement.toast.workflow.startFailed'), msg: response.data.errors[0].message })
+                        this.store.setError({ title: this.$t('managers.mondrianSchemasManagement.toast.workflow.startFailed'), msg: response.data.errors[0].message })
                     } else {
-                        this.$store.commit('setInfo', {
+                        this.store.setInfo({
                             title: this.$t('managers.mondrianSchemasManagement.toast.workflow.started'),
                             msg: this.$t('managers.mondrianSchemasManagement.toast.workflow.startedOk')
                         })
@@ -218,7 +222,7 @@ export default defineComponent({
         }
     }
     .workflowContainer {
-        border: 1px solid $color-borders;
+        border: 1px solid var(--kn-color-borders);
         border-top: none;
     }
 }
