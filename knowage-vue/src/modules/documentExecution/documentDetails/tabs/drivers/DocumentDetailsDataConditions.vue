@@ -260,8 +260,9 @@ export default defineComponent({
                     if (this.selectedModes[i] === +modalityKeys[j]) {
                         const conditionForPost = {
                             ...this.condition,
-                            parFatherId: this.condition.parFather.id,
-                            parFatherUrlName: (this.selectedDriver as any).parameterUrlName,
+                            parFatherId: this.condition.parFatherId,
+                            // parFatherUrlName: (this.selectedDriver as any).parameterUrlName,
+                            parFatherUrlName: this.getDriverProperty(this.condition.parFatherId, 'parameterUrlName'),
                             parId: (this.selectedDriver as any).id,
                             useModeId: +modalityKeys[j],
                             filterColumn: this.modalities[this.selectedModes[i]]
@@ -346,6 +347,10 @@ export default defineComponent({
             this.condition = {}
             this.operation = 'insert'
             this.conditionFormVisible = false
+        },
+        getDriverProperty(driverId: number, property: string) {
+            const index = this.availableDrivers.findIndex((driver: any) => driver.id === driverId)
+            return index !== -1 ? this.availableDrivers[index][property] : ''
         }
     }
 })

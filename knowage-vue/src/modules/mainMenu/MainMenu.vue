@@ -149,7 +149,6 @@ export default defineComponent({
             }, import.meta.env.VITE_MENU_FADE_TIMER)
         },
         newsSelection() {
-            console.log('ALLOWED: ', this.allowedUserFunctionalities)
             this.newsDisplay = !this.newsDisplay
         },
         licenseSelection() {
@@ -370,9 +369,9 @@ export default defineComponent({
                 height: 45px;
                 float: right;
                 margin-left: 4px;
-                border-radius: 50%;
+                border-radius: var(--kn-mainmenu-avatar-border-radius);
                 border: 2px solid var(--kn-mainmenu-highlight-color);
-                background-color: white;
+                background-color: var(--kn-mainmenu-avatar-background-color);
             }
             .profile-name,
             .profile-role,

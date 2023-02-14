@@ -305,7 +305,7 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				requestUrl.widget[i] = widget;
 				if (!angular.equals(cockpitModule_properties.VARIABLES,{})) {
 					for (var k in widget.content.columnSelectedOfDataset) {
-						if(Array.isArray(widget.content.columnSelectedOfDataset[k].variables) && widget.content.columnSelectedOfDataset[k].variables.length) {
+						if(Array.isArray(widget.content.columnSelectedOfDataset[k].variables) && widget.content.columnSelectedOfDataset[k].variables.length >0) {
 							if (widget.type == "table" && widget.content.columnSelectedOfDataset[k].variables[0].action == 'header') {
 								for (var j in cockpitModule_properties.VARIABLES) {
 									if (j == widget.content.columnSelectedOfDataset[k].variables[0].variable){
@@ -347,7 +347,7 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 						requestUrl.COCKPIT_SELECTIONS[i][k].drivers = drivers;
 						requestUrl.COCKPIT_SELECTIONS[i][k].selections = selections;
 					}
-					requestUrl.COCKPIT_VARIABLES[i] = cockpitModule_properties.VARIABLES;
+					
 				}
 				else if (widget.dataset && Object.keys(widget.dataset).length != 0) {
 					var dsId = widget.dataset.dsId
@@ -364,15 +364,17 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 					}
 					var loadDomainValues = widget.type == "selector" ? true : false;
 					var selections = cockpitModule_datasetServices.getWidgetSelectionsAndFilters(widget, dataset, loadDomainValues);
+					var userSelections = cockpitModule_widgetSelection.getUserSelections(dataset.label);
 					var parameters = cockpitModule_datasetServices.getDatasetParameters(dsId);
 					var parametersString = cockpitModule_datasetServices.getParametersAsString(parameters);
 					var paramsToSend = angular.fromJson(parametersString);
 					requestUrl.COCKPIT_SELECTIONS[i].aggregations = aggregation;
 					requestUrl.COCKPIT_SELECTIONS[i].parameters = paramsToSend;
-					requestUrl.COCKPIT_SELECTIONS[i].drivers = drivers;
+					requestUrl.COCKPIT_SELECTIONS[i].drivers = drivers;					
 					requestUrl.COCKPIT_SELECTIONS[i].selections = selections;
-					requestUrl.COCKPIT_VARIABLES[i] = cockpitModule_properties.VARIABLES;
+					requestUrl.COCKPIT_SELECTIONS[i].userSelections = userSelections;
 				}
+				requestUrl.COCKPIT_VARIABLES= cockpitModule_properties.VARIABLES;
 			}
 
 			var config = {"responseType": "arraybuffer"};
@@ -475,7 +477,9 @@ function cockpitToolbarControllerFunction($scope,$timeout,$q,$location,windowCom
 				 clickOutsideToClose:false
 				 })
 
-			cockpitModule_properties.LOADING_SCREENSHOT = true;
+				 $timeout(function(){
+					cockpitModule_properties.LOADING_SCREENSHOT = true;
+				},0)
 
 			var abortTimeout;
 			function resetTimeout(){

@@ -1,32 +1,20 @@
 <template>
     <div class="kn-height-full detail-page-container">
-        <Toolbar v-if="!embed && !olapDesignerMode && !managementOpened" class="kn-toolbar kn-toolbar--primary p-col-12">
+        <Toolbar v-if="!embed && !olapDesignerMode && !managementOpened && !dashboardGeneralSettingsOpened" class="kn-toolbar kn-toolbar--primary p-col-12">
             <template #start>
-                <span>{{ document?.name }}</span>
+                <DocumentExecutionBreadcrumb v-if="breadcrumbs.length > 1" :breadcrumbs="breadcrumbs" @breadcrumbClicked="onBreadcrumbClick"></DocumentExecutionBreadcrumb>
+                <span v-else>{{ document?.name }}</span>
             </template>
-
             <template #end>
                 <div class="p-d-flex p-jc-around">
                     <Button v-if="mode == 'dashboard'" icon="fas fa-database" class="p-button-text p-button-rounded p-button-plain p-mx-2" :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }" v-tooltip.left="$t('common.datasets')" @click="openDashboardDatasetManagement"></Button>
-                    <Button v-if="mode == 'dashboard'" icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain p-mx-2" :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }" v-tooltip.left="$t('common.save')"></Button>
-                    <Button
-                        icon="pi pi-pencil"
-                        class="p-button-text p-button-rounded p-button-plain p-mx-2"
-                        v-if="mode !== 'dashboard' && document?.typeCode === 'DOCUMENT_COMPOSITE' && documentMode === 'VIEW'"
-                        v-tooltip.left="$t('documentExecution.main.editCockpit')"
-                        @click="editCockpitDocumentConfirm"
-                    ></Button>
-                    <Button
-                        icon="fa fa-eye"
-                        class="p-button-text p-button-rounded p-button-plain p-mx-2"
-                        v-if="mode !== 'dashboard' && document?.typeCode === 'DOCUMENT_COMPOSITE' && documentMode === 'EDIT'"
-                        v-tooltip.left="$t('documentExecution.main.viewCockpit')"
-                        @click="editCockpitDocumentConfirm"
-                    ></Button>
+                    <Button v-if="mode == 'dashboard'" icon="pi pi-save" class="p-button-text p-button-rounded p-button-plain p-mx-2" :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }" v-tooltip.left="$t('common.save')" @click="saveDashboard"></Button>
+                    <Button icon="pi pi-pencil" class="p-button-text p-button-rounded p-button-plain p-mx-2" v-if="mode !== 'dashboard' && canEditCockpit && documentMode === 'VIEW'" v-tooltip.left="$t('documentExecution.main.editCockpit')" @click="editCockpitDocumentConfirm"></Button>
+                    <Button icon="fa fa-eye" class="p-button-text p-button-rounded p-button-plain p-mx-2" v-if="mode !== 'dashboard' && canEditCockpit && documentMode === 'EDIT'" v-tooltip.left="$t('documentExecution.main.viewCockpit')" @click="editCockpitDocumentConfirm"></Button>
                     <Button v-if="mode !== 'dashboard'" icon="pi pi-book" class="p-button-text p-button-rounded p-button-plain p-mx-2" v-tooltip.left="$t('common.onlineHelp')" @click="openHelp"></Button>
-                    <Button icon="pi pi-refresh" class="p-button-text p-button-rounded p-button-plain p-mx-2" :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }" v-tooltip.left="$t('common.refresh')" @click="refresh"></Button>
+                    <Button v-if="!newDashboardMode" icon="pi pi-refresh" class="p-button-text p-button-rounded p-button-plain p-mx-2" :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }" v-tooltip.left="$t('common.refresh')" @click="refresh"></Button>
                     <Button
-                        v-if="isParameterSidebarVisible"
+                        v-if="isParameterSidebarVisible && !newDashboardMode"
                         icon="fa fa-filter"
                         class="p-button-text p-button-rounded p-button-plain p-mx-2"
                         :class="{ 'dashboard-toolbar-icon': mode === 'dashboard' }"
@@ -42,12 +30,11 @@
             </template>
         </Toolbar>
         <ProgressBar v-if="loading" class="kn-progress-bar" mode="indeterminate" />
-        <DocumentExecutionBreadcrumb v-if="breadcrumbs.length > 1" :breadcrumbs="breadcrumbs" @breadcrumbClicked="onBreadcrumbClick"></DocumentExecutionBreadcrumb>
 
         <div ref="document-execution-view" id="document-execution-view" class="p-d-flex p-flex-row myDivToPrint">
             <div v-if="parameterSidebarVisible" id="document-execution-backdrop" @click="parameterSidebarVisible = false"></div>
 
-            <template v-if="filtersData && filtersData.isReadyForExecution && !loading && !schedulationsTableVisible">
+            <template v-if="(filtersData && filtersData.isReadyForExecution && !loading && !schedulationsTableVisible) || newDashboardMode">
                 <Registry v-if="mode === 'registry'" :id="urlData?.sbiExecutionId" :reloadTrigger="reloadTrigger"></Registry>
                 <Dossier v-else-if="mode === 'dossier'" :id="document.id" :reloadTrigger="reloadTrigger" :filterData="filtersData"></Dossier>
                 <Olap
@@ -62,15 +49,23 @@
                     @applyCustomView="executeOlapCustomView"
                     @executeCrossNavigation="executeOLAPCrossNavigation"
                 ></Olap>
-                <DashboardController v-else-if="mode === 'dashboard'" :sbiExecutionId="urlData?.sbiExecutionId" :document="document" :reloadTrigger="reloadTrigger" :hiddenFormData="hiddenFormData" :filtersData="filtersData"></DashboardController>
+                <DashboardController
+                    v-else-if="mode === 'dashboard' || newDashboardMode"
+                    :sbiExecutionId="urlData?.sbiExecutionId"
+                    :document="document"
+                    :reloadTrigger="reloadTrigger"
+                    :hiddenFormData="hiddenFormData"
+                    :filtersData="filtersData"
+                    :newDashboardMode="newDashboardMode"
+                    @newDashboardSaved="onNewDashboardSaved"
+                ></DashboardController>
             </template>
-
             <iframe
                 v-for="(item, index) in breadcrumbs"
                 :key="index"
                 ref="documentFrame"
                 :name="'documentFrame' + index"
-                v-show="mode === 'iframe' && filtersData && filtersData.isReadyForExecution && !loading && !schedulationsTableVisible && item.label === document.label"
+                v-show="mode === 'iframe' && filtersData && filtersData.isReadyForExecution && !loading && !schedulationsTableVisible && (item.label === document.name || (crossNavigationContainerData && index === breadcrumbs.length - 1))"
                 class="document-execution-iframe"
             ></iframe>
 
@@ -129,8 +124,27 @@ import moment from 'moment'
 import DocumentExecutionSelectCrossNavigationDialog from './dialogs/documentExecutionSelectCrossNavigationDialog/DocumentExecutionSelectCrossNavigationDialog.vue'
 import DocumentExecutionCNContainerDialog from './dialogs/documentExecutionCNContainerDialog/DocumentExecutionCNContainerDialog.vue'
 import mainStore from '../../../App.store'
+import { mapState, mapActions } from 'pinia'
 import deepcopy from 'deepcopy'
 import DashboardController from '../dashboard/DashboardController.vue'
+import { getCorrectRolesForExecution } from '../../../helpers/commons/roleHelper'
+import { findCrossTargetByCrossName, loadNavigationParamsInitialValue } from './DocumentExecutionAngularCrossNavigationHelper'
+
+// @ts-ignore
+// eslint-disable-next-line
+window.execExternalCrossNavigation = function(outputParameters, otherOutputParameters, crossNavigationLabel) {
+    postMessage(
+        {
+            type: 'crossNavigation',
+            outputParameters: outputParameters,
+            inputParameters: {},
+            targetCrossNavigation: crossNavigationLabel,
+            docLabel: null,
+            otherOutputParameters: otherOutputParameters ? [otherOutputParameters] : []
+        },
+        '*'
+    )
+}
 
 export default defineComponent({
     name: 'document-execution',
@@ -193,7 +207,6 @@ export default defineComponent({
             } | null,
             sbiExecutionId: null as string | null,
             embedHTML: false,
-            user: null as any,
             reloadTrigger: false,
             breadcrumbs: [] as any[],
             linkParameters: [],
@@ -208,7 +221,9 @@ export default defineComponent({
             crossNavigationDocuments: [] as any[],
             angularData: null as any,
             crossNavigationContainerVisible: false,
-            crossNavigationContainerData: null as any
+            crossNavigationContainerData: null as any,
+            newDashboardMode: false,
+            dashboardGeneralSettingsOpened: false
         }
     },
     watch: {
@@ -231,10 +246,6 @@ export default defineComponent({
             }
         }
     },
-    setup() {
-        const store = mainStore()
-        return { store }
-    },
     async activated() {
         if (this.mode === 'iframe' && this.$route.name !== 'new-dashboard') {
             if (this.userRole) {
@@ -249,6 +260,14 @@ export default defineComponent({
         window.removeEventListener('message', this.iframeEventsListener)
     },
     computed: {
+        ...mapState(mainStore, {
+            user: 'user',
+            configurations: 'configurations'
+        }),
+        canEditCockpit(): boolean {
+            if (!this.user || !this.document) return false
+            return (this.document.engine?.toLowerCase() === 'knowagecockpitengine' || this.document.engine?.toLowerCase() === 'knowagedashboardengine') && (this.user.functionalities?.includes('DocumentAdminManagement') || this.document.creationUser === this.user.userId)
+        },
         sessionRole(): string | null {
             if (!this.user) return null
             return this.user.sessionRole !== this.$t('role.defaultRolePlaceholder') ? this.user.sessionRole : null
@@ -264,6 +283,8 @@ export default defineComponent({
             }
         },
         isParameterSidebarVisible(): boolean {
+            if (!this.userRole) return false
+
             let parameterVisible = false
             for (let i = 0; i < this.filtersData?.filterStatus?.length; i++) {
                 const tempFilter = this.filtersData.filterStatus[i]
@@ -273,7 +294,7 @@ export default defineComponent({
                 }
             }
 
-            return parameterVisible || !this.sessionRole
+            return parameterVisible
         }
     },
     async created() {
@@ -283,6 +304,9 @@ export default defineComponent({
 
         if (this.propMode !== 'document-execution' && !this.$route.path.includes('olap-designer') && this.$route.name !== 'document-execution' && this.$route.name !== 'document-execution-embed' && this.$route.name !== 'document-execution-workspace') return
 
+        if (this.$route.name === 'new-dashboard') {
+            this.newDashboardMode = true
+        }
         await this.loadUserConfig()
 
         this.isOlapDesignerMode()
@@ -292,18 +316,51 @@ export default defineComponent({
 
         if (!this.document.label) return
 
+        this.userRole = this.user?.sessionRole !== this.$t('role.defaultRolePlaceholder') ? this.user?.sessionRole : null
+
+        if (this.document.label === 'new-dashboard') {
+            this.newDashboardMode = true
+            return
+        }
+
         await this.loadDocument()
 
-        this.user = (this.store.$state as any).user
-        this.userRole = this.user.sessionRole !== this.$t('role.defaultRolePlaceholder') ? this.user.sessionRole : null
+        let invalidRole = false
+        getCorrectRolesForExecution(this.document).then(async (response: any) => {
+            let correctRolesForExecution = response
 
-        if (this.userRole) {
-            await this.loadPage(true)
-        } else {
-            this.parameterSidebarVisible = true
-        }
+            if (!this.userRole) {
+                if (correctRolesForExecution.length == 1) {
+                    this.userRole = correctRolesForExecution[0]
+                } else {
+                    this.parameterSidebarVisible = true
+                }
+            } else if (this.userRole) {
+                if (correctRolesForExecution.length == 1) {
+                    let correctRole = correctRolesForExecution[0]
+                    if (this.userRole !== correctRole) {
+                        this.setError({
+                            title: this.$t('common.error.generic'),
+                            msg: this.$t('documentExecution.main.userRoleError')
+                        })
+                        invalidRole = true
+                    }
+                }
+            }
+            if (!invalidRole) {
+                if (this.userRole) {
+                    await this.loadPage(true)
+                } else {
+                    this.parameterSidebarVisible = true
+                }
+            }
+        })
+    },
+    unmounted() {
+        this.removeEventListeners()
     },
     methods: {
+        ...mapActions(mainStore, ['setInfo', 'setError', 'setDocumentExecutionEmbed']),
         iframeEventsListener(event) {
             if (event.data.type === 'crossNavigation') {
                 this.executeCrossNavigation(event)
@@ -355,13 +412,15 @@ export default defineComponent({
                     showScheduledExecutions: this.showScheduledExecutions,
                     addToWorkspace: this.addToWorkspace,
                     showOLAPCustomView: this.showOLAPCustomView,
-                    copyLink: this.copyLink
+                    copyLink: this.copyLink,
+                    openDashboardGeneralSettings: this.openDashboardGeneralSettings
                 },
                 this.exporters,
                 this.user,
                 this.isOrganizerEnabled(),
                 this.mode,
-                this.$t
+                this.$t,
+                this.newDashboardMode
             )
         },
         print() {
@@ -370,8 +429,10 @@ export default defineComponent({
         export(type: string) {
             if (this.document.typeCode === 'OLAP') {
                 this.exportOlap(type)
+            } else if (this.document.typeCode === 'REPORT') {
+                window.open(this.urlData?.url + '&outputType=' + type, 'name', 'resizable=1,height=750,width=1000')
             } else {
-                const tempIndex = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+                const tempIndex = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
                 let tempFrame = window.frames[tempIndex]
                 while (tempFrame && tempFrame.name !== 'documentFrame' + tempIndex) {
                     tempFrame = tempFrame[0].frames
@@ -430,7 +491,7 @@ export default defineComponent({
         setMode() {
             this.embed = this.$route.path.includes('embed')
             if (this.embed) {
-                this.store.setDocumentExecutionEmbed()
+                this.setDocumentExecutionEmbed()
             }
 
             if (this.$route.path.includes('registry')) {
@@ -445,13 +506,13 @@ export default defineComponent({
                 this.mode = 'iframe'
             }
         },
-        async loadPage(initialLoading: boolean = false, documentLabel: string | null = null) {
+        async loadPage(initialLoading: boolean = false, documentLabel: string | null = null, crossNavigationPopupMode: boolean = false) {
             this.loading = true
 
             await this.loadFilters(initialLoading)
             if (this.filtersData?.isReadyForExecution) {
                 this.parameterSidebarVisible = false
-                await this.loadURL(null, documentLabel)
+                await this.loadURL(null, documentLabel, crossNavigationPopupMode)
                 await this.loadExporters()
             } else if (this.filtersData?.filterStatus) {
                 this.parameterSidebarVisible = true
@@ -476,13 +537,12 @@ export default defineComponent({
         async loadDocument() {
             await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documents/${this.document?.label}`).then((response: AxiosResponse<any>) => (this.document = response.data))
 
-            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
-
+            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
             if (index !== -1) {
                 this.breadcrumbs[index].document = this.document
             } else {
                 this.breadcrumbs.push({
-                    label: this.document.label,
+                    label: this.document.name,
                     document: this.document
                 })
             }
@@ -512,11 +572,17 @@ export default defineComponent({
             }
 
             await this.$http
-                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentexecution/filters`, { label: this.document.label, role: this.userRole, parameters: this.document.navigationParams ?? {} })
-                .then((response: AxiosResponse<any>) => (this.filtersData = response.data))
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documentexecution/filters`, {
+                    label: this.document.label,
+                    role: this.userRole,
+                    parameters: this.document.navigationParams ?? {}
+                })
+                .then((response: AxiosResponse<any>) => {
+                    this.filtersData = response.data
+                })
                 .catch((error: any) => {
                     if (error.response?.status === 500) {
-                        this.store.setError({
+                        this.setError({
                             title: this.$t('common.error.generic'),
                             msg: this.$t('documentExecution.main.userRoleError')
                         })
@@ -524,7 +590,7 @@ export default defineComponent({
                 })
 
             this.filtersData?.filterStatus?.forEach((el: iParameter) => {
-                el.parameterValue = el.multivalue ? [] : [{ value: '', description: '' }]
+                el.parameterValue = !el.multivalue || (el.typeCode === 'MAN_IN' && !el.selectionType) ? [{ value: '', description: '' }] : []
                 if (el.driverDefaultValue?.length > 0) {
                     let valueIndex = '_col0'
                     let descriptionIndex = 'col1'
@@ -568,37 +634,17 @@ export default defineComponent({
             })
 
             if (this.document.navigationParams) {
-                this.loadNavigationParamsInitialValue()
+                loadNavigationParamsInitialValue(this)
             }
 
             this.setFiltersForBreadcrumbItem()
         },
         setFiltersForBreadcrumbItem() {
-            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
             if (index !== -1) this.breadcrumbs[index].filtersData = this.filtersData
         },
-        loadNavigationParamsInitialValue() {
-            Object.keys(this.document.navigationParams).forEach((key: string) => {
-                for (let i = 0; i < this.filtersData.filterStatus.length; i++) {
-                    const tempParam = this.filtersData.filterStatus[i]
-                    if (key === tempParam.urlName || key === tempParam.label) {
-                        tempParam.parameterValue[0].value = this.document.navigationParams[key]
-                        if (this.document.navigationParams[key + '_field_visible_description']) tempParam.parameterValue[0].description = this.document.navigationParams[key + '_field_visible_description']
-                        if (tempParam.selectionType === 'COMBOBOX') this.setCrossNavigationComboParameterDescription(tempParam)
-                        if (tempParam.type === 'DATE' && tempParam.parameterValue[0] && tempParam.parameterValue[0].value) {
-                            tempParam.parameterValue[0].value = new Date(tempParam.parameterValue[0].value)
-                        }
-                    }
-                }
-            })
-        },
-        setCrossNavigationComboParameterDescription(tempParam: any) {
-            if (tempParam.parameterValue[0]) {
-                const index = tempParam.data.findIndex((option: any) => option.value === tempParam.parameterValue[0].value)
-                if (index !== -1) tempParam.parameterValue[0].description = tempParam.data[index].description
-            }
-        },
         formatParameterDataOptions(parameter: iParameter, data: any) {
+            if (!parameter.metadata) return { value: data['_col0'] ? data['_col0'] : '', description: data['_col1'] ? data['_col1'] : '' }
             const valueColumn = parameter.metadata.valueColumn
             const descriptionColumn = parameter.metadata.descriptionColumn
             const valueIndex = Object.keys(parameter.metadata.colsMap).find((key: string) => parameter.metadata.colsMap[key] === valueColumn)
@@ -609,13 +655,15 @@ export default defineComponent({
                 description: descriptionIndex ? data[descriptionIndex] : ''
             }
         },
-        async loadURL(olapParameters: any, documentLabel: string | null = null) {
+        async loadURL(olapParameters: any, documentLabel: string | null = null, crossNavigationPopupMode: boolean = false) {
+            let error = false
             const postData = {
                 label: this.document.label,
                 role: this.userRole,
                 parameters: olapParameters ? olapParameters : this.getFormattedParameters(),
                 EDIT_MODE: 'null',
-                IS_FOR_EXPORT: true
+                IS_FOR_EXPORT: true,
+                SBI_EXECUTION_ID: ''
             } as any
 
             if (this.sbiExecutionId) {
@@ -629,33 +677,39 @@ export default defineComponent({
             await this.$http
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documentexecution/url`, postData)
                 .then((response: AxiosResponse<any>) => {
+                    error = false
                     this.urlData = response.data
                     this.sbiExecutionId = this.urlData?.sbiExecutionId as string
                 })
                 .catch((response: AxiosResponse<any>) => {
+                    error = true
                     this.urlData = response.data
                     this.sbiExecutionId = this.urlData?.sbiExecutionId as string
                 })
 
-            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
             if (index !== -1) {
                 this.breadcrumbs[index].urlData = this.urlData
                 this.sbiExecutionId = this.urlData?.sbiExecutionId as string
             }
 
-            await this.sendForm(documentLabel)
+            if (error) return
+
+            await this.sendForm(documentLabel, crossNavigationPopupMode)
         },
         async loadExporters() {
-            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/exporters/${this.urlData?.engineLabel}`).then((response: AxiosResponse<any>) => (this.exporters = response.data.exporters))
+            if (!this.urlData || !this.urlData.engineLabel) return
+            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/exporters/${this.urlData.engineLabel}`).then((response: AxiosResponse<any>) => (this.exporters = response.data.exporters))
         },
-        async sendForm(documentLabel: string | null = null) {
-            let tempIndex = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label) as any
+        async sendForm(documentLabel: string | null = null, crossNavigationPopupMode: boolean = false) {
+            let tempIndex = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name) as any
 
             const documentUrl = this.urlData?.url + '&timereloadurl=' + new Date().getTime()
             const postObject = {
                 params: { document: null } as any,
                 url: documentUrl.split('?')[0]
             }
+            if (this.$route.query.documentMode === 'edit') this.documentMode = 'EDIT'
             postObject.params.documentMode = this.documentMode
             this.hiddenFormUrl = postObject.url
             const paramsFromUrl = documentUrl?.split('?')[1]?.split('&')
@@ -673,7 +727,8 @@ export default defineComponent({
             postForm.id = 'postForm_' + postObject.params.document
             postForm.action = import.meta.env.VITE_HOST_URL + postObject.url
             postForm.method = 'post'
-            postForm.target = tempIndex !== -1 ? 'documentFrame' + tempIndex : documentLabel
+            const iframeName = crossNavigationPopupMode ? 'documentFramePopup' : 'documentFrame'
+            postForm.target = tempIndex !== -1 ? iframeName + tempIndex : documentLabel
             postForm.acceptCharset = 'UTF-8'
             document.body.appendChild(postForm)
 
@@ -716,7 +771,7 @@ export default defineComponent({
                 postForm.submit()
             }
 
-            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
             if (index !== -1) this.breadcrumbs[index].hiddenFormData = this.hiddenFormData
         },
         async sendHiddenFormData() {
@@ -772,7 +827,7 @@ export default defineComponent({
             await this.$http
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/export/cockpitData`, postData)
                 .then(() => {
-                    this.store.setInfo({
+                    this.setInfo({
                         title: this.$t('common.toast.updateTitle'),
                         msg: this.$t('common.exportSuccess')
                     })
@@ -791,7 +846,7 @@ export default defineComponent({
                 const parameter = this.filtersData.filterStatus[key]
 
                 if (parameter.parameterValue) {
-                    if (parameter.type === 'DATE') {
+                    if (parameter.type === 'DATE' && parameter.parameterValue[0] && parameter.parameterValue[0].value) {
                         parameters[parameter.urlName] = this.getFormattedDate(parameter.parameterValue[0].value)
                         parameters[parameter.urlName + '_field_visible_description'] = this.getFormattedDate(parameter.parameterValue[0].value, true)
                     } else if (parameter.valueSelection === 'man_in') {
@@ -807,8 +862,8 @@ export default defineComponent({
                         }
                         parameters[parameter.urlName + '_field_visible_description'] = tempString
                     } else {
-                        parameters[parameter.urlName] = parameter.parameterValue[0].value
-                        parameters[parameter.urlName + '_field_visible_description'] = parameter.parameterValue[0].description
+                        parameters[parameter.urlName] = parameter.parameterValue[0] ? parameter.parameterValue[0].value : ''
+                        parameters[parameter.urlName + '_field_visible_description'] = parameter.parameterValue[0] ? parameter.parameterValue[0].description : ''
                     }
                 }
             })
@@ -816,9 +871,7 @@ export default defineComponent({
             return parameters
         },
         getFormattedParametersForCSVExport() {
-            if (!this.filtersData) {
-                return {}
-            }
+            if (!this.filtersData) return {}
 
             let parameters = {} as any
 
@@ -851,7 +904,7 @@ export default defineComponent({
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `documentrating/getvote`, { obj: this.document.id })
                 .then((response: AxiosResponse<any>) => (this.documentRank = response.data))
                 .catch((error: any) =>
-                    this.store.setError({
+                    this.setError({
                         title: this.$t('common.error.generic'),
                         msg: error
                     })
@@ -864,13 +917,13 @@ export default defineComponent({
                 await this.$http
                     .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `documentrating/vote`, { rating: newRank, obj: this.document.id })
                     .then(() =>
-                        this.store.setInfo({
+                        this.setInfo({
                             title: this.$t('common.toast.updateTitle'),
                             msg: this.$t('documentExecution.main.rankSaveSucces')
                         })
                     )
                     .catch((error: any) =>
-                        this.store.setError({
+                        this.setError({
                             title: this.$t('common.error.generic'),
                             msg: error
                         })
@@ -895,7 +948,7 @@ export default defineComponent({
             await this.$http
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documentexecutionee/saveDocumentMetadata`, { id: this.document.id, jsonMeta: jsonMeta })
                 .then(() => {
-                    this.store.setInfo({
+                    this.setInfo({
                         title: this.$t('common.toast.createTitle'),
                         msg: this.$t('common.toast.success')
                     })
@@ -916,14 +969,14 @@ export default defineComponent({
             await this.$http
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documentexecutionmail/sendMail`, postData)
                 .then(() => {
-                    this.store.setInfo({
+                    this.setInfo({
                         title: this.$t('common.toast.createTitle'),
                         msg: this.$t('common.sendMailSuccess')
                     })
                     this.mailDialogVisible = false
                 })
                 .catch((error: any) => {
-                    this.store.setError({
+                    this.setError({
                         title: this.$t('common.error.generic'),
                         msg: error
                     })
@@ -936,7 +989,7 @@ export default defineComponent({
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documentsnapshot/deleteSnapshot`, { SNAPSHOT: '' + schedulation.id })
                 .then(async () => {
                     this.removeSchedulation(schedulation)
-                    this.store.setInfo({
+                    this.setInfo({
                         title: this.$t('common.toast.deleteTitle'),
                         msg: this.$t('common.toast.deleteSuccess')
                     })
@@ -950,7 +1003,7 @@ export default defineComponent({
         },
         getFormattedDate(date: any, useDefaultFormat?: boolean) {
             const format = date instanceof Date ? undefined : 'dd/MM/yyyy'
-            return luxonFormatDate(date, format, useDefaultFormat ? undefined : this.dateFormat)
+            return luxonFormatDate(date, format, useDefaultFormat ? undefined : this.configurations['SPAGOBI.DATE-FORMAT-SERVER.format'])
         },
         async onBreadcrumbClick(item: any) {
             this.document = item.document
@@ -983,7 +1036,9 @@ export default defineComponent({
             await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/crossNavigation/${this.document.label}/loadCrossNavigationByDocument`).then((response: AxiosResponse<any>) => (temp = response.data))
             this.loading = false
 
-            const crossTarget = this.findCrossTargetByCrossName(angularData, temp)
+            if (temp.length === 0) return
+
+            const crossTarget = findCrossTargetByCrossName(angularData, temp)
 
             if (!crossTarget && temp.length > 1) {
                 this.crossNavigationDocuments = temp
@@ -992,17 +1047,14 @@ export default defineComponent({
                 this.loadCrossNavigation(crossTarget ?? temp[0], angularData)
             }
         },
-        findCrossTargetByCrossName(angularData: any, temp: any[]) {
-            if (!angularData || !temp) return
-            const index = temp.findIndex((el: any) => el.crossName === angularData.targetCrossNavigation.crossName)
-            return index !== -1 ? temp[index] : null
-        },
         async loadCrossNavigation(crossNavigationDocument: any, angularData: any) {
             this.formatAngularOutputParameters(angularData.otherOutputParameters)
             const navigationParams = this.formatNavigationParams(angularData.otherOutputParameters, crossNavigationDocument ? crossNavigationDocument.navigationParams : [])
             this.addDocumentOtherParametersToNavigationParamas(navigationParams, angularData, crossNavigationDocument)
 
-            const popupOptions = crossNavigationDocument.popupOptions ? JSON.parse(crossNavigationDocument.popupOptions) : null
+            const popupOptions = crossNavigationDocument?.popupOptions ? JSON.parse(crossNavigationDocument.popupOptions) : null
+
+            this.checkIfParameterHasFixedValue(navigationParams, crossNavigationDocument)
 
             if (crossNavigationDocument?.crossType !== 2) {
                 this.document = {
@@ -1020,16 +1072,16 @@ export default defineComponent({
                     iFrameName: documentLabel
                 }
                 this.crossNavigationContainerVisible = true
-                await this.loadPage(false, documentLabel)
+                await this.loadPage(false, documentLabel, true)
             } else {
-                const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+                const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
                 if (index !== -1) {
                     this.breadcrumbs[index].document = this.document
                 } else {
                     this.breadcrumbs.push({
-                        label: this.document.label,
+                        label: this.document.name,
                         document: this.document,
-                        crossBreadcrumb: crossNavigationDocument.crossBreadcrumb ?? this.document.name
+                        crossBreadcrumb: this.getCrossBeadcrumb(crossNavigationDocument, angularData)
                     })
                 }
 
@@ -1037,20 +1089,46 @@ export default defineComponent({
             }
             this.documentMode = 'VIEW'
         },
-        addDocumentOtherParametersToNavigationParamas(navigationParams: any[], angularData: any, crossNavigationDocument: any) {
-            if (!angularData.outputParameters || angularData.outputParameters.length === 0 || !crossNavigationDocument?.navigationParams) return
-            const keys = Object.keys(angularData.outputParameters)
-            const documentNavigationParamsKeys = Object.keys(crossNavigationDocument.navigationParams)
-            for (let i = 0; i < keys.length; i++) {
-                const tempKey = keys[i]
-                let newKey = ''
-                for (let j = 0; j < documentNavigationParamsKeys.length; j++) {
-                    if (crossNavigationDocument.navigationParams[documentNavigationParamsKeys[j]].value?.label === tempKey) {
-                        newKey = documentNavigationParamsKeys[j]
-                    }
+        checkIfParameterHasFixedValue(navigationParams: any, crossNavigationDocument: any) {
+            if (!crossNavigationDocument || !crossNavigationDocument.navigationParams) return
+            Object.keys(crossNavigationDocument.navigationParams).forEach((key: string) => {
+                const tempParam = crossNavigationDocument.navigationParams[key]
+                if (tempParam.fixed) {
+                    navigationParams[key] = tempParam.value
+                    navigationParams[key + '_field_visible_description'] = tempParam.value
                 }
-                if (newKey) navigationParams[newKey] = angularData.outputParameters[tempKey]
+            })
+        },
+        getCrossBeadcrumb(crossNavigationDocument: any, angularData: any) {
+            let tempCrossBreadcrumb = crossNavigationDocument?.crossBreadcrumb
+            if (tempCrossBreadcrumb?.includes('$P{')) {
+                tempCrossBreadcrumb = this.updateCrossBreadCrumbWithParameterValues(tempCrossBreadcrumb, angularData)
             }
+
+            return tempCrossBreadcrumb ?? this.document.name
+        },
+        updateCrossBreadCrumbWithParameterValues(tempCrossBreadcrumb: string, angularData: any) {
+            const parameterPlaceholders = tempCrossBreadcrumb.match(/{[\w\d]+}/g)
+            if (!parameterPlaceholders) return ''
+            const parameters = angularData.outputParameters
+            for (let i = 0; i < angularData.otherOutputParameters.length; i++) {
+                const key = Object.keys(angularData.otherOutputParameters[i])[0]
+                parameters[key] = angularData.otherOutputParameters[i][key]
+            }
+            const temp = [] as any[]
+            for (let i = 0; i < parameterPlaceholders.length; i++) {
+                const tempParameterName = parameterPlaceholders[i].substring(1, parameterPlaceholders[i].length - 1)
+                temp.push({
+                    parameterPlaceholder: parameterPlaceholders[i],
+                    value: parameters[tempParameterName]
+                })
+            }
+            let finalString = tempCrossBreadcrumb
+            for (let i = 0; i < temp.length; i++) {
+                finalString = finalString.replaceAll('$P' + temp[i].parameterPlaceholder, temp[i].value)
+            }
+
+            return finalString
         },
         addDocumentOtherParametersToNavigationParamas(navigationParams: any[], angularData: any, crossNavigationDocument: any) {
             if (!angularData.outputParameters || angularData.outputParameters.length === 0 || !crossNavigationDocument?.navigationParams) return
@@ -1066,21 +1144,22 @@ export default defineComponent({
                 }
                 if (newKey) navigationParams[newKey] = angularData.outputParameters[tempKey]
             }
+
+            this.addSourceDocumentParameterValuesFromDocumentNavigationParameters(navigationParams, crossNavigationDocument)
         },
-        addDocumentOtherParametersToNavigationParamas(navigationParams: any[], angularData: any, crossNavigationDocument: any) {
-            if (!angularData.outputParameters || angularData.outputParameters.length === 0 || !crossNavigationDocument?.navigationParams) return
-            const keys = Object.keys(angularData.outputParameters)
+        addSourceDocumentParameterValuesFromDocumentNavigationParameters(navigationParams: any[], crossNavigationDocument: any) {
             const documentNavigationParamsKeys = Object.keys(crossNavigationDocument.navigationParams)
-            for (let i = 0; i < keys.length; i++) {
-                const tempKey = keys[i]
-                let newKey = ''
-                for (let j = 0; j < documentNavigationParamsKeys.length; j++) {
-                    if (crossNavigationDocument.navigationParams[documentNavigationParamsKeys[j]].value?.label === tempKey) {
-                        newKey = documentNavigationParamsKeys[j]
+            documentNavigationParamsKeys.forEach((key: string) => {
+                if (!navigationParams[key]) {
+                    const sourceParameter = this.filtersData.filterStatus.find((parameter: iParameter) => {
+                        return parameter.urlName === crossNavigationDocument.navigationParams[key].value.label
+                    })
+                    if (sourceParameter) {
+                        navigationParams[key] = sourceParameter.parameterValue[0].value ?? ''
+                        navigationParams[key + '_field_visible_description'] = sourceParameter.parameterValue[0].description ?? ''
                     }
                 }
-                if (newKey) navigationParams[newKey] = angularData.outputParameters[tempKey]
-            }
+            })
         },
         openCrossNavigationInNewWindow(popupOptions: any, crossNavigationDocument: any, navigationParams: any) {
             if (!crossNavigationDocument || !crossNavigationDocument.document) return
@@ -1094,7 +1173,6 @@ export default defineComponent({
             const startDocumentInputParameters = deepcopy(this.document.drivers)
             const keys = [] as any[]
             otherOutputParameters.forEach((parameter: any) => keys.push(Object.keys(parameter)[0]))
-
             for (let i = 0; i < startDocumentInputParameters.length; i++) {
                 if (!keys.includes(startDocumentInputParameters[i].label)) {
                     const tempObject = {} as any
@@ -1129,7 +1207,23 @@ export default defineComponent({
                 }
             })
 
+            this.setNavigationParametersFromCurrentFilters(formatedParams, navigationParams)
+
             return formatedParams
+        },
+        setNavigationParametersFromCurrentFilters(formatedParams: any, navigationParams: any) {
+            const navigationParamsKeys = navigationParams ? Object.keys(navigationParams) : []
+            const formattedParameters = this.getFormattedParameters()
+            const formattedParametersKeys = formattedParameters ? Object.keys(formattedParameters) : []
+            if (navigationParamsKeys.length > 0 && formattedParametersKeys.length > 0) {
+                for (let i = 0; i < navigationParamsKeys.length; i++) {
+                    const index = formattedParametersKeys.findIndex((key: string) => key === navigationParams[navigationParamsKeys[i]].value.label && navigationParams[navigationParamsKeys[i]].value.isInput)
+                    if (index !== -1) {
+                        formatedParams[navigationParamsKeys[i]] = formattedParameters[formattedParametersKeys[index]]
+                        formatedParams[navigationParamsKeys[i] + '_field_visible_description'] = formattedParameters[formattedParametersKeys[index] + '_field_visible_description'] ? formattedParameters[formattedParametersKeys[index] + '_field_visible_description'] : ''
+                    }
+                }
+            }
         },
         showOLAPCustomView() {
             this.olapCustomViewVisible = true
@@ -1148,7 +1242,7 @@ export default defineComponent({
             this.loading = false
 
             if (!temp || temp.length === 0) {
-                this.store.setError({
+                this.setError({
                     title: this.$t('common.error.generic'),
                     msg: this.$t('documentExecution.main.crossNavigationNoTargetError')
                 })
@@ -1160,12 +1254,12 @@ export default defineComponent({
                 navigationParams: this.formatOLAPNavigationParams(crossNavigationParams, temp[0].navigationParams)
             }
 
-            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.label)
+            const index = this.breadcrumbs.findIndex((el: any) => el.label === this.document.name)
             if (index !== -1) {
                 this.breadcrumbs[index].document = this.document
             } else {
                 this.breadcrumbs.push({
-                    label: this.document.label,
+                    label: this.document.name,
                     document: this.document
                 })
             }
@@ -1192,20 +1286,20 @@ export default defineComponent({
             }
         },
         isOrganizerEnabled() {
-            return this.user.isSuperadmin || this.user.functionalities.includes('SaveIntoFolderFunctionality')
+            return this.user.isSuperadmin || this.user.functionalities.includes('DocumentAdminManagement') || this.user.functionalities.includes('SaveIntoFolderFunctionality')
         },
         async addToWorkspace() {
             this.loading = true
             await this.$http
                 .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/organizer/documents/${this.document.id}`, {}, { headers: { 'X-Disable-Errors': 'true' } })
                 .then(() => {
-                    this.store.setInfo({
+                    this.setInfo({
                         title: this.$t('common.toast.updateTitle'),
                         msg: this.$t('common.toast.success')
                     })
                 })
                 .catch((error) => {
-                    this.store.setError({
+                    this.setError({
                         title: this.$t('common.toast.updateTitle'),
                         msg: error.message === 'sbi.workspace.organizer.document.addtoorganizer.error.duplicateentry' ? this.$t('documentExecution.main.addToWorkspaceError') : error.message
                     })
@@ -1213,12 +1307,8 @@ export default defineComponent({
             this.loading = false
         },
         async loadUserConfig() {
-            await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/user-configs`).then((response: AxiosResponse<any>) => {
-                if (response.data) {
-                    this.sessionEnabled = response.data['SPAGOBI.SESSION_PARAMETERS_MANAGER.enabled'] === 'false' ? false : true
-                    this.dateFormat = response.data['SPAGOBI.DATE-FORMAT-SERVER.format'] === '%Y-%m-%d' ? 'dd/MM/yyyy' : response.data['SPAGOBI.DATE-FORMAT-SERVER.format']
-                }
-            })
+            this.sessionEnabled = this.configurations['SPAGOBI.SESSION_PARAMETERS_MANAGER.enabled'] === 'false' ? false : true
+            this.dateFormat = this.configurations['SPAGOBI.DATE-FORMAT-SERVER.format'] === '%Y-%m-%d' ? 'dd/MM/yyyy' : this.configurations['SPAGOBI.DATE-FORMAT-SERVER.format']
         },
         saveParametersInSession() {
             const tempFilters = deepcopy(this.filtersData)
@@ -1250,15 +1340,48 @@ export default defineComponent({
             emitter.emit('openDatasetManagement')
         },
         setEventListeners() {
-            emitter.on('datasetManagementClosed', () => {
-                this.managementOpened = false
-            })
-            emitter.on('widgetEditorOpened', () => {
-                this.managementOpened = true
-            })
-            emitter.on('widgetEditorClosed', () => {
-                this.managementOpened = false
-            })
+            emitter.on('datasetManagementClosed', this.onDatasetManagementClosed)
+            emitter.on('widgetEditorOpened', this.onWidgetEditorOpened)
+            emitter.on('widgetEditorClosed', this.onWidgetEditorClosed)
+            emitter.on('dashboardGeneralSettingsClosed', this.onDashboardGeneralSettingsClosed)
+        },
+        removeEventListeners() {
+            emitter.off('datasetManagementClosed', this.onDatasetManagementClosed)
+            emitter.off('widgetEditorOpened', this.onWidgetEditorOpened)
+            emitter.off('widgetEditorClosed', this.onWidgetEditorClosed)
+            emitter.off('dashboardGeneralSettingsClosed', this.onDashboardGeneralSettingsClosed)
+        },
+        onDatasetManagementClosed() {
+            this.managementOpened = false
+        },
+        onWidgetEditorOpened() {
+            this.managementOpened = true
+        },
+        onWidgetEditorClosed() {
+            this.managementOpened = false
+        },
+        onDashboardGeneralSettingsClosed() {
+            this.dashboardGeneralSettingsOpened = false
+        },
+        openDashboardGeneralSettings() {
+            this.dashboardGeneralSettingsOpened = true
+            emitter.emit('openDashboardGeneralSettings')
+        },
+        saveDashboard() {
+            emitter.emit('saveDashboard')
+        },
+        async onNewDashboardSaved(document: { name: string; label: string }) {
+            this.document.label = document.label
+            await this.loadDocument()
+
+            this.userRole = this.user.sessionRole !== this.$t('role.defaultRolePlaceholder') ? this.user.sessionRole : null
+
+            if (this.userRole) {
+                await this.loadPage(true)
+            } else {
+                this.parameterSidebarVisible = true
+            }
+            this.newDashboardMode = false
         }
     }
 })

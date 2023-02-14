@@ -16,7 +16,7 @@
         <InputText class="kn-material-input p-m-3 model-search" v-model="searchWord" :placeholder="$t('common.search')" @input="searchItems" data-test="search-input" />
         <span class="p-float-label p-mr-auto model-search">
             <MultiSelect class="kn-material-input kn-width-full" :style="mainDescriptor.style.multiselect" v-model="selectedCategories" :options="modelCategories" optionLabel="VALUE_CD" @change="searchItems" :filter="true" />
-            <label class="kn-material-input-label"> {{ $t('common.type') }} </label>
+            <label class="kn-material-input-label"> {{ $t('common.category') }} </label>
         </span>
         <SelectButton class="p-mx-2" v-model="tableMode" :options="selectButtonOptions" @click="onTableModeChange" />
     </div>
@@ -72,6 +72,7 @@ import { AxiosResponse } from 'axios'
 import QBE from '@/modules/qbe/QBE.vue'
 import MultiSelect from 'primevue/multiselect'
 import mainStore from '../../../../App.store'
+import { getCorrectRolesForExecutionForType } from '@/helpers/commons/roleHelper'
 
 export default defineComponent({
     name: 'workspace-models-view',
@@ -195,12 +196,28 @@ export default defineComponent({
             this.searchWord = ''
         },
         openDatasetInQBE(dataset: any) {
-            if (import.meta.env.VITE_USE_OLD_QBE_IFRAME == 'true') {
-                this.$emit('showQbeDialog', dataset)
+            let id = null
+            let typeCode = ''
+            if (dataset.federation_id) {
+                typeCode = 'FEDERATED_DATASET'
+                id = dataset.federation_id
             } else {
-                this.selectedQbeDataset = dataset
-                this.qbeVisible = true
+                id = dataset.id
+                typeCode = 'DATAMART'
             }
+
+            getCorrectRolesForExecutionForType(typeCode, id, dataset.label)
+                .then(() => {
+                    if (import.meta.env.VITE_USE_OLD_QBE_IFRAME == 'true') {
+                        this.$emit('showQbeDialog', dataset)
+                    } else {
+                        this.selectedQbeDataset = dataset
+                        this.qbeVisible = true
+                    }
+                })
+                .catch(() => {
+                    this.qbeVisible = false
+                })
         },
         createNewFederation() {
             this.$router.push('models/federation-definition/new-federation')

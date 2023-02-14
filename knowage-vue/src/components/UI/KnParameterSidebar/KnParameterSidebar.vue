@@ -11,11 +11,11 @@
         </Toolbar>
 
         <div class="p-fluid kn-parameter-sidebar-content kn-alternated-rows">
-            <div class="p-field p-my-1 p-p-2" v-if="user && (!sessionRole || sessionRole === $t('role.defaultRolePlaceholder')) && (mode === 'execution' || mode === 'qbeView' || (mode === 'workspaceView' && dataset?.drivers?.length > 0))">
+            <div class="p-field p-my-1 p-p-2" v-if="user && (!sessionRole || sessionRole === $t('role.defaultRolePlaceholder')) && (mode === 'execution' || mode === 'qbeView' || (mode === 'workspaceView' && dataset?.drivers?.length > 0)) && availableRolesForExecution.length > 1">
                 <div class="p-d-flex">
                     <label class="kn-material-input-label">{{ $t('common.roles') }}</label>
                 </div>
-                <Dropdown class="kn-material-input" v-model="role" :options="user.roles" @change="setNewSessionRole" />
+                <Dropdown class="kn-material-input" v-model="role" :options="availableRolesForExecution" @change="setNewSessionRole" />
             </div>
 
             <template v-if="mode === 'qbeView' || mode === 'workspaceView' || mode === 'datasetManagement'">
@@ -29,6 +29,7 @@
                             <i class="fa fa-eraser parameter-clear-icon kn-cursor-pointer" v-tooltip.left="$t('documentExecution.main.parameterClearTooltip')" @click="qbeParameter.value = qbeParameter.defaultValue"></i>
                         </div>
                         <Chips v-if="qbeParameter.multiValue" v-model="qbeParameter.value" />
+                        <small v-if="qbeParameter.multiValue" id="chips-help">{{ $t('common.chipsHint') }}</small>
                         <InputText
                             v-else
                             class="kn-material-input p-inputtext-sm"
@@ -55,14 +56,15 @@
                         <i class="fa fa-eraser parameter-clear-icon kn-cursor-pointer" v-tooltip.left="$t('documentExecution.main.parameterClearTooltip')" @click="resetParameterValue(parameter)" :data-test="'parameter-input-clear-' + parameter.id"></i>
                     </div>
                     <InputText
-                        v-if="parameter.parameterValue"
+                        v-if="parameter.parameterValue && parameter.parameterValue[0]"
                         class="kn-material-input p-inputtext-sm"
                         :type="parameter.type === 'NUM' ? 'number' : 'text'"
                         v-model="parameter.parameterValue[0].value"
                         :class="{
                             'p-invalid': parameter.mandatory && parameter.parameterValue && !parameter.parameterValue[0]?.value
                         }"
-                        @input="updateDependency(parameter)"
+                        @blur="updateDependency(parameter)"
+                        @keypress.enter="updateDependency(parameter)"
                         :data-test="'parameter-input-' + parameter.id"
                     />
                 </div>
@@ -203,11 +205,22 @@ import MultiSelect from 'primevue/multiselect'
 import RadioButton from 'primevue/radiobutton'
 import ScrollPanel from 'primevue/scrollpanel'
 import mainStore from '../../../App.store'
+import { getCorrectRolesForExecutionForType } from '../../../helpers/commons/roleHelper'
 
 export default defineComponent({
     name: 'kn-parameter-sidebar',
     components: { Calendar, Chip, Chips, Checkbox, Dropdown, KnParameterPopupDialog, KnParameterTreeDialog, KnParameterSaveDialog, KnParameterSavedParametersDialog, Menu, MultiSelect, RadioButton, ScrollPanel },
-    props: { filtersData: { type: Object }, propDocument: { type: Object }, userRole: { type: Object as PropType<String | null> }, propMode: { type: String }, propQBEParameters: { type: Array }, dateFormat: { type: String }, dataset: { type: Object } },
+    props: {
+        filtersData: { type: Object },
+        propDocument: { type: Object },
+        userRole: { type: Object as PropType<String | null> },
+        propMode: { type: String },
+        propQBEParameters: { type: Array },
+        dateFormat: { type: String },
+        dataset: { type: Object },
+        correctRolesForExecution: { type: Array },
+        loadFromDatasetManagement: { type: Boolean, default: false }
+    },
     emits: ['execute', 'exportCSV', 'roleChanged', 'parametersChanged'],
     data() {
         return {
@@ -230,7 +243,8 @@ export default defineComponent({
             mode: 'execution',
             qbeParameters: [] as any,
             primary: true,
-            userDateFormat: '' as string
+            userDateFormat: '' as string,
+            availableRolesForExecution: [] as any
         }
     },
     watch: {
@@ -260,7 +274,7 @@ export default defineComponent({
             return (this.store.$state as any).user.sessionRole
         },
         buttonsDisabled(): boolean {
-            return this.requiredFiledMissing()
+            return this.loading || this.requiredFiledMissing()
         },
         positionClass(): string {
             return this.document?.parametersRegion ? 'kn-parameter-sidebar-' + this.document.parametersRegion : 'kn-parameter-sidebar'
@@ -270,7 +284,7 @@ export default defineComponent({
         const store = mainStore()
         return { store }
     },
-    created() {
+    mounted() {
         this.loadMode()
         if (this.mode === 'qbeView' || this.mode === 'workspaceView' || this.mode === 'datasetManagement') this.loadQBEParameters()
 
@@ -292,6 +306,29 @@ export default defineComponent({
         },
         loadDocument() {
             this.document = this.propDocument as iDocument
+
+            if (this.correctRolesForExecution) {
+                this.availableRolesForExecution = this.correctRolesForExecution
+            } else {
+                let typeCode = 'DOCUMENT'
+                let id = this.document.id
+                if (this.document.type === 'businessModel') {
+                    typeCode = 'DATAMART'
+                } else if (this.document.dsTypeCd) {
+                    typeCode = 'DATASET'
+                } else if (this.document.type == 'federatedDataset' && this.document.federation_id) {
+                    typeCode = 'FEDERATED_DATASET'
+                    id = this.document.federation_id
+                }
+
+                getCorrectRolesForExecutionForType(typeCode, id, this.document.label).then((response: any) => {
+                    this.availableRolesForExecution = response
+                    if (!this.role && this.availableRolesForExecution.length == 1) {
+                        this.role = this.availableRolesForExecution[0]
+                        this.setNewSessionRole()
+                    }
+                })
+            }
         },
         loadParameters() {
             this.parameters.isReadyForExecution = this.filtersData?.isReadyForExecution
@@ -329,7 +366,7 @@ export default defineComponent({
                 } else {
                     parameter.parameterValue[0] = { value: '', description: '' }
                 }
-                this.parameters.filterStatus.forEach((el: any) => this.updateDependency(el))
+                this.parameters.filterStatus.forEach((el: any) => this.updateDependency(el, true))
                 return
             }
 
@@ -401,7 +438,7 @@ export default defineComponent({
 
             for (let i = 0; i < this.parameters.filterStatus.length; i++) {
                 const parameter = this.parameters.filterStatus[i]
-                if (parameter.mandatory && parameter.showOnPanel == 'true') {
+                if (parameter.mandatory) {
                     if (!parameter.parameterValue || parameter.parameterValue.length === 0) {
                         return true
                     } else {
@@ -502,12 +539,14 @@ export default defineComponent({
             this.updateVisualDependency(parameter)
             this.treeDialogVisible = false
         },
-        updateDependency(parameter: iParameter) {
+        async updateDependency(parameter: iParameter, resetValue: boolean = false) {
+            this.loading = true
             const role = this.sessionRole && this.sessionRole !== this.$t('role.defaultRolePlaceholder') ? this.sessionRole : this.role
             this.updateVisualDependency(parameter)
-            updateDataDependency(this.parameters, parameter, this.loading, this.document, role, this.$http, this.mode)
-            updateLovDependency(this.parameters, parameter, this.loading, this.document, role, this.$http, this.mode)
+            await updateDataDependency(this.parameters, parameter, this.loading, this.document, role, this.$http, this.mode, resetValue, this.userDateFormat)
+            await updateLovDependency(this.parameters, parameter, this.loading, this.document, role, this.$http, this.mode, this.userDateFormat)
             this.$emit('parametersChanged', { parameters: this.parameters, document: this.propDocument })
+            this.loading = false
         },
         openSaveParameterDialog() {
             this.parameterSaveDialogVisible = true
@@ -620,6 +659,18 @@ export default defineComponent({
                 if (!parameter.value) parameter.value = parameter.defaultValue
                 this.qbeParameters.push(parameter)
             })
+        },
+        onDropdownChange(parameter: any) {
+            parameter.dataDependentParameters?.forEach((element) => {
+                this.selectedParameterCheckbox[element.id] = []
+            })
+            this.updateParameterDescriptionOnDropdownChange(parameter)
+            this.updateDependency(parameter)
+        },
+        updateParameterDescriptionOnDropdownChange(parameter: any) {
+            if (!parameter.parameterValue[0]) return
+            const index = parameter.data?.findIndex((el: { value: string; description: string }) => el.value === parameter.parameterValue[0].value)
+            if (index !== -1) parameter.parameterValue[0].description = parameter.data[index].description
         }
     }
 })

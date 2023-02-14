@@ -32,6 +32,8 @@
                 :dataset="dataset"
                 @execute="onExecute"
                 @roleChanged="onRoleChange"
+                :loadFromDatasetManagement="loadFromDatasetManagement"
+                :correctRolesForExecution="correctRolesForExecution"
             ></KnParameterSidebar>
         </div>
     </Dialog>
@@ -70,7 +72,8 @@ export default defineComponent({
             loading: false,
             filtersData: {} as any,
             userRole: null,
-            sidebarMode: 'workspaceView'
+            sidebarMode: 'workspaceView',
+            correctRolesForExecution: null
         }
     },
     computed: {
@@ -129,6 +132,8 @@ export default defineComponent({
                 }
             }
 
+            if (this.loadFromDatasetManagement) this.correctRolesForExecution = (this.store.$state as any).user.roles
+
             if (this.dataset.label && this.dataset.pars.length === 0 && (this.filtersData.isReadyForExecution === undefined || this.filtersData.isReadyForExecution)) {
                 this.loadFromDatasetManagement ? await this.loadPreSavePreview() : await this.loadPreviewData()
                 this.parameterSidebarVisible = false
@@ -146,17 +151,46 @@ export default defineComponent({
             if (this.filtersData.filterStatus?.length > 0) {
                 postData.DRIVERS = this.formatDriversForPreviewData()
             }
-            await this.$http
-                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/datasets/preview`, postData)
-                .then((response: AxiosResponse<any>) => {
-                    this.setPreviewColumns(response.data)
-                    this.rows = response.data.rows
-                    this.pagination.size = response.data.results
-                })
-                .catch((error) => {
-                    this.errorMessage = error.message
-                    this.errorMessageVisible = true
-                })
+            if (Array.isArray(postData.restRequestHeaders)) {
+                if (postData.restRequestHeaders.length == 0) {
+                    postData.restRequestHeaders = {}
+                } else {
+                    postData.restRequestHeaders = postData.restRequestHeaders.reduce((acc, curr) => {
+                        acc[curr['name']] = curr['value']
+                        return acc
+                    }, {})
+                }
+            }
+            if (postData.dsTypeCd === 'Prepared') {
+                await this.$http
+                    .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/${this.dataset.label}/preview`, postData, { headers: { 'X-Disable-Errors': 'true' } })
+                    .then((response: AxiosResponse<any>) => {
+                        let fields = response.data?.metaData?.fields
+                        if (this.dataset.dsTypeCd == 'REST' && fields?.length == 1 && fields[0] === 'recNo') {
+                            this.rows = []
+                        } else {
+                            this.setPreviewColumns(response.data)
+                            this.rows = response.data.rows
+                            this.pagination.size = response.data.results
+                        }
+                    })
+                    .catch((error) => {
+                        this.errorMessage = error.message
+                        this.errorMessageVisible = true
+                    })
+            } else {
+                await this.$http
+                    .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/datasets/preview`, postData, { headers: { 'X-Disable-Errors': 'true' } })
+                    .then((response: AxiosResponse<any>) => {
+                        this.setPreviewColumns(response.data)
+                        this.rows = response.data.rows
+                        this.pagination.size = response.data.results
+                    })
+                    .catch((error) => {
+                        this.errorMessage = error.message
+                        this.errorMessageVisible = true
+                    })
+            }
             this.loading = false
         },
         async loadPreviewData() {
@@ -175,7 +209,7 @@ export default defineComponent({
                 postData.drivers = this.formatDriversForPreviewData()
             }
             await this.$http
-                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/${this.dataset.label}/preview`, postData)
+                .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/${this.dataset.label}/preview`, postData, { headers: { 'X-Disable-Errors': 'true' } })
                 .then((response: AxiosResponse<any>) => {
                     this.setPreviewColumns(response.data)
                     this.rows = response.data.rows

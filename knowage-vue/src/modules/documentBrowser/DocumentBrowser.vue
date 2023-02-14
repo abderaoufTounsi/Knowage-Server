@@ -1,6 +1,6 @@
 <template>
     <div class="kn-page">
-        <div class="document-browser-tab-container kn-page-content">
+        <div class="document-browser-tab-container kn-flex">
             <TabView id="document-browser-tab-view" class="p-d-flex p-flex-column kn-flex kn-tab" v-model:activeIndex="activeIndex" @tab-change="onTabChange">
                 <TabPanel>
                     <template #header>
@@ -60,13 +60,13 @@ export default defineComponent({
         }
     },
     watch: {
-        menuItemClickedTrigger() {
+        async menuItemClickedTrigger() {
             if (!this.selectedMenuItem) return
             if (this.selectedMenuItem.to === '/document-browser') {
                 this.selectedItem = null
                 this.activeIndex = 0
             } else if (this.selectedMenuItem.to && this.selectedMenuItem.to.includes('document-browser')) {
-                this.loadPage()
+                await this.loadPage()
             }
         }
     },
@@ -75,9 +75,9 @@ export default defineComponent({
     },
     methods: {
         async loadPage() {
-            window.addEventListener('message', (event) => {
-                if (event.data.type === 'saveCockpit' && this.$router.currentRoute.value.name === 'new-dashboard') {
-                    this.loadSavedCockpit(event.data.model)
+            window.addEventListener('message', async (event) => {
+                if (event.data.type === 'saveCockpit' && this.$router.currentRoute.value.name === 'new-cockpit') {
+                    await this.loadSavedCockpit(event.data.model)
                     this.documentSaved = event.data.model
                     this.documentSavedTrigger = !this.documentSavedTrigger
                 }
@@ -87,7 +87,7 @@ export default defineComponent({
 
             if (id && id !== 'document-browser' && (this.$router.currentRoute.value.name === 'document-browser-document-execution' || this.$router.currentRoute.value.name === 'document-browser-document-details-edit' || this.$router.currentRoute.value.name === 'document-browser')) {
                 let tempDocument = {} as any
-                await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documents/${id}`).then((response: AxiosResponse<any>) => (tempDocument = response.data))
+                if (id !== 'new-dashboard') await this.$http.get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/documents/${id}`).then((response: AxiosResponse<any>) => (tempDocument = response.data))
                 const tempItem = {
                     item: {
                         name: tempDocument.name,
@@ -154,8 +154,9 @@ export default defineComponent({
                     this.$router.push(`/document-browser/${routeDocumentType}/` + id)
                 } else {
                     this.selectedItem.item = { routerId: cryptoRandomString({ length: 16, type: 'base64' }) }
-                    this.selectedItem.item.showMode = 'createCockpit'
-                    this.$router.push(`/document-browser/new-dashboard`)
+                    this.selectedItem.item.showMode = payload.mode
+                    const link = payload.mode === 'createCockpit' ? '/document-browser/new-cockpit' : `/document-browser/new-dashboard?folderId=${payload.functionalityId}`
+                    this.$router.push(link)
                 }
             }
 
@@ -227,11 +228,12 @@ export default defineComponent({
             const index = this.iFrameContainers.findIndex((iframe: any) => iframe.item?.routerId === this.selectedItem?.item.routerId)
             if (index !== -1) this.iFrameContainers.splice(index, 1)
         },
-        loadSavedCockpit(cockpit: any) {
+        async loadSavedCockpit(cockpit: any) {
             this.closeIframe()
-            this.selectedItem = { item: { ...cockpit, routerId: cryptoRandomString({ length: 16, type: 'base64' }), name: cockpit.DOCUMENT_NAME, label: cockpit.DOCUMENT_LABEL, showMode: 'createCockpit' } }
+            await this.$router.push(`/document-browser/document-composite/${cockpit.DOCUMENT_LABEL}?documentMode=edit`)
+            setTimeout(() => {}, 2000)
+            this.selectedItem = { item: { ...cockpit, routerId: cryptoRandomString({ length: 16, type: 'base64' }), name: cockpit.DOCUMENT_NAME, label: cockpit.DOCUMENT_LABEL, showMode: 'execute' }, mode: 'execute' }
             this.tabs[this.activeIndex - 1] = this.selectedItem
-            this.$router.push(`/document-browser/document-composite/${cockpit.DOCUMENT_LABEL}`)
         },
         getTabName(tab: any) {
             if (tab.item && tab.item.name) {

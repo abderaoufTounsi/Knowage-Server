@@ -9,8 +9,20 @@
                 </template>
             </Toolbar>
             <div class="datasetEditor-container kn-overflow">
-                <WidgetEditorTabs class="dashboardEditor-tabs" :propWidget="widget" :datasets="datasets" :selectedDatasets="selectedDatasets" @datasetSelected="onDatasetSelected" />
-                <WidgetEditorPreview id="widget-editor-preview" :propWidget="widget" />
+                <WidgetEditorTabs
+                    class="dashboardEditor-tabs"
+                    :propWidget="widget"
+                    :datasets="datasets"
+                    :selectedDatasets="selectedDatasets"
+                    :variables="variables"
+                    :dashboardId="dashboardId"
+                    :selectedSettingProp="selectedSetting"
+                    :htmlGalleryProp="htmlGalleryProp"
+                    :customChartGalleryProp="customChartGalleryProp"
+                    @settingChanged="onSettingChanged"
+                    @datasetSelected="onDatasetSelected"
+                />
+                <WidgetEditorPreview v-if="selectedSetting != 'Gallery' && !chartPickerVisible" :propWidget="widget" :dashboardId="dashboardId" :datasets="selectedModelDatasets" :variables="variables" />
             </div>
         </div>
     </Teleport>
@@ -21,9 +33,10 @@
  * ! this component will be in charge of managing the widget editing.
  */
 import { defineComponent, PropType } from 'vue'
-import { IWidgetEditorDataset, IDatasetOptions, IWidget, IDataset, IModelDataset } from '../../Dashboard'
+import { IWidget, IDataset, IDashboardDataset, IVariable, IGalleryItem } from '../../Dashboard'
 import { AxiosResponse } from 'axios'
-import { createNewWidget, setWidgetModelTempProperty, setWidgetModelFunctions, formatWidgetForSave, formatWidgetColumnsForDisplay } from './helpers/WidgetEditorHelpers'
+import { createNewWidget, recreateKnowageChartModel } from './helpers/WidgetEditorHelpers'
+import { emitter } from '@/modules/documentExecution/dashboard/DashboardHelpers'
 import WidgetEditorPreview from './WidgetEditorPreview.vue'
 import WidgetEditorTabs from './WidgetEditorTabs.vue'
 import mainStore from '../../../../../App.store'
@@ -35,15 +48,27 @@ export default defineComponent({
     name: 'widget-editor',
     components: { WidgetEditorPreview, WidgetEditorTabs },
     emits: ['close', 'widgetUpdated', 'widgetSaved'],
-    props: { propWidget: { type: Object as PropType<IWidget>, required: true }, datasets: { type: Array as PropType<IDataset[]> } },
+    props: {
+        dashboardId: { type: String, required: true },
+        propWidget: { type: Object as PropType<IWidget>, required: true },
+        datasets: { type: Array as PropType<IDataset[]>, required: true },
+        variables: { type: Array as PropType<IVariable[]>, required: true },
+        htmlGalleryProp: { type: Array as PropType<IGalleryItem[]>, required: true },
+        customChartGalleryProp: { type: Array as PropType<IGalleryItem[]>, required: true }
+    },
     data() {
         return {
             descriptor,
             widget: {} as any,
             previewData: null as any,
-            datasetFunctions: {} as { availableFunctions: string[]; nullifFunction: string[] },
-            selectedModelDatasets: [] as IModelDataset[],
-            selectedDatasets: [] as IDataset[]
+            datasetFunctions: {} as {
+                availableFunctions: string[]
+                nullifFunction: string[]
+            },
+            selectedModelDatasets: [] as IDashboardDataset[],
+            selectedDatasets: [] as IDataset[],
+            selectedSetting: '',
+            chartPickerVisible: false
         }
     },
     watch: {
@@ -57,55 +82,49 @@ export default defineComponent({
         return { store, dashboardStore }
     },
     created() {
+        this.setEventListeners()
         this.loadWidget()
         this.loadSelectedModelDatasets()
         this.loadSelectedModel()
     },
+    unmounted() {
+        this.removeEventListeners()
+    },
     methods: {
+        setEventListeners() {
+            emitter.on('chartPickerVisible', this.changeChartPickerVisbility)
+        },
+        removeEventListeners() {
+            emitter.off('chartPickerVisible', this.changeChartPickerVisbility)
+        },
         loadWidget() {
             if (!this.propWidget) return
-            this.widget = this.propWidget.new ? createNewWidget() : deepcopy(this.propWidget)
-            formatWidgetColumnsForDisplay(this.widget)
-            setWidgetModelTempProperty(this.widget)
-            setWidgetModelFunctions(this.widget)
+            this.widget = this.propWidget.new ? createNewWidget(this.propWidget.type) : deepcopy(this.propWidget)
+            if (!this.propWidget.new) recreateKnowageChartModel(this.widget)
         },
         loadSelectedModelDatasets() {
-            // TODO - remove hardcoded dashboard index
-            this.selectedModelDatasets = this.dashboardStore.getDashboardSelectedDatastes(1)
+            this.selectedModelDatasets = this.dashboardId ? this.dashboardStore.getDashboardSelectedDatasets(this.dashboardId) : {}
         },
         loadSelectedModel() {
             if (!this.datasets) return
-            this.selectedDatasets = []
+            this.selectedDatasets = [] as IDataset[]
             for (let i = 0; i < this.selectedModelDatasets.length; i++) {
                 const tempDataset = this.selectedModelDatasets[i]
-                const index = this.datasets.findIndex((dataset: any) => dataset.id?.dsId === tempDataset.id)
-                if (index !== -1) this.selectedDatasets.push({ ...this.datasets[index], cache: tempDataset.cache, indexes: tempDataset.indexes, parameters: tempDataset.parameters as any[] })
+                const index = this.datasets.findIndex((dataset: any) => dataset.id.dsId === tempDataset.id)
+                if (index !== -1)
+                    this.selectedDatasets.push({
+                        ...this.datasets[index],
+                        cache: tempDataset.cache,
+                        indexes: tempDataset.indexes ?? [],
+                        parameters: tempDataset.parameters as any[],
+                        drivers: tempDataset.drivers ?? []
+                    })
             }
         },
-        onDatasetSelected(dataset: IWidgetEditorDataset) {
-            this.loadPreviewData(dataset)
+        onDatasetSelected(dataset: IDashboardDataset) {
             this.loadAvailableFunctions(dataset)
         },
-        async loadPreviewData(dataset: IWidgetEditorDataset) {
-            this.store.setLoading(true)
-            // TODO - remove hardcoded
-            const postData = {
-                aggregations: {
-                    measures: [],
-                    categories: [],
-                    dataset: dataset.label
-                },
-                parameters: {},
-                selections: {},
-                indexes: []
-            } as IDatasetOptions
-            // await this.$http
-            //     .post(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/${dataset.label}/data?offset=0&size=10&nearRealtime=true&widgetName=widget_table_1658220241151`, postData)
-            //     .then((response: AxiosResponse<any>) => (this.previewData = response.data))
-            //     .catch(() => {})
-            this.store.setLoading(false)
-        },
-        async loadAvailableFunctions(dataset: IWidgetEditorDataset) {
+        async loadAvailableFunctions(dataset: IDashboardDataset) {
             this.store.setLoading(true)
             await this.$http
                 .get(import.meta.env.VITE_RESTFUL_SERVICES_PATH + `2.0/datasets/availableFunctions/${dataset.id}?useCache=false`)
@@ -114,37 +133,38 @@ export default defineComponent({
             this.store.setLoading(false)
         },
         save() {
-            const tempWidget = formatWidgetForSave(this.widget)
+            const tempWidget = deepcopy(this.widget)
             if (!tempWidget) return
 
             if (tempWidget.new) {
                 delete tempWidget.new
-                this.dashboardStore.createNewWidget(tempWidget)
+                this.dashboardStore.createNewWidget(this.dashboardId, tempWidget)
                 this.$emit('widgetSaved')
             } else {
-                this.dashboardStore.updateWidget(tempWidget)
+                this.dashboardStore.updateWidget(this.dashboardId, tempWidget)
                 this.$emit('widgetUpdated')
             }
         },
         close() {
             this.$emit('close')
+        },
+        onSettingChanged(setting: string) {
+            this.selectedSetting = setting
+        },
+        changeChartPickerVisbility(value: any) {
+            this.chartPickerVisible = value
         }
     }
 })
 </script>
 <style lang="scss">
-@media screen and (max-width: 1199px) {
-    #widget-editor-preview {
-        -webkit-transition: width 0.3s;
-        transition: flex 0.3s;
-        flex: 0;
-    }
+.widget-editor-card {
+    color: rgba(0, 0, 0, 0.87);
+    box-shadow: 0 2px 1px -1px rgb(0 0 0 / 20%), 0 1px 1px 0 rgb(0 0 0 / 14%), 0 1px 3px 0 rgb(0 0 0 / 12%);
+    border-radius: 4px;
 }
-@media screen and (min-width: 1200px) {
-    #widget-editor-preview {
-        -webkit-transition: width 0.3s;
-        transition: flex 0.3s;
-        flex: 0.5;
-    }
+
+.icon-disabled {
+    color: #c2c2c2;
 }
 </style>

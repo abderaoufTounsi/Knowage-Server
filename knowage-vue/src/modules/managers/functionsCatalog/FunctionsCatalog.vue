@@ -5,7 +5,7 @@
                 {{ $t('managers.functionsCatalog.title') }}
             </template>
             <template #end>
-                <KnFabButton icon="fas fa-plus" @click="showForm(null)" />
+                <KnFabButton v-if="!detailDialogVisible" icon="fas fa-plus" @click="showForm(null)" />
             </template>
         </Toolbar>
         <div class="p-d-flex p-flex-column kn-flex functions-main-content">
@@ -110,7 +110,7 @@ export default defineComponent({
                 })
                 .catch(() => {
                     this.store.setError({
-                        title: this.$t('common.toast.deleteTitle'),
+                        title: this.$t('common.toast.errorTitle'),
                         msg: this.$t('managers.functionsCatalog.deleteError')
                     })
                 })

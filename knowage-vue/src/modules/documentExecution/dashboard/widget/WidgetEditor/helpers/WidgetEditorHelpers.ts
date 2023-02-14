@@ -1,102 +1,112 @@
 import { IWidget, IWidgetColumn } from '../../../Dashboard'
-import { formatTableWidgetForSave } from './TableWidgetFunctions'
-import tableWidgetFunctions from './TableWidgetFunctions'
+import { formatTableWidgetForSave } from './tableWidget/TableWidgetBackendSaveHelper'
+import { createNewTableWidgetSettings } from '../helpers/tableWidget/TableWidgetFunctions'
+import { createNewSelectorWidgetSettings } from '../helpers/selectorWidget/SelectorWidgetFunctions'
+import { createNewSelectionsWidgetSettings } from '../helpers/selectionsWidget/SelectionsWidgetFunctions'
+import { createNewHtmlWidgetSettings } from './htmlWidget/HTMLWidgetFunctions'
+import { createNewTextWidgetSettings } from './textWidget/TextWidgetFunctions'
+import { createNewChartJSSettings, formatChartJSWidget } from './chartWidget/chartJS/ChartJSHelpers'
+import { createNewHighchartsSettings, formatHighchartsWidget } from './chartWidget/highcharts/HighchartsHelpers'
+import { formatHighchartsWidgetForSave } from './chartWidget/highcharts/HighchartsBackendSaveHelper'
+import { formatChartJSForSave } from './chartWidget/chartJS/ChartJSBackendSaveHelper'
+import { createNewImageWidgetSettings } from './imageWidget/ImageWidgetFunctions'
+import { createNewCustomChartSettings } from './customchart/CustomChartFunctions'
 import cryptoRandomString from 'crypto-random-string'
 import deepcopy from 'deepcopy'
 
-export function createNewWidget() {
+export function createNewWidget(type: string) {
     const widget = {
         id: cryptoRandomString({ length: 16, type: 'base64' }),
         new: true,
-        type: 'table',
+        type: type,
+        dataset: null,
         columns: [],
-        conditionalStyles: [],
-        datasets: [],
-        interactions: [],
-        theme: '',
-        styles: {
-            borders: true,
-            border: {
-                "border-top-left-radius": "",
-                "border-top-right-radius": "",
-                "border-bottom-left-radius": "",
-                "border-bottom-right-radius": "",
-                "border-color": "rgb(212, 212, 212)",
-                "border-width": "1px",
-                "border-style": "solid"
+        settings: {}
+    } as IWidget
 
-            },
-            th: {
-                enabled: true,
-                'background-color': 'rgb(255, 255, 255)',
-                color: 'rgb(137, 158, 175)',
-                'justify-content': 'flex-start',
-                'font-size': '14px',
-                multiline: false,
-                height: 25,
-                'font-style': '',
-                'font-weight': '',
-                'font-family': ''
-            },
-            tr: {
-                height: 0
-            }
-        },
-        settings: {
-            alternateRows: {
-                enabled: true,
-                evenRowsColor: "rgb(228, 232, 236)",
-                oddRowsColor: ""
-            },
-            indexColumn: false,
-            multiselectable: false,
-            multiselectablecolor: "",
-            norows: {
-                hide: false,
-                message: ""
-            },
-            rowThresholds: {
-                enabled: false,
-                list: []
-            }
-        },
-        temp: {}
-    } as any
+    createNewWidgetSettings(widget)
 
     return widget
 }
 
-export function setWidgetModelTempProperty(widget: IWidget) {
-    if (!widget.temp) widget.temp = {}
+export const createNewWidgetColumn = (eventData: any, widgetType: string) => {
+    const tempColumn = {
+        id: cryptoRandomString({ length: 16, type: 'base64' }),
+        columnName: eventData.name,
+        alias: eventData.alias,
+        type: eventData.type,
+        fieldType: eventData.fieldType,
+        filter: {}
+    } as IWidgetColumn
+    if (tempColumn.fieldType === 'MEASURE') tempColumn.aggregation = 'SUM'
+    else if (widgetType === 'discovery' && tempColumn.fieldType === 'ATTRIBUTE') tempColumn.aggregation = 'COUNT'
+    return tempColumn
 }
 
-export function setWidgetModelFunctions(widget: IWidget) {
-    if (widget.type === 'table') {
-        if (!widget.settings.pagination) widget.settings.pagination = { enabled: false, itemsNumber: 0 }
-        widget.functions = tableWidgetFunctions
+
+const createNewWidgetSettings = (widget: IWidget) => {
+    switch (widget.type) {
+        case 'table':
+            widget.settings = createNewTableWidgetSettings()
+            break
+        case 'selector':
+            widget.settings = createNewSelectorWidgetSettings()
+            break
+        case 'selection':
+            widget.settings = createNewSelectionsWidgetSettings()
+            break
+        case 'html':
+            widget.settings = createNewHtmlWidgetSettings()
+            break
+        case 'text':
+            widget.settings = createNewTextWidgetSettings()
+            break
+        case 'chartJS':
+            widget.settings = createNewChartJSSettings()
+            break
+        case 'highcharts':
+            widget.settings = createNewHighchartsSettings()
+            break
+        case 'image':
+            widget.settings = createNewImageWidgetSettings()
+            break
+        case 'customchart':
+            widget.settings = createNewCustomChartSettings()
+            break
     }
 }
 
-export function formatWidgetColumnsForDisplay(widget: IWidget) {
-    if (!widget || !widget.columns) return
-    widget.columns.forEach((column: IWidgetColumn) => {
-        if (!column.name.startsWith('(')) column.name = '(' + column.name + ')'
-    })
-}
-
 export function formatWidgetForSave(tempWidget: IWidget) {
-    if (!tempWidget) return
+    if (!tempWidget) return null
 
     const widget = deepcopy(tempWidget)
 
     switch (widget.type) {
-        case 'table': formatTableWidgetForSave(widget)
-    }
+        case 'table':
+            formatTableWidgetForSave(widget)
+            break;
+        case 'highcharts':
+            formatHighchartsWidgetForSave(widget)
+            break;
+        case 'chartJS':
+            formatChartJSForSave(widget)
 
+    }
     return widget
 }
 
-export function formatRGBColor(color: { r: string, g: string, b: string }) {
+export function getRGBColorFromString(color: string) {
+    const temp = color
+        ?.trim()
+        ?.substring(5, color.length - 1)
+        ?.split(',')
 
-    return `rgb(${color.r}, ${color.g}, ${color.b})`
+    if (temp) {
+        return { r: +temp[0], g: +temp[1], b: +temp[2], a: +temp[3] }
+    } else return { r: 0, g: 0, b: 0, a: 0 }
+}
+
+export const recreateKnowageChartModel = (widget: IWidget) => {
+    if (widget.type === 'chartJS') formatChartJSWidget(widget)
+    else if (widget.type === 'highcharts') formatHighchartsWidget(widget)
 }

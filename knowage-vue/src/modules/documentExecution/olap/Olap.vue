@@ -338,7 +338,7 @@ export default defineComponent({
                     await this.loadOlapButtons()
                     this.setClickedButtons()
                     await this.loadModelConfig()
-                    await this.loadVersions()
+                    if (this.olap?.modelConfig?.whatIfScenario) await this.loadVersions()
                 })
                 .catch(() => {})
             this.loading = false
@@ -388,12 +388,11 @@ export default defineComponent({
         },
         async loadVersions() {
             this.loading = true
-            if (this.olapHasScenario) {
-                await this.$http
-                    .get(import.meta.env.VITE_OLAP_PATH + `1.0/version?SBI_EXECUTION_ID=${this.id}`)
-                    .then((response: AxiosResponse<any>) => (this.olapVersions = response.data))
-                    .catch(() => {})
-            }
+
+            await this.$http
+                .get(import.meta.env.VITE_OLAP_PATH + `1.0/version?SBI_EXECUTION_ID=${this.id}`)
+                .then((response: AxiosResponse<any>) => (this.olapVersions = response.data))
+                .catch(() => {})
 
             this.loading = false
         },
@@ -652,14 +651,10 @@ export default defineComponent({
             this.loading = false
         },
         async executeCrossnavigationFromCell(crossNavigationString: string | null) {
-            const tempString = crossNavigationString?.substring(crossNavigationString.indexOf('{') + 1, crossNavigationString.indexOf('}'))
+            const tempString = crossNavigationString?.substring(crossNavigationString.indexOf('(') + 1, crossNavigationString.indexOf(')'))
             const tempArray = tempString?.split(',')
 
-            const object = {}
-            tempArray?.forEach((el: string) => {
-                object[el.substring(0, el.indexOf(':'))] = el.substring(el.indexOf(':') + 2, el.length - 1)
-            })
-
+            const object = tempString ? JSON.parse(tempString) : {}
             this.$emit('executeCrossNavigation', object)
         },
         enterSelectMode(mode: string) {
@@ -697,7 +692,7 @@ export default defineComponent({
 
             await this.$http
                 .post(
-                    import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documents/${this.documentName}/saveOlapTemplate`,
+                    import.meta.env.VITE_RESTFUL_SERVICES_PATH + `1.0/documents/${this.documentLabel}/saveOlapTemplate`,
                     { olap: { ...this.olapDesigner.template.wrappedObject.olap, JSONTEMPLATE: { XML_TAG_TEXT_CONTENT: JSON.stringify(this.olapDesigner.template.wrappedObject) } } },
                     { headers: { Accept: 'application/json, text/plain, */*' } }
                 )
@@ -1086,7 +1081,7 @@ export default defineComponent({
                 group = ''
 
             // separators
-            parts_local.forEach(function (i) {
+            parts_local.forEach(function(i) {
                 switch (i.type) {
                     case 'group':
                         group = i.value
@@ -1150,6 +1145,7 @@ export default defineComponent({
         onNewVersionSaved(olap: iOlap) {
             this.olap = olap
             this.formatOlapTable()
+            this.loadVersions()
             this.saveVersionDialogVisible = false
         }
     }

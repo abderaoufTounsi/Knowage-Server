@@ -91,6 +91,7 @@ import it.eng.spagobi.commons.dao.DAOFactory;
 import it.eng.spagobi.commons.dao.IConfigDAO;
 import it.eng.spagobi.commons.dao.IDomainDAO;
 import it.eng.spagobi.commons.dao.IExecuteOnTransaction;
+import it.eng.spagobi.commons.dao.SpagoBIDAOException;
 import it.eng.spagobi.commons.metadata.SbiBinContents;
 import it.eng.spagobi.commons.metadata.SbiDomains;
 import it.eng.spagobi.commons.utilities.ObjectsAccessVerifier;
@@ -672,6 +673,9 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 		} catch (HibernateException he) {
 			logger.error("Error modifing BI Object " + String.valueOf(biObject) + " using template " + String.valueOf(objTemp)
 					+ " with load parameters equals to " + loadParsDC, he);
+			if (he.getCause().getMessage().contains("constraint")) {
+				throw new SpagoBIDAOException("Document already exists", he);
+			}
 			if (tx != null)
 				tx.rollback();
 			throw new EMFUserError(EMFErrorSeverity.ERROR, 100);
@@ -1229,8 +1233,9 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 				logger.debug("The object [" + obj.getName() + "] is no more referenced by any functionality. It will be completely deleted from db.");
 
 				// delete templates
-				String hql = "from SbiObjTemplates sot where sot.sbiObject.biobjId=" + obj.getId();
+				String hql = "from SbiObjTemplates sot where sot.sbiObject.biobjId=:biobjId";
 				Query query = aSession.createQuery(hql);
+				query.setParameter("biobjId", obj.getId());
 				List templs = query.list();
 				Iterator iterTempls = templs.iterator();
 				while (iterTempls.hasNext()) {
@@ -1413,9 +1418,11 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 						logger.debug("Document state [" + objectState + "]");
 
 						String rolesHql = "select distinct roles.name from " + "SbiExtRoles as roles, SbiFuncRole as funcRole "
-								+ "where roles.extRoleId = funcRole.id.role.extRoleId and " + "	   funcRole.id.function.functId = " + aSbiFunctions.getFunctId()
-								+ " and " + "	   funcRole.id.state.valueCd = '" + permission + "' ";
+								+ "where roles.extRoleId = funcRole.id.role.extRoleId and " + "	   funcRole.id.function.functId = :functId " + " and "
+								+ "	   funcRole.id.state.valueCd = :permission";
 						Query rolesHqlQuery = aSession.createQuery(rolesHql);
+						rolesHqlQuery.setParameter("functId", aSbiFunctions.getFunctId());
+						rolesHqlQuery.setParameter("permission", permission);
 						// get the list of roles that can see the document (in REL
 						// or TEST state) in that functionality
 						List rolesNames = new ArrayList();
@@ -1521,9 +1528,11 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 					logger.debug("Document state [" + objectState + "]");
 
 					String rolesHql = "select distinct roles.name from " + "SbiExtRoles as roles, SbiFuncRole as funcRole "
-							+ "where roles.extRoleId = funcRole.id.role.extRoleId and " + "	   funcRole.id.function.functId = " + aSbiFunctions.getFunctId()
-							+ " and " + "	   funcRole.id.state.valueCd = '" + permission + "' ";
+							+ "where roles.extRoleId = funcRole.id.role.extRoleId and " + "	   funcRole.id.function.functId =  :functId " + " and "
+							+ "	   funcRole.id.state.valueCd = :permission ";
 					Query rolesHqlQuery = aSession.createQuery(rolesHql);
+					rolesHqlQuery.setParameter("functId", aSbiFunctions.getFunctId());
+					rolesHqlQuery.setParameter("permission", permission);
 					// get the list of roles that can see the document (in REL
 					// or TEST state) in that functionality
 					List rolesNames = new ArrayList();
@@ -1906,7 +1915,8 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 		try {
 			aSession = getSession();
 			tx = aSession.beginTransaction();
-			Query hibQuery = aSession.createQuery("from SbiObjects s  order by s." + filterOrder);
+			Query hibQuery = aSession.createQuery("from SbiObjects s  order by :filterOrder");
+			hibQuery.setParameter("filterOrder", "s." + filterOrder);
 			// Query hibQuery =
 			// aSession.createQuery("from SbiObjects s order by ?" );
 			// hibQuery.setString(0, filterOrder);
@@ -2583,8 +2593,8 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 			tx = aSession.beginTransaction();
 			Query hibQuery = aSession.createQuery(
 					"select distinct obj from   SbiObjects as obj " + "inner join obj.sbiObjPars as objPars " + "inner join objPars.sbiParameter as param "
-							+ "inner join param.sbiParuses as paruses " + "inner join paruses.sbiLov as lov " + "where  lov.lovId = " + idLov);
-
+							+ "inner join param.sbiParuses as paruses " + "inner join paruses.sbiLov as lov " + "where  lov.lovId = :idLov");
+			hibQuery.setParameter("idLov", idLov);
 			List hibList = hibQuery.list();
 
 			Iterator it = hibList.iterator();
@@ -2621,8 +2631,8 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 			aSession = getSession();
 			tx = aSession.beginTransaction();
 			Query hibQuery = aSession.createQuery("select distinct obj from   SbiObjects as obj " + "inner join obj.sbiObjPars as objPars "
-					+ "inner join objPars.sbiParameter as param " + "where  param.parId = " + idParameter);
-
+					+ "inner join objPars.sbiParameter as param " + "where  param.parId = :idParameter");
+			hibQuery.setParameter("idParameter", idParameter);
 			List hibList = hibQuery.list();
 
 			Iterator it = hibList.iterator();
@@ -2828,7 +2838,7 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 
 			bufferOrder.append(" order by o.name");
 
-			String hql = bufferSelect.toString() + bufferFrom.toString() + bufferWhere.toString() + bufferOrder.toString();
+			String hql = bufferSelect.toString().concat(bufferFrom.toString()).concat(bufferWhere.toString()).concat(bufferOrder.toString());
 
 			logger.debug("query hql: " + hql);
 
@@ -2901,7 +2911,7 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 				hql += " where ";
 
 				if (search != null) {
-					hql += " label like '%" + search + "%'";
+					hql += " label like :search ";
 				}
 
 				// if (search != null && user != null) {
@@ -2914,6 +2924,7 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 			}
 
 			Query hqlQuery = aSession.createQuery(hql);
+			hqlQuery.setParameter("search", "%" + search + "%");
 			Long temp = (Long) hqlQuery.uniqueResult();
 			resultNumber = new Integer(temp.intValue());
 
@@ -3286,8 +3297,9 @@ public class BIObjectDAOHibImpl extends AbstractHibernateDAO implements IBIObjec
 	}
 
 	private String getRoleType(Session aSession, String role) {
-		String roleTHql = "select roles.roleTypeCode from SbiExtRoles as roles where roles.name = '" + role + "'";
+		String roleTHql = "select roles.roleTypeCode from SbiExtRoles as roles where roles.name = :role ";
 		Query roleHqlQuery = aSession.createQuery(roleTHql);
+		roleHqlQuery.setParameter("role", role);
 		return (String) roleHqlQuery.uniqueResult();
 	}
 

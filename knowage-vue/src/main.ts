@@ -22,6 +22,7 @@ import '/node_modules/codemirror/mode/javascript/javascript.js'
 import '/node_modules/codemirror/mode/python/python.js'
 import '/node_modules/codemirror/mode/xml/xml.js'
 import '/node_modules/codemirror/mode/sql/sql.js'
+import '/node_modules/codemirror/mode/css/css.js'
 import '/node_modules/codemirror/mode/groovy/groovy.js'
 import '/node_modules/codemirror/mode/clike/clike.js'
 import '/node_modules/codemirror/mode/mathematica/mathematica.js'
@@ -50,9 +51,11 @@ import i18n from '@/App.i18n'
 
 import QBEOperator from './modules/qbe/qbeDialogs/qbeAdvancedFilterDialog/QBEOperator.vue'
 
-if (import.meta.env.NODE_ENV === 'development') document.domain = 'localhost'
+if (import.meta.env.DEV) document.domain = 'localhost'
 
 import VueGridLayout from 'vue-grid-layout'
+
+import ResizeObserver from '@vue-toys/resize-observer'
 
 const pinia = createPinia()
 
@@ -70,6 +73,7 @@ app.use(VueAxios, interceptor)
     .use(internationalizationPlugin, mainStore.$state.internationalization)
     .use(GlobalCmComponent)
     .use(VueGridLayout)
+    .use(ResizeObserver)
 
     .directive('badge', BadgeDirective)
     .directive('tooltip', Tooltip)

@@ -55,6 +55,7 @@ import Message from 'primevue/message'
 import Dropdown from 'primevue/dropdown'
 import Checkbox from 'primevue/checkbox'
 import mainStore from '../../../../../App.store'
+import { mapActions } from 'pinia'
 
 export default defineComponent({
     components: { Card, Column, DataTable, Message, Dropdown, Checkbox },
@@ -72,10 +73,6 @@ export default defineComponent({
             fieldsMetadata: [] as any
         }
     },
-    setup() {
-        const store = mainStore()
-        return { store }
-    },
     created() {
         this.dataset = this.selectedDataset
         this.dataset.meta ? this.exctractFieldsMetadata(this.dataset.meta.columns) : ''
@@ -88,6 +85,7 @@ export default defineComponent({
     },
 
     methods: {
+        ...mapActions(mainStore, ['setInfo', 'setError']),
         exctractFieldsMetadata(array) {
             var object = {}
 
@@ -128,7 +126,7 @@ export default defineComponent({
                 if (this.fieldsMetadata[i].fieldType == 'SPATIAL_ATTRIBUTE') {
                     numberOfSpatialAttribute++
                     if (numberOfSpatialAttribute > 1) {
-                        this.store.setError({ title: this.$t('common.error.saving'), msg: this.$t('managers.datasetManagement.duplicateSpatialAttribute') })
+                        this.setError({ title: this.$t('common.error.saving'), msg: this.$t('managers.datasetManagement.duplicateSpatialAttribute') })
                         return
                     }
                 }

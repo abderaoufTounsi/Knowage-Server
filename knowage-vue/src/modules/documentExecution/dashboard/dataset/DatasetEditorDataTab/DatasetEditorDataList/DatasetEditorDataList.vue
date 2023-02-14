@@ -29,7 +29,8 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue'
+import { defineComponent, PropType } from 'vue'
+import { IDataset } from '../../../Dashboard'
 import Card from 'primevue/card'
 import Listbox from 'primevue/listbox'
 import DataDialog from '../DatasetEditorDataDialog/DatasetEditorDataDialog.vue'
@@ -39,7 +40,7 @@ import dataListDescriptor from './DatasetEditorDataListDescriptor.json'
 export default defineComponent({
     name: 'dataset-editor-data-list',
     components: { Card, Listbox, DataDialog },
-    props: { dashboardDatasetsProp: { required: true, type: Array as any }, availableDatasetsProp: { required: true, type: Array as any }, selectedDatasetsProp: { required: true, type: Array as any } },
+    props: { dashboardDatasetsProp: { required: true, type: Array as any }, availableDatasetsProp: { required: true, type: Array as PropType<IDataset[]> }, selectedDatasetsProp: { required: true, type: Array as any } },
     emits: ['datasetSelected', 'addSelectedDatasets', 'deleteDataset'],
     data() {
         return {
@@ -48,14 +49,22 @@ export default defineComponent({
             dataDialogVisible: false
         }
     },
+    watch: {
+        selectedDatasetsProp() {
+            this.loadSelectedDatasets()
+        }
+    },
     setup() {
         const dashboardStore = dashStore()
         return { dashboardStore }
     },
     created() {
-        this.selectedDatasets = this.selectedDatasetsProp
+        this.loadSelectedDatasets()
     },
     methods: {
+        loadSelectedDatasets() {
+            this.selectedDatasets = this.selectedDatasetsProp
+        },
         toggleDataDialog() {
             this.dataDialogVisible = !this.dataDialogVisible
         },
@@ -72,29 +81,3 @@ export default defineComponent({
     }
 })
 </script>
-
-<style lang="scss">
-.dashboard-editor-list-card-container {
-    display: flex;
-    flex-direction: column;
-    width: 300px;
-    background: #ffffff;
-    color: rgba(0, 0, 0, 0.87);
-    box-shadow: 0 2px 1px -1px rgb(0 0 0 / 20%), 0 1px 1px 0 rgb(0 0 0 / 14%), 0 1px 3px 0 rgb(0 0 0 / 12%);
-    border-radius: 4px;
-    .dashboard-editor-list-card,
-    .dashboard-editor-list {
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-        min-height: 0;
-        border-radius: 4px !important;
-        .kn-list-item-text {
-            text-overflow: ellipsis;
-            max-width: 190px;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-    }
-}
-</style>

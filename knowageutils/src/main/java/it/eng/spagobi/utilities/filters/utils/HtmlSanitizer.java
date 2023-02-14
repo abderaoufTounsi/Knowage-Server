@@ -47,6 +47,8 @@ public class HtmlSanitizer {
 		Property strokeLineJoinProperty = new Property(1, ImmutableSet.of("miter"), ImmutableMap.of());
 		Property strokeOpacityProperty = new Property(1, ImmutableSet.of(), ImmutableMap.of());
 		Property strokeWidthProperty = new Property(1, ImmutableSet.of("auto", "inherit"), ImmutableMap.of());
+		Property cursorProperty = new Property(8, ImmutableSet.of("pointer","default","move","not-allowed","grab","help","progress","grab"), ImmutableMap.of());
+		Property flexProperty = new Property(4, ImmutableSet.of("0","1","2","3","4","unset","inherit"), ImmutableMap.of());
 
 		stylePropertiesInSVGMap.put("fill", allValsProperty);
 		stylePropertiesInSVGMap.put("fill-opacity", fillOpacityProperty);
@@ -57,25 +59,33 @@ public class HtmlSanitizer {
 		stylePropertiesInSVGMap.put("stroke-linejoin", strokeLineJoinProperty);
 		stylePropertiesInSVGMap.put("stroke-opacity", strokeOpacityProperty);
 		stylePropertiesInSVGMap.put("stroke-width", strokeWidthProperty);
+		stylePropertiesInSVGMap.put("cursor", cursorProperty);
+		stylePropertiesInSVGMap.put("flex", flexProperty);
 
 		CssSchema stylePropertiesInSVG = CssSchema.withProperties(stylePropertiesInSVGMap);
 
+		// @formatter:off
 		policy = new HtmlPolicyBuilder()
 				.allowCommonBlockElements()
 				.allowCommonInlineFormattingElements()
 				.allowStandardUrlProtocols()
 				.allowStyling(CssSchema.union(CssSchema.DEFAULT, stylePropertiesInSVG))
-				.allowElements("a", "audio", "article", "figure", "footer", "header", "iframe", "input", "img", "label", "pre", "span", "tbody", "tfoot", "thead", "table", "td", "th", "tr", "video")
+				.allowElements("a", "audio", "article", "button", "figure", "footer", "header", "hr", "iframe", "input", "img", "kn-import", "label", "option", "pre", "select", "span", "tbody", "tfoot", "thead", "table", "td", "th", "tr", "video","canvas","fieldset")
 				.allowAttributes("alt").onElements("img")
-				.allowAttributes("aria-hidden").globally()
+				.allowAttributes("aria-label", "aria-hidden").globally()
+				.allowAttributes("colspan","rowspan").onElements("td","th")
 				.allowAttributes("height", "width").globally()
 				.allowAttributes("class").globally()
-				.allowAttributes("id").onElements("div")
+				.allowAttributes("id").onElements("div","button","input","select")
 				.allowAttributes("href").matching(this::isHrefAttributeInWhitelist).onElements("a")
-				.allowAttributes("src").matching(this::isSrcAttributeInWhitelist).onElements("audio", "iframe", "img", "video")
+				.allowAttributes("src").matching(this::isSrcAttributeInWhitelist).onElements("audio", "iframe", "img", "kn-import", "video")
 				.allowAttributes("title").globally()
-				.allowAttributes("type", "value", "min", "max").onElements("input")
+				.allowAttributes("value", "min", "max").onElements("input")
+				.allowAttributes("type").onElements("button", "input")
+				.allowAttributes("for").onElements("label")
 				.allowAttributes("frameborder", "allow", "allowfullscreen").onElements("iframe")
+				.allowAttributes("target").onElements("a")
+				.allowAttributes("value").onElements("option")
 				.allowWithoutAttributes("figure", "span")
 				.allowUrlProtocols("data")
 				// Knowage
@@ -95,8 +105,12 @@ public class HtmlSanitizer {
 				.allowAttributes("pagecolor", "bordercolor", "borderopacity", "showgrid", "fit-margin-top", "fit-margin-left", "fit-margin-right", "fit-margin-bottom").onElements("sodipodi:namedview")
 				.allowAttributes("inkscape:connector-curvature", "inkscape:label", "inkscape:groupmode", "inkscape:version").globally()
 				.allowAttributes("sodipodi:nodetypes", "sodipodi:role").globally()
+				// font (even if it is not supported by HTML 5)
+				.allowElements("font")
+				.allowAttributes("size", "face", "color").onElements("font")
 				//
 				.toFactory();
+		// @formatter:on
 
 		this.whiteList = whiteList;
 
@@ -158,9 +172,11 @@ public class HtmlSanitizer {
 		boolean isInWhiteListAsExternalService = isInWhiteListAsExternalService(url);
 		boolean isInWhiteListAsRelativePath = isInWhiteListAsRelativePath(url);
 
+		// @formatter:off
 		boolean ret = isSrcData
 				|| isInWhiteListAsExternalService
 				|| isInWhiteListAsRelativePath;
+		// @formatter:on
 
 		LOGGER.debug("Checking if {} in src is in whitelist: {} ", url, ret);
 
@@ -172,8 +188,10 @@ public class HtmlSanitizer {
 		boolean isInWhiteListAsExternalService = isInWhiteListAsExternalService(url);
 		boolean isInWhiteListAsRelativePath = isInWhiteListAsRelativePath(url);
 
+		// @formatter:off
 		boolean ret = isInWhiteListAsExternalService
 				|| isInWhiteListAsRelativePath;
+		// @formatter:on
 
 		LOGGER.debug("Checking if {} in href is in whitelist: {} ", url, ret);
 
@@ -182,8 +200,7 @@ public class HtmlSanitizer {
 
 	private boolean isADataUrl(String url) {
 
-		boolean ret = IMG_SRC_DATA.matcher(url)
-				.matches();
+		boolean ret = IMG_SRC_DATA.matcher(url).matches();
 
 		LOGGER.debug("Checking if {} is a data URL: {} ", url, ret);
 
@@ -193,8 +210,7 @@ public class HtmlSanitizer {
 	private boolean isInWhiteListAsExternalService(String url) {
 		List<String> validValues = whiteList.getExternalServices();
 
-		boolean ret = validValues.stream()
-				.anyMatch(url::startsWith);
+		boolean ret = validValues.stream().anyMatch(url::startsWith);
 
 		LOGGER.debug("Checking if {} is in whitelist as external service giving the following {}: {} ", url, validValues, ret);
 
@@ -204,8 +220,7 @@ public class HtmlSanitizer {
 	private boolean isInWhiteListAsRelativePath(String url) {
 		List<String> validValues = whiteList.getRelativePaths();
 
-		boolean ret = validValues.stream()
-				.anyMatch(url::startsWith);
+		boolean ret = validValues.stream().anyMatch(url::startsWith);
 
 		LOGGER.debug("Checking if {} is in whitelist as relative path giving the following {}: {} ", url, validValues, ret);
 

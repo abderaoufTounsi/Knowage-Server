@@ -40,6 +40,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import commonj.work.WorkException;
+import it.eng.knowage.commons.security.PathTraversalChecker;
 import it.eng.qbe.dataset.FederatedDataSet;
 import it.eng.qbe.dataset.QbeDataSet;
 import it.eng.spago.base.SourceBean;
@@ -686,10 +687,7 @@ public class ManageDatasets extends AbstractSpagoBIAction {
 					String roleName = itRoles.next();
 					role = rolesDao.loadByName(roleName);
 					List<RoleMetaModelCategory> ds = rolesDao.getMetaModelCategoriesForRole(role.getId());
-					List<Domain> array = categoryDao.getCategoriesForDataset()
-						.stream()
-						.map(Domain::fromCategory)
-						.collect(toList());
+					List<Domain> array = categoryDao.getCategoriesForDataset().stream().map(Domain::fromCategory).collect(toList());
 					for (RoleMetaModelCategory r : ds) {
 						for (Domain dom : array) {
 							if (r.getCategoryId().equals(dom.getValueId())) {
@@ -700,10 +698,7 @@ public class ManageDatasets extends AbstractSpagoBIAction {
 				}
 				return categoriesDev;
 			} else {
-				return categoryDao.getCategoriesForDataset()
-						.stream()
-						.map(Domain::fromCategory)
-						.collect(toList());
+				return categoryDao.getCategoriesForDataset().stream().map(Domain::fromCategory).collect(toList());
 			}
 		} catch (Exception e) {
 			logger.error("Role with selected id: " + role.getId() + " doesn't exists", e);
@@ -1398,7 +1393,7 @@ public class ManageDatasets extends AbstractSpagoBIAction {
 			}
 		}
 
-		if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_QBE)) {
+		if (datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_QBE) || datasetTypeName.equalsIgnoreCase(DataSetConstants.DS_DERIVED)) {
 
 			dataSet = new QbeDataSet();
 			QbeDataSet qbeDataSet = (QbeDataSet) dataSet;
@@ -1514,6 +1509,7 @@ public class ManageDatasets extends AbstractSpagoBIAction {
 
 		File originalDatasetFile = new File(filePath + originalFileName);
 		File newDatasetFile = new File(fileNewPath + newFileName + "." + fileType.toLowerCase());
+		PathTraversalChecker.preventPathTraversalAttack(newDatasetFile, new File(fileNewPath));
 		if (originalDatasetFile.exists()) {
 			/*
 			 * This method copies the contents of the specified source file to the specified destination file. The directory holding the destination file is
@@ -1604,7 +1600,7 @@ public class ManageDatasets extends AbstractSpagoBIAction {
 		ds.setTransformerId(transformerId);
 
 		if (ds.getPivotColumnName() != null && ds.getPivotColumnValue() != null && ds.getPivotRowName() != null) {
-			ds.setDataStoreTransformer(new PivotDataSetTransformer(ds.getPivotColumnName(), ds.getPivotColumnValue(), ds.getPivotRowName(), ds.isNumRows()));
+			ds.addDataStoreTransformer(new PivotDataSetTransformer(ds.getPivotColumnName(), ds.getPivotColumnValue(), ds.getPivotRowName(), ds.isNumRows()));
 		}
 		return ds;
 	}
